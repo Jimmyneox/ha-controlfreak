@@ -1,0 +1,13 @@
+{
+  "domain": "controlfreak",
+  "name": "Control Freak",
+  "codeowners": ["@Jimmyneox"],
+  "config_flow": true,
+  "documentation": "https://github.com/Jimmyneox/ha-controlfreak",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Jimmyneox/ha-controlfreak/issues",
+  "loggers": ["aiomqtt"],
+  "requirements": ["aiomqtt>=2.5.0"],
+  "version": "0.1.0"
+}

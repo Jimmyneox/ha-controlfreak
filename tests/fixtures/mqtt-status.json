@@ -1,0 +1,14 @@
+{
+  "_note": "Real status payloads captured read-only from the owner's panel (subscribe controller/#), 2026-09-27. No addresses or ids beyond device-setting uuids.",
+  "controller/flow_sensor1/status": {"name": "flow_sensor1", "status": "active", "meta": {"active_flow": false}, "timestamp": "2026-09-24 21:43:17"},
+  "controller/freeze-protection/status": {"name": "Air", "status": "nominal", "meta": {"uuid": "52f0fb13-e98a-467f-9b7c-a9c4a8a165d3", "children": ["65e9a29e-f7a2-42d5-a8f4-10b73f9a8580"]}, "timestamp": "2026-09-24 21:56:36"},
+  "controller/hv_relay1/status": {"name": "hv_relay1", "status": "active", "meta": {"relay_state": 1, "last_known_state": "Blue", "last_known_mode": "not-syncing", "sub_mode": null, "last_known_light_speed": null, "last_known_light_brightness": null}, "timestamp": "2026-09-27 15:35:38"},
+  "controller/lv_relay1/status": {"name": "lv_relay1", "status": "active", "meta": {"relay_state": "inactive", "relay_mode": "N/A", "temperature": "N/A", "temperature_units": "N/A"}, "timestamp": "2026-09-24 21:43:16"},
+  "controller/pressure/status": {"name": "pressure_sensor", "status": "active", "meta": {"pressure": 0.0}, "timestamp": "2026-09-24 21:43:16"},
+  "controller/pump1/status": {"name": "pump1", "status": "active", "meta": {"pump_speed": "100", "mode": "pool", "sub_mode": "flow"}, "timestamp": "2026-09-27 12:05:54"},
+  "controller/pump2/status": {"name": "pump2", "status": "inactive", "meta": {"pump_speed": 0, "rpm:": 0, "mode": "pool", "sub_mode": "flow"}, "timestamp": "2026-09-24 21:43:17"},
+  "controller/status": {"name": "controller", "timestamp": "2026-09-27 20:58:35", "status": "active", "meta": {"cpuTemperature": 114.3752}},
+  "controller/thermistor1/status": {"name": "thermistor1", "status": "active", "meta": {"ohm": 9768.33984375, "mode": "nominal", "temperature_f": 77.95354461669922, "temperature_c": 25.529747009277344}, "timestamp": "2026-09-27 20:58:44"},
+  "controller/thermistor2/status": {"name": "thermistor2", "status": "active", "meta": {"ohm": 9730.25, "mode": null, "temperature_f": 78.12279510498047, "temperature_c": 25.623775058322483}, "timestamp": "2026-09-27 20:58:39"},
+  "controller/thermistor3/status": {"name": "thermistor3", "status": "inactive", "timestamp": "2026-09-24 21:43:15"}
+}

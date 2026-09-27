@@ -1,0 +1,61 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Control Freak panel",
+        "description": "Connect to the panel's local REST API and its MQTT-over-WebSockets broker. Nothing leaves your network.",
+        "data": {
+          "host": "[%key:common::config_flow::data::host%]",
+          "rest_port": "REST API port",
+          "mqtt_port": "MQTT WebSocket port"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the Control Freak panel.",
+          "rest_port": "The panel's FastAPI port (serves /health and /docs).",
+          "mqtt_port": "The panel's Mosquitto WebSocket listener."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "[%key:common::config_flow::error::cannot_connect%]",
+      "not_controlfreak": "Something answered, but GET /health did not report a healthy ControlFreak API.",
+      "mqtt_cannot_connect": "The REST API answered, but the MQTT WebSocket broker did not.",
+      "unknown": "[%key:common::config_flow::error::unknown%]"
+    },
+    "abort": {
+      "already_configured": "[%key:common::config_flow::abort::already_configured_device%]"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "scan_interval": "Equipment discovery interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often /device-settings is re-read to add or remove equipment. Live values arrive over MQTT regardless."
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "connectivity": { "name": "Controller" }
+    },
+    "select": {
+      "pump_mode_select": { "name": "{name} mode" }
+    },
+    "sensor": {
+      "pump_speed": { "name": "{name} speed" },
+      "pump_mode": { "name": "{name} current mode" },
+      "cpu_temperature": { "name": "CPU temperature" },
+      "freeze_protection": { "name": "Freeze protection" },
+      "firmware": { "name": "Firmware version" }
+    }
+  },
+  "exceptions": {
+    "valve_read_only": {
+      "message": "Valves are read-only in this version: their command shape has not been captured yet."
+    }
+  }
+}

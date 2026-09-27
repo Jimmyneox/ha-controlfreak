@@ -1,0 +1,3 @@
+pytest-homeassistant-custom-component>=0.13.367
+aiomqtt>=2.5.0
+ruff>=0.13
