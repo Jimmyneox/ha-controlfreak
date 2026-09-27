@@ -1,4 +1,4 @@
-# Control Freak for Home Assistant
+# Control Freak Automated Pool System for Home Assistant
 
 **Unofficial. Not affiliated with, endorsed by, or supported by Control Freak Pool Tech.**
 "Control Freak" is used here only to name the hardware this works with.

@@ -1,6 +1,6 @@
 {
   "domain": "controlfreak",
-  "name": "Control Freak",
+  "name": "Control Freak Automated Pool System",
   "codeowners": ["@Jimmyneox"],
   "config_flow": true,
   "documentation": "https://github.com/Jimmyneox/ha-controlfreak",

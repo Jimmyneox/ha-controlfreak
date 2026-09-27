@@ -1,4 +1,4 @@
-# [Custom integration] Control Freak pool controller — local, no cloud
+# [Custom integration] Control Freak Automated Pool System — local control of the Control Freak pool panel, no cloud
 
 **Unofficial — not affiliated with Control Freak Pool Tech.**
 
