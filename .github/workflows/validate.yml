@@ -24,8 +24,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # brands: the home-assistant/brands PR is a separate step (docs/SUBMISSION.md)
-          ignore: brands
 
   tests:
     name: pytest + ruff

@@ -26,20 +26,18 @@ gh release create v0.1.0 --title "v0.1.0" --notes-file CHANGELOG.md
 
 `manifest.json` `version` must match the tag without the `v` (it's already `0.1.0`).
 
-## 3. Brands (`home-assistant/brands`)
+## 3. Brand images (in-repo)
 
-Do this before the HACS default PR. HACS checks for brands.
+`home-assistant/brands` no longer accepts new custom integrations (its PR template
+points at the Brands Proxy API announcement, 2026-02-24). Since Home Assistant
+2026.3 a custom integration ships its own images in a `brand/` folder, and HACS's
+"Check brands" accepts that folder. So the images live here:
 
-1. Fork `home-assistant/brands` and add `custom_integrations/controlfreak/`:
-   - `icon.png` — 256×256, square, transparent background, trimmed
-   - `icon@2x.png` — 512×512
-   - `logo.png` — shortest side 128–256 px, landscape allowed (optional; falls back to the icon)
-   - `logo@2x.png` — shortest side 256–512 px (optional)
-2. **Don't use the vendor's trademarked logo.** Draw a neutral placeholder, for example
-   a generic pool/wave glyph (MDI `pool`, Apache-2.0), exported at 256×256 and 512×512.
-   Use the vendor mark only with written permission from Control Freak Pool Tech.
-3. Open the PR, titled "Add Control Freak (custom integration)", and link this repo.
-4. After it merges, remove `ignore: brands` from `.github/workflows/validate.yml`.
+- `custom_components/controlfreak/brand/icon.png` — 256×256, square, transparent, trimmed
+- `custom_components/controlfreak/brand/icon@2x.png` — 512×512
+
+They are the Control Freak mark, supplied by the repository owner. The `ignore: brands`
+key is gone from `.github/workflows/validate.yml`; the HACS action checks the folder.
 
 ## 4. HACS default repository (`hacs/default`)
 
@@ -50,7 +48,7 @@ Prerequisites (per HACS "include" rules):
 - [ ] `hacs.json` in the root (present) and `README.md` with usage (present)
 - [ ] `manifest.json` with `domain`, `documentation`, `issue_tracker`, `codeowners`,
       `name`, `version` (present)
-- [ ] Brands PR merged (step 3)
+- [ ] Brand images present under `custom_components/controlfreak/brand/` (step 3)
 - [ ] Validate workflow green: HACS action **without** `ignore: brands`, and hassfest
 - [ ] Owner is the PR author and the repo isn't archived
 

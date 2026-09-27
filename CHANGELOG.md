@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 — 2026-09-27
+
+- Brand images shipped in-repo (`custom_components/controlfreak/brand/`): the Control
+  Freak icon at 256 px and 512 px, served by Home Assistant 2026.3+ through the
+  Brands Proxy API. `home-assistant/brands` no longer takes custom integrations.
+- CI: the HACS action runs its brands check (no `ignore` key).
+- Docs: submission guide updated; README shows the icon.
+
 ## 0.1.0 — 2026-09-27
 
 First release (unofficial).
