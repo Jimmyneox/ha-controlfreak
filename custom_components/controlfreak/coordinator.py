@@ -158,7 +158,7 @@ class ControlFreakCoordinator(DataUpdateCoordinator[ControlFreakData]):
         entry = self.config_entry
         return DeviceInfo(
             identifiers={(DOMAIN, entry.unique_id or entry.entry_id)},
-            name=entry.title or "Control Freak",
+            name=entry.title or "Control Freak Automated Pool System",
             manufacturer=MANUFACTURER,
             model="ControlFreak panel",
             sw_version=self.data.version if self.data else None,

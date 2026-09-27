@@ -74,7 +74,7 @@ class ControlFreakConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(await api.async_get_controller_uuid() or host)
                 self._abort_if_unique_id_configured(updates=data)
-                return self.async_create_entry(title="Control Freak", data=data)
+                return self.async_create_entry(title="Control Freak Automated Pool System", data=data)
 
         return self.async_show_form(
             step_id="user",
