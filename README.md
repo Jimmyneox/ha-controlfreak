@@ -41,7 +41,7 @@ troubleshooting: **[docs/controlfreak.md](docs/controlfreak.md)**.
 uv venv -p 3.14 && uv pip install -r requirements_test.txt
 uv run --no-project pytest -q
 uv run --no-project ruff check .
-node --test tests/frontend/
+node --test tests/frontend/*.test.mjs
 ```
 
 The Python tests run against real, scrubbed responses from a controller
