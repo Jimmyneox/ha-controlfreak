@@ -10,9 +10,9 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import DOMAIN
-from .coordinator import ControlFreakConfigEntry
+from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
 from .entity import ControlFreakEntity, async_setup_dynamic, by_kind
-from .mapping import relay_is_on
+from .mapping import EntitySpec, relay_is_on, relay_role
 
 PARALLEL_UPDATES = 1
 
@@ -38,6 +38,14 @@ async def async_setup_entry(
 
 class ControlFreakRelay(ControlFreakEntity, SwitchEntity):
     """Command {"state":"active|inactive","mode":"not-syncing","sender":"user"}."""
+
+    _attr_translation_key = "relay"
+
+    def __init__(self, coordinator: ControlFreakCoordinator, spec: EntitySpec) -> None:
+        super().__init__(coordinator, spec)
+        # The role (heater / chiller / general relay) groups it on the dashboard.
+        if setting := self.setting:
+            self._attr_translation_key = relay_role(setting)
 
     @property
     def icon(self) -> str | None:
@@ -69,6 +77,7 @@ class ControlFreakRelay(ControlFreakEntity, SwitchEntity):
 class ControlFreakValve(ControlFreakEntity, SwitchEntity):
     """READ-ONLY in v1: the valve command shape has never been captured."""
 
+    _attr_translation_key = "valve"
     _attr_icon = "mdi:valve"
 
     @property

@@ -5,6 +5,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+import pytest
+
 from custom_components.controlfreak.mapping import (
     DEFAULT_EFFECTS,
     PANEL_KEYS,
@@ -12,6 +14,7 @@ from custom_components.controlfreak.mapping import (
     parse_settings,
     percentage_to_speed,
     relay_is_on,
+    relay_role,
     speed_to_percentage,
 )
 
@@ -88,6 +91,7 @@ def test_plain_relay_is_switch_and_heater_keeps_kind(device_settings: list[dict[
     settings = parse_settings([relay])
     specs = build_specs(settings)
     assert [(s.platform, s.kind) for s in specs if s.setting_uuid] == [("switch", "relay")]
+    assert relay_role(settings["lv-uuid"]) == "heater"
     assert settings["lv-uuid"].connection_type == "Gas Heater"
 
 
@@ -133,3 +137,27 @@ def test_relay_state_shapes() -> None:
     assert relay_is_on(0) is False
     assert relay_is_on("inactive") is False
     assert relay_is_on(None) is None
+
+
+@pytest.mark.parametrize(
+    ("connection", "role"),
+    [
+        ("Gas Heater", "heater"),
+        ("Heat Pump", "heater"),
+        ("Chiller", "chiller"),
+        ("General", "relay"),
+        (None, "relay"),
+    ],
+)
+def test_relay_role_comes_from_connection_type_not_port(
+    device_settings: list[dict[str, Any]], connection: str | None, role: str
+) -> None:
+    for voltage, topic in (("LowVoltage", "lv_relay3"), ("HighVoltage", "hv_relay7")):
+        relay = copy.deepcopy(device_settings[3])
+        relay.update(uuid="r", name="Anything", last_known_state=None)
+        relay["device_type"]["name"] = voltage
+        relay["topic"]["mqtt_topic"] = f"controller/{topic}/"
+        relay["connection_type"] = (
+            {"name": connection, "connection_type_properties": []} if connection else None
+        )
+        assert relay_role(parse_settings([relay])["r"]) == role

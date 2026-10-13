@@ -1,6 +1,6 @@
 [project]
 name = "ha-controlfreak"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unofficial Home Assistant integration for the Control Freak pool controller (local MQTT-over-WebSockets + REST)."
 readme = "README.md"
 license = "MIT"

@@ -6,7 +6,7 @@ from collections.abc import Generator
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
@@ -34,6 +34,17 @@ def load_fixture(name: str) -> Any:
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
     """Let HA load custom_components/ in every test."""
+
+
+@pytest.fixture(autouse=True)
+def stub_frontend(hass: HomeAssistant) -> Generator[MagicMock]:
+    """The real frontend needs the hass_frontend wheel; stand in for it.
+
+    http is set up for real, so the strategy's static path is still served.
+    """
+    hass.config.components.add("frontend")
+    with patch("custom_components.controlfreak.add_extra_js_url") as add_js:
+        yield add_js
 
 
 @pytest.fixture

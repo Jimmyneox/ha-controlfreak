@@ -144,6 +144,22 @@ def parse_settings(raw: list[dict[str, Any]]) -> dict[str, DeviceSetting]:
     return settings
 
 
+def relay_role(setting: DeviceSetting) -> str:
+    """A plain relay's configured role: "heater", "chiller" or "relay".
+
+    Any low-voltage relay can be set up in the app as a heater or chiller with
+    built-in control logic; the role is the setting's connection type (captured
+    catalogue: "Gas Heater", "Heat Pump", "Chiller", "General"). The port never
+    decides it.
+    """
+    name = (setting.connection_type or "").lower()
+    if "chiller" in name:
+        return "chiller"
+    if "heater" in name or "heat pump" in name:
+        return "heater"
+    return "relay"
+
+
 def light_effects(setting: DeviceSetting) -> tuple[str, ...]:
     """Effects learned from the panel, else the captured Pentair default set."""
     return setting.effect_list or DEFAULT_EFFECTS

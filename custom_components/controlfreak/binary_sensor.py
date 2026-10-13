@@ -50,6 +50,7 @@ class ControlFreakConnectivity(ControlFreakEntity, BinarySensorEntity):
 
 
 class ControlFreakFlow(ControlFreakEntity, BinarySensorEntity):
+    _attr_translation_key = "flow"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_icon = "mdi:waves"
 

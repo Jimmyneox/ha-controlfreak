@@ -47,6 +47,7 @@ def _float(value: object) -> float | None:
 class ControlFreakTemperature(ControlFreakEntity, SensorEntity):
     """meta.temperature_f; unavailable unless status == "active"; stale after 180 s."""
 
+    _attr_translation_key = "temperature"
     _expire_after = THERMISTOR_EXPIRE
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT

@@ -1,0 +1,627 @@
+{
+  "entities": {
+    "binary_sensor.backyard_controller": {
+      "device_id": "controlfreak-device",
+      "entity_id": "binary_sensor.backyard_controller",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "connectivity"
+    },
+    "binary_sensor.backyard_main_flow": {
+      "device_id": "controlfreak-device",
+      "entity_id": "binary_sensor.backyard_main_flow",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "flow"
+    },
+    "fan.backyard_cleaner_booster": {
+      "device_id": "controlfreak-device",
+      "entity_id": "fan.backyard_cleaner_booster",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump"
+    },
+    "fan.backyard_filter_pump": {
+      "device_id": "controlfreak-device",
+      "entity_id": "fan.backyard_filter_pump",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump"
+    },
+    "fan.backyard_solar_pump": {
+      "device_id": "controlfreak-device",
+      "entity_id": "fan.backyard_solar_pump",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump"
+    },
+    "fan.backyard_spa_jets": {
+      "device_id": "controlfreak-device",
+      "entity_id": "fan.backyard_spa_jets",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump"
+    },
+    "fan.backyard_waterfall": {
+      "device_id": "controlfreak-device",
+      "entity_id": "fan.backyard_waterfall",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump"
+    },
+    "light.backyard_pool_light": {
+      "device_id": "controlfreak-device",
+      "entity_id": "light.backyard_pool_light",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "light"
+    },
+    "light.backyard_spa_light": {
+      "device_id": "controlfreak-device",
+      "entity_id": "light.backyard_spa_light",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "light"
+    },
+    "select.backyard_filter_pump_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "select.backyard_filter_pump_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode_select"
+    },
+    "select.backyard_solar_pump_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "select.backyard_solar_pump_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode_select"
+    },
+    "select.backyard_spa_jets_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "select.backyard_spa_jets_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode_select"
+    },
+    "sensor.backyard_air": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_air",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "temperature"
+    },
+    "sensor.backyard_cleaner_booster_current_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_cleaner_booster_current_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode"
+    },
+    "sensor.backyard_cleaner_booster_speed": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_cleaner_booster_speed",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_speed"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "cpu_temperature"
+    },
+    "sensor.backyard_filter_pump_current_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_filter_pump_current_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode"
+    },
+    "sensor.backyard_filter_pump_speed": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_filter_pump_speed",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_speed"
+    },
+    "sensor.backyard_firmware_version": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_firmware_version",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "firmware"
+    },
+    "sensor.backyard_freeze_protection": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_freeze_protection",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "freeze_protection"
+    },
+    "sensor.backyard_pool_water": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_pool_water",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "temperature"
+    },
+    "sensor.backyard_solar_pump_current_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_solar_pump_current_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode"
+    },
+    "sensor.backyard_solar_pump_speed": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_solar_pump_speed",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_speed"
+    },
+    "sensor.backyard_spa_jets_current_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_spa_jets_current_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode"
+    },
+    "sensor.backyard_spa_jets_speed": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_spa_jets_speed",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_speed"
+    },
+    "sensor.backyard_spa_water": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_spa_water",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "temperature"
+    },
+    "sensor.backyard_waterfall_current_mode": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_waterfall_current_mode",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_mode"
+    },
+    "sensor.backyard_waterfall_speed": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_waterfall_speed",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "pump_speed"
+    },
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "labels": [],
+      "platform": "sun"
+    },
+    "switch.backyard_deck_lights": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_deck_lights",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "relay"
+    },
+    "switch.backyard_landscape_lights": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_landscape_lights",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "relay"
+    },
+    "switch.backyard_pool_chiller": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_pool_chiller",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "chiller"
+    },
+    "switch.backyard_spa_heater": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_spa_heater",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "heater"
+    },
+    "switch.backyard_spa_valve": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_spa_valve",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "valve"
+    }
+  },
+  "states": {
+    "binary_sensor.backyard_controller": {
+      "attributes": {
+        "device_class": "connectivity",
+        "friendly_name": "Backyard Controller"
+      },
+      "entity_id": "binary_sensor.backyard_controller",
+      "state": "on"
+    },
+    "binary_sensor.backyard_main_flow": {
+      "attributes": {
+        "device_class": "running",
+        "friendly_name": "Backyard Main Flow",
+        "icon": "mdi:waves"
+      },
+      "entity_id": "binary_sensor.backyard_main_flow",
+      "state": "on"
+    },
+    "fan.backyard_cleaner_booster": {
+      "attributes": {
+        "friendly_name": "Backyard Cleaner Booster",
+        "percentage": 67,
+        "percentage_step": 1.639344262295082,
+        "preset_mode": null,
+        "preset_modes": null,
+        "pump_model": "Fairland",
+        "supported_features": 49
+      },
+      "entity_id": "fan.backyard_cleaner_booster",
+      "state": "on"
+    },
+    "fan.backyard_filter_pump": {
+      "attributes": {
+        "friendly_name": "Backyard Filter Pump",
+        "percentage": 18,
+        "percentage_step": 1.639344262295082,
+        "preset_mode": null,
+        "preset_modes": null,
+        "pump_model": "Fairland",
+        "supported_features": 49
+      },
+      "entity_id": "fan.backyard_filter_pump",
+      "state": "on"
+    },
+    "fan.backyard_solar_pump": {
+      "attributes": {
+        "friendly_name": "Backyard Solar Pump",
+        "percentage": 83,
+        "percentage_step": 1.639344262295082,
+        "preset_mode": null,
+        "preset_modes": null,
+        "pump_model": "Fairland",
+        "supported_features": 49
+      },
+      "entity_id": "fan.backyard_solar_pump",
+      "state": "on"
+    },
+    "fan.backyard_spa_jets": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Jets",
+        "percentage": 34,
+        "percentage_step": 1.639344262295082,
+        "preset_mode": null,
+        "preset_modes": null,
+        "pump_model": "Fairland",
+        "supported_features": 49
+      },
+      "entity_id": "fan.backyard_spa_jets",
+      "state": "on"
+    },
+    "fan.backyard_waterfall": {
+      "attributes": {
+        "friendly_name": "Backyard Waterfall",
+        "percentage": 50,
+        "percentage_step": 1.639344262295082,
+        "preset_mode": null,
+        "preset_modes": null,
+        "pump_model": "Fairland",
+        "supported_features": 49
+      },
+      "entity_id": "fan.backyard_waterfall",
+      "state": "on"
+    },
+    "light.backyard_pool_light": {
+      "attributes": {
+        "color_mode": "onoff",
+        "effect": "Blue",
+        "effect_list": [
+          "SAM Mode",
+          "Party Mode",
+          "Romance Mode",
+          "Carribbean Mode",
+          "American Mode",
+          "California Sunset Mode",
+          "Royal Mode",
+          "Blue",
+          "Green",
+          "Red",
+          "White",
+          "Magenta"
+        ],
+        "friendly_name": "Backyard Pool Light",
+        "supported_color_modes": [
+          "onoff"
+        ],
+        "supported_features": 4
+      },
+      "entity_id": "light.backyard_pool_light",
+      "state": "on"
+    },
+    "light.backyard_spa_light": {
+      "attributes": {
+        "color_mode": "onoff",
+        "effect": "Blue",
+        "effect_list": [
+          "SAM Mode",
+          "Party Mode",
+          "Romance Mode",
+          "Carribbean Mode",
+          "American Mode",
+          "California Sunset Mode",
+          "Royal Mode",
+          "Blue",
+          "Green",
+          "Red",
+          "White",
+          "Magenta"
+        ],
+        "friendly_name": "Backyard Spa Light",
+        "supported_color_modes": [
+          "onoff"
+        ],
+        "supported_features": 4
+      },
+      "entity_id": "light.backyard_spa_light",
+      "state": "on"
+    },
+    "select.backyard_filter_pump_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Filter Pump mode",
+        "options": [
+          "pool",
+          "spa",
+          "spillover"
+        ]
+      },
+      "entity_id": "select.backyard_filter_pump_mode",
+      "state": "pool"
+    },
+    "select.backyard_solar_pump_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Solar Pump mode",
+        "options": [
+          "pool",
+          "spa"
+        ]
+      },
+      "entity_id": "select.backyard_solar_pump_mode",
+      "state": "pool"
+    },
+    "select.backyard_spa_jets_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Jets mode",
+        "options": [
+          "spa"
+        ]
+      },
+      "entity_id": "select.backyard_spa_jets_mode",
+      "state": "unknown"
+    },
+    "sensor.backyard_air": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard Air",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_air",
+      "state": "78.4"
+    },
+    "sensor.backyard_cleaner_booster_current_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Cleaner Booster current mode"
+      },
+      "entity_id": "sensor.backyard_cleaner_booster_current_mode",
+      "state": "pool"
+    },
+    "sensor.backyard_cleaner_booster_speed": {
+      "attributes": {
+        "friendly_name": "Backyard Cleaner Booster speed",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      },
+      "entity_id": "sensor.backyard_cleaner_booster_speed",
+      "state": "80"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard CPU temperature",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "state": "114.4"
+    },
+    "sensor.backyard_filter_pump_current_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Filter Pump current mode"
+      },
+      "entity_id": "sensor.backyard_filter_pump_current_mode",
+      "state": "pool"
+    },
+    "sensor.backyard_filter_pump_speed": {
+      "attributes": {
+        "friendly_name": "Backyard Filter Pump speed",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      },
+      "entity_id": "sensor.backyard_filter_pump_speed",
+      "state": "50"
+    },
+    "sensor.backyard_firmware_version": {
+      "attributes": {
+        "friendly_name": "Backyard Firmware version"
+      },
+      "entity_id": "sensor.backyard_firmware_version",
+      "state": "1.0.13"
+    },
+    "sensor.backyard_freeze_protection": {
+      "attributes": {
+        "friendly_name": "Backyard Freeze protection"
+      },
+      "entity_id": "sensor.backyard_freeze_protection",
+      "state": "nominal"
+    },
+    "sensor.backyard_pool_water": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard Pool Water",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_pool_water",
+      "state": "81.2"
+    },
+    "sensor.backyard_solar_pump_current_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Solar Pump current mode"
+      },
+      "entity_id": "sensor.backyard_solar_pump_current_mode",
+      "state": "pool"
+    },
+    "sensor.backyard_solar_pump_speed": {
+      "attributes": {
+        "friendly_name": "Backyard Solar Pump speed",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      },
+      "entity_id": "sensor.backyard_solar_pump_speed",
+      "state": "90"
+    },
+    "sensor.backyard_spa_jets_current_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Jets current mode"
+      },
+      "entity_id": "sensor.backyard_spa_jets_current_mode",
+      "state": "pool"
+    },
+    "sensor.backyard_spa_jets_speed": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Jets speed",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      },
+      "entity_id": "sensor.backyard_spa_jets_speed",
+      "state": "60"
+    },
+    "sensor.backyard_spa_water": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard Spa Water",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_spa_water",
+      "state": "101.5"
+    },
+    "sensor.backyard_waterfall_current_mode": {
+      "attributes": {
+        "friendly_name": "Backyard Waterfall current mode"
+      },
+      "entity_id": "sensor.backyard_waterfall_current_mode",
+      "state": "pool"
+    },
+    "sensor.backyard_waterfall_speed": {
+      "attributes": {
+        "friendly_name": "Backyard Waterfall speed",
+        "state_class": "measurement",
+        "unit_of_measurement": "%"
+      },
+      "entity_id": "sensor.backyard_waterfall_speed",
+      "state": "70"
+    },
+    "sun.sun": {
+      "attributes": {},
+      "entity_id": "sun.sun",
+      "state": "above_horizon"
+    },
+    "switch.backyard_deck_lights": {
+      "attributes": {
+        "connection_type": "General",
+        "friendly_name": "Backyard Deck Lights"
+      },
+      "entity_id": "switch.backyard_deck_lights",
+      "state": "off"
+    },
+    "switch.backyard_landscape_lights": {
+      "attributes": {
+        "connection_type": "General",
+        "friendly_name": "Backyard Landscape Lights"
+      },
+      "entity_id": "switch.backyard_landscape_lights",
+      "state": "off"
+    },
+    "switch.backyard_pool_chiller": {
+      "attributes": {
+        "connection_type": "Chiller",
+        "friendly_name": "Backyard Pool Chiller",
+        "icon": "mdi:snowflake"
+      },
+      "entity_id": "switch.backyard_pool_chiller",
+      "state": "off"
+    },
+    "switch.backyard_spa_heater": {
+      "attributes": {
+        "connection_type": "Gas Heater",
+        "friendly_name": "Backyard Spa Heater",
+        "icon": "mdi:fire"
+      },
+      "entity_id": "switch.backyard_spa_heater",
+      "state": "off"
+    },
+    "switch.backyard_spa_valve": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Valve",
+        "icon": "mdi:valve"
+      },
+      "entity_id": "switch.backyard_spa_valve",
+      "state": "on"
+    }
+  }
+}

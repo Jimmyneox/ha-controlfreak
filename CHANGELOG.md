@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.2.0 — 2026-10-13
+
+- **Dashboard strategy** shipped inside the integration and loaded automatically:
+  `strategy: { type: custom:controlfreak }` builds a dashboard with a section per
+  equipment type the controller actually has (pumps, lights and relays, valves,
+  temperature and flow, controller health). Unknown equipment goes to "Other
+  equipment". Core cards only. Options: `hide`, `order`, `titles`, `device_id`.
+  A section strategy (`equipment: <type>`) drops a single block into any
+  sections view.
+- Equipment entities carry translation keys (`pump`, `light`, `relay`, `valve`,
+  `temperature`, `flow`) so the dashboard groups them without entity ids. Names
+  and entity ids don't change.
+- Relays configured as a heater (gas heater, heat pump) or chiller get the
+  `heater` / `chiller` translation key from their connection type, never their
+  port, and their own "Heating and cooling" dashboard section.
+- Documentation page `docs/controlfreak.md` in the Home Assistant integration
+  page format; the README is shorter and links to it.
+- Tests: `node --test` for the strategy against fixtures generated from the
+  integration's own entities; a Playwright render harness. CI runs both suites.
+
 ## 0.1.1 — 2026-09-27
 
 - Brand images shipped in-repo (`custom_components/controlfreak/brand/`): the Control

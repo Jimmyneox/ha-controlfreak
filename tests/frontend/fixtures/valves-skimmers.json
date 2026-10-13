@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "binary_sensor.backyard_controller": {
+      "device_id": "controlfreak-device",
+      "entity_id": "binary_sensor.backyard_controller",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "connectivity"
+    },
+    "binary_sensor.backyard_skimmer_flow": {
+      "device_id": "controlfreak-device",
+      "entity_id": "binary_sensor.backyard_skimmer_flow",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "flow"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "cpu_temperature"
+    },
+    "sensor.backyard_firmware_version": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_firmware_version",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "firmware"
+    },
+    "sensor.backyard_freeze_protection": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_freeze_protection",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "freeze_protection"
+    },
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "labels": [],
+      "platform": "sun"
+    },
+    "switch.backyard_intake_valve": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_intake_valve",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "valve"
+    },
+    "switch.backyard_skimmer_1": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_skimmer_1",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "valve"
+    },
+    "switch.backyard_skimmer_2": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_skimmer_2",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "valve"
+    },
+    "switch.backyard_spa_return_valve": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_spa_return_valve",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "valve"
+    }
+  },
+  "states": {
+    "binary_sensor.backyard_controller": {
+      "attributes": {
+        "device_class": "connectivity",
+        "friendly_name": "Backyard Controller"
+      },
+      "entity_id": "binary_sensor.backyard_controller",
+      "state": "on"
+    },
+    "binary_sensor.backyard_skimmer_flow": {
+      "attributes": {
+        "device_class": "running",
+        "friendly_name": "Backyard Skimmer Flow",
+        "icon": "mdi:waves"
+      },
+      "entity_id": "binary_sensor.backyard_skimmer_flow",
+      "state": "on"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard CPU temperature",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "state": "114.4"
+    },
+    "sensor.backyard_firmware_version": {
+      "attributes": {
+        "friendly_name": "Backyard Firmware version"
+      },
+      "entity_id": "sensor.backyard_firmware_version",
+      "state": "1.0.13"
+    },
+    "sensor.backyard_freeze_protection": {
+      "attributes": {
+        "friendly_name": "Backyard Freeze protection"
+      },
+      "entity_id": "sensor.backyard_freeze_protection",
+      "state": "nominal"
+    },
+    "sun.sun": {
+      "attributes": {},
+      "entity_id": "sun.sun",
+      "state": "above_horizon"
+    },
+    "switch.backyard_intake_valve": {
+      "attributes": {
+        "friendly_name": "Backyard Intake Valve",
+        "icon": "mdi:valve"
+      },
+      "entity_id": "switch.backyard_intake_valve",
+      "state": "on"
+    },
+    "switch.backyard_skimmer_1": {
+      "attributes": {
+        "friendly_name": "Backyard Skimmer 1",
+        "icon": "mdi:valve"
+      },
+      "entity_id": "switch.backyard_skimmer_1",
+      "state": "on"
+    },
+    "switch.backyard_skimmer_2": {
+      "attributes": {
+        "friendly_name": "Backyard Skimmer 2",
+        "icon": "mdi:valve"
+      },
+      "entity_id": "switch.backyard_skimmer_2",
+      "state": "on"
+    },
+    "switch.backyard_spa_return_valve": {
+      "attributes": {
+        "friendly_name": "Backyard Spa Return Valve",
+        "icon": "mdi:valve"
+      },
+      "entity_id": "switch.backyard_spa_return_valve",
+      "state": "on"
+    }
+  }
+}

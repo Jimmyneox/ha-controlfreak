@@ -26,6 +26,7 @@ async def async_setup_entry(
 class ControlFreakLight(ControlFreakEntity, LightEntity):
     """Command {"state","mode":"not-syncing"[,"color_choice"],"sender":"user"}."""
 
+    _attr_translation_key = "light"
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
     _attr_supported_features = LightEntityFeature.EFFECT

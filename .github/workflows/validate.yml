@@ -34,3 +34,37 @@ jobs:
       - run: uv venv -p 3.14 && uv pip install -r requirements_test.txt
       - run: uv run --no-project ruff check .
       - run: uv run --no-project pytest -q
+
+  strategy:
+    name: dashboard strategy (node --test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: node --test tests/frontend/
+
+  render:
+    name: dashboard render check (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npx -y playwright@1.64.0 install --with-deps chromium
+      - name: Screenshot every fixture shape
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 &
+          sleep 1
+          mkdir -p render
+          for shape in full-pool lighting-only valves-skimmers empty; do
+            npx -y playwright@1.64.0 screenshot --full-page --viewport-size=1280,800 \
+              --wait-for-selector='body[data-rendered]' --timeout=20000 \
+              "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-render
+          path: render/

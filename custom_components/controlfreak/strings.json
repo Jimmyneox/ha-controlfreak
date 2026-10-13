@@ -40,17 +40,61 @@
   },
   "entity": {
     "binary_sensor": {
-      "connectivity": { "name": "Controller" }
+      "connectivity": {
+        "name": "Controller"
+      },
+      "flow": {
+        "name": "Flow"
+      }
+    },
+    "fan": {
+      "pump": {
+        "name": "Pump"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Light"
+      }
     },
     "select": {
-      "pump_mode_select": { "name": "{name} mode" }
+      "pump_mode_select": {
+        "name": "{name} mode"
+      }
     },
     "sensor": {
-      "pump_speed": { "name": "{name} speed" },
-      "pump_mode": { "name": "{name} current mode" },
-      "cpu_temperature": { "name": "CPU temperature" },
-      "freeze_protection": { "name": "Freeze protection" },
-      "firmware": { "name": "Firmware version" }
+      "pump_speed": {
+        "name": "{name} speed"
+      },
+      "pump_mode": {
+        "name": "{name} current mode"
+      },
+      "cpu_temperature": {
+        "name": "CPU temperature"
+      },
+      "freeze_protection": {
+        "name": "Freeze protection"
+      },
+      "firmware": {
+        "name": "Firmware version"
+      },
+      "temperature": {
+        "name": "Temperature"
+      }
+    },
+    "switch": {
+      "chiller": {
+        "name": "Chiller"
+      },
+      "heater": {
+        "name": "Heater"
+      },
+      "relay": {
+        "name": "Relay"
+      },
+      "valve": {
+        "name": "Valve"
+      }
     }
   },
   "exceptions": {

@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
+from .const import DOMAIN, FRONTEND_URL
 from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -16,6 +25,18 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.SWITCH,
 ]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the dashboard strategy (custom:controlfreak) to every frontend page."""
+    integration = await async_get_integration(hass, DOMAIN)
+    strategy = Path(__file__).parent / "frontend" / "controlfreak-strategy.js"
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(FRONTEND_URL, str(strategy), cache_headers=False)]
+    )
+    # The version query busts the browser cache after an upgrade.
+    add_extra_js_url(hass, f"{FRONTEND_URL}?v={integration.version}")
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ControlFreakConfigEntry) -> bool:

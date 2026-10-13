@@ -26,6 +26,7 @@ async def async_setup_entry(
 class ControlFreakPump(ControlFreakEntity, FanEntity):
     """on/off + percentage; HA 1 % maps to the pump's configured minimum speed."""
 
+    _attr_translation_key = "pump"
     _attr_supported_features = (
         FanEntityFeature.SET_SPEED | FanEntityFeature.TURN_ON | FanEntityFeature.TURN_OFF
     )

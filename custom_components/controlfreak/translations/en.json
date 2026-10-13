@@ -42,6 +42,19 @@
     "binary_sensor": {
       "connectivity": {
         "name": "Controller"
+      },
+      "flow": {
+        "name": "Flow"
+      }
+    },
+    "fan": {
+      "pump": {
+        "name": "Pump"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Light"
       }
     },
     "select": {
@@ -64,6 +77,23 @@
       },
       "firmware": {
         "name": "Firmware version"
+      },
+      "temperature": {
+        "name": "Temperature"
+      }
+    },
+    "switch": {
+      "chiller": {
+        "name": "Chiller"
+      },
+      "heater": {
+        "name": "Heater"
+      },
+      "relay": {
+        "name": "Relay"
+      },
+      "valve": {
+        "name": "Valve"
       }
     }
   },
