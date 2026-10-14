@@ -19,7 +19,7 @@ Checked against the HACS publishing docs and the `hacs/default` PR template on 2
 | One integration under `custom_components/` | ✅ `controlfreak` |
 | `manifest.json` has `domain`, `documentation`, `issue_tracker`, `codeowners`, `name`, `version` | ✅ |
 | `hacs.json` with at least `name` | ✅ (`country` not needed: not region-specific) |
-| Brand images: `custom_components/controlfreak/brand/icon.png` (HACS "Check brands") | ✅ icon + icon@2x |
+| Brand images: `custom_components/controlfreak/brand/icon.png` (HACS "Check brands") | ✅ icon, icon@2x, dark_icon, dark_icon@2x |
 | HACS action passes **without** an `ignore` key | ✅ on `main` (run linked below); re-run on the release commit |
 | hassfest passes | ✅ on `main`; re-run on the release commit |
 | A full GitHub release **created after** the actions passed | ❌ v0.1.0 and v0.1.1 exist, but both predate any green run. Cut v0.2.0 after CI is green on it |

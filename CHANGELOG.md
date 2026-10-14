@@ -15,6 +15,9 @@
 - Relays configured as a heater (gas heater, heat pump) or chiller get the
   `heater` / `chiller` translation key from their connection type, never their
   port, and their own "Heating and cooling" dashboard section.
+- Brand icons redrawn from Control Freak's own vector mark: `icon.png` /
+  `icon@2x.png` (dark outline) plus new `dark_icon.png` / `dark_icon@2x.png`
+  (light outline) for dark themes.
 - This is Control Freak's official integration: the earlier "unofficial / not
   affiliated" wording is gone from the README, docs and forum post.
 - Documentation page `docs/controlfreak.md` in the Home Assistant integration
