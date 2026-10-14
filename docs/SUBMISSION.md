@@ -31,10 +31,11 @@ The Validate workflow is active and Actions is enabled with "all actions allowed
 GitHub had no run and no check suite at all for the two pushes on 2026-09-27. The workflow
 file was valid: a manual `workflow_dispatch` on `main` on 2026-10-13 ran all three jobs green
 ([run 38463348446](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38463348446)).
-So the jobs work, and the gap is only that push events didn't start the workflow. The next
-push (the `marketplace-0.2.0` branch) shows whether push triggers work now. If it still
-doesn't start a run, check **Settings → Actions → General** on the repository, and the
-account's Actions status, before submitting.
+So the jobs work, and the gap was only that push events didn't start the workflow. Push
+triggers work now: both pushes of the `marketplace-0.2.0` branch on 2026-10-13 started runs
+on their own, and the second was green on all 5 jobs
+([run 38486604696](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38486604696)).
+The September gap can't be diagnosed after the fact.
 
 The earlier PR (hacs/default#11349) linked run `36357415290` as its green HACS and hassfest
 run. That run returns 404 on this repository, so don't reuse those links.

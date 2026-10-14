@@ -1,9 +1,17 @@
 # Marketplace wave report: modular dashboard, docs, catalog readiness (2026-10-13)
 
-Branch `marketplace-0.2.0` in worktree `sharp-einstein-da1d44`. **Not committed and not
-pushed yet:** the commit and push step was declined at the approval prompt. All changes
-are staged in the worktree. No hacs/default PR, no release, no tag. The live Home Assistant
-install was not touched.
+Branch `marketplace-0.2.0`, pushed to `Jimmyneox/ha-controlfreak` (commits `742cc8e`,
+`443c2b7`). No hacs/default PR, no release, no tag. The live Home Assistant install was not
+touched.
+
+**CI is green on the branch:** all 5 jobs (hassfest, HACS action, pytest + ruff, dashboard
+strategy, render check) passed on a **push** event in
+[run 38486604696](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38486604696).
+The render job uploads the screenshots as the `dashboard-render` artifact. The first branch
+push ([run 38486290658](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38486290658))
+caught one real defect: Node 24 on CI rejects a directory argument to `node --test`, while
+the local Node 26 accepts it. The fix passes the test files instead and was checked on both
+versions.
 
 ## What changed
 
@@ -58,8 +66,9 @@ install was not touched.
 - **0 runs:** Actions is enabled and the workflow is active, but the 2026-09-27 pushes
   produced no check suites at all. A manual dispatch on `main` ran all 3 jobs green: hassfest,
   HACS action, pytest + ruff ([run 38463348446](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38463348446)).
-  The jobs work; only the push trigger never fired. That isn't proven fixed until the branch
-  is pushed.
+  The jobs work; only the push trigger never fired. **Push triggers now work:** both
+  branch pushes on 2026-10-13 started runs on their own. The September gap can't be
+  diagnosed after the fact.
 - The run the closed PR #11349 linked (`36357415290`) returns **404**.
 - v0.1.0 and v0.1.1 releases already exist, but both predate any green run. The v0.2.0
   release must follow a green run.
@@ -99,8 +108,7 @@ install was not touched.
 the core cards: it checks structure, **not** Home Assistant's own rendering. Nothing has been
 rendered in a real HA frontend yet.
 
-## Blocked or left for you
-- **Commit and push** were declined, so the branch CI and the push-trigger test haven't run.
+## Left for you
 - **Brand icons:** new 256/512 PNGs rendered from your `logo-mark-small.svg`, plus
   `dark_icon` variants, are in the session scratchpad. Overwriting the committed icons was
   blocked by the permission classifier.
@@ -110,7 +118,8 @@ rendered in a real HA frontend yet.
   your wording.
 
 ## Next step
-Approve the commit and push of `marketplace-0.2.0` (one approval, about 10 min of CI). It
-runs all 5 CI jobs on the branch and answers whether push triggers work now. One decision
-to make alongside it: replace the brand icons with the SVG renders, and change the README
-disclaimer to your own wording.
+Merge `marketplace-0.2.0` into `main` (a fast-forward, 2 commits; about 10 minutes of CI on
+`main`). Then cut the v0.2.0 release from that green commit with the command in
+`docs/SUBMISSION.md`. That release, plus that run's HACS and hassfest job links, is
+everything the drafted hacs/default PR still needs. Decide the icon swap and the README
+disclaimer wording before the merge, so they're part of the release.
