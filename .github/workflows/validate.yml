@@ -14,7 +14,7 @@ jobs:
     name: hassfest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: home-assistant/actions/hassfest@master
 
   hacs:
@@ -29,8 +29,8 @@ jobs:
     name: pytest + ruff
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
       - run: uv venv -p 3.14 && uv pip install -r requirements_test.txt
       - run: uv run --no-project ruff check .
       - run: uv run --no-project pytest -q
@@ -39,8 +39,8 @@ jobs:
     name: dashboard strategy (node --test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: node --test tests/frontend/*.test.mjs
@@ -49,8 +49,8 @@ jobs:
     name: dashboard render check (Playwright)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
       - run: npx -y playwright@1.64.0 install --with-deps chromium
@@ -64,7 +64,7 @@ jobs:
               --wait-for-selector='body[data-rendered]' --timeout=20000 \
               "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dashboard-render
           path: render/
