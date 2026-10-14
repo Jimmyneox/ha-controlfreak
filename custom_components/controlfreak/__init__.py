@@ -1,4 +1,4 @@
-"""The Control Freak pool controller integration (unofficial, local only)."""
+"""The Control Freak pool controller integration (official, local only)."""
 
 from __future__ import annotations
 

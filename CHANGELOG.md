@@ -15,6 +15,8 @@
 - Relays configured as a heater (gas heater, heat pump) or chiller get the
   `heater` / `chiller` translation key from their connection type, never their
   port, and their own "Heating and cooling" dashboard section.
+- This is Control Freak's official integration: the earlier "unofficial / not
+  affiliated" wording is gone from the README, docs and forum post.
 - Documentation page `docs/controlfreak.md` in the Home Assistant integration
   page format; the README is shorter and links to it.
 - Tests: `node --test` for the strategy against fixtures generated from the

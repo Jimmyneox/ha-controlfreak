@@ -1,6 +1,6 @@
 # [Custom integration] Control Freak Automated Pool System — local control of the Control Freak pool panel, no cloud
 
-**Unofficial — not affiliated with Control Freak Pool Tech.**
+**The official Home Assistant integration from Control Freak, the maker of the controller.**
 
 If you have a Control Freak pool panel (the Raspberry Pi controller with the ControlFreak
 app), this integration runs it locally from Home Assistant:

@@ -87,7 +87,8 @@ controller's configuration without a restart.
 
 It also ships a dashboard strategy (`custom:controlfreak`, core cards only) that builds a
 section per equipment type the controller actually has. Brand images ship in-repo under
-`custom_components/controlfreak/brand/`. I am the repository owner.
+`custom_components/controlfreak/brand/`. I am the repository owner, and this is Control
+Freak's official integration for its controller.
 ```
 
 ## After the PR is merged

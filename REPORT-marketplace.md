@@ -121,14 +121,12 @@ rendered in a real HA frontend yet.
 - **Brand icons:** new 256/512 PNGs rendered from your `logo-mark-small.svg`, plus
   `dark_icon` variants, are in the session scratchpad. Overwriting the committed icons was
   blocked by the permission classifier.
-- **Disclaimer:** the README still says "Unofficial. Not affiliated with … Control Freak
-  Pool Tech". The teammate relayed that you designed the board. The docs page now credits
-  Control Freak as the maker and makes no affiliation claim either way; the README needs
-  your wording.
+- **Disclaimer (resolved 2026-10-14):** the owner confirmed the integration is official.
+  README, docs, forum post, package description and module docstring now say so. Was:
+  "Unofficial. Not affiliated with … Control Freak Pool Tech".
 
 ## Next step
-Merge `marketplace-0.2.0` into `main` (a fast-forward, 2 commits; about 10 minutes of CI on
-`main`). Then cut the v0.2.0 release from that green commit with the command in
+Merge `marketplace-0.2.0` into `main` (a fast-forward; about 10 minutes of CI on `main`). Then cut the v0.2.0 release from that green commit with the command in
 `docs/SUBMISSION.md`. That release, plus that run's HACS and hassfest job links, is
-everything the drafted hacs/default PR still needs. Decide the icon swap and the README
-disclaimer wording before the merge, so they're part of the release.
+everything the drafted hacs/default PR still needs. Decide the icon swap before the merge,
+so it's part of the release.

@@ -32,7 +32,8 @@ Use it to put the pool on the same dashboards and automations as the rest of you
 example, you can start the spa jets from a voice assistant, switch the pool light to a color
 show at sunset, or get a notification when freeze protection activates.
 
-The Control Freak controller is designed and built by Control Freak. For product information,
+The Control Freak controller is designed and built by Control Freak, and this is Control
+Freak's official integration for it. For product information,
 see the maker's website, [controlfreakpool.com](https://controlfreakpool.com).
 
 ## Supported devices

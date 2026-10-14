@@ -2,8 +2,8 @@
 
 <img src="custom_components/controlfreak/brand/icon.png" alt="Control Freak" width="96" align="right">
 
-**Unofficial. Not affiliated with, endorsed by, or supported by Control Freak Pool Tech.**
-"Control Freak" is used here only to name the hardware this works with.
+**The official Home Assistant integration from Control Freak**, the maker of the Control
+Freak pool automation controller.
 
 A local-only Home Assistant integration for the [Control Freak](https://controlfreakpool.com)
 pool controller. It reads the
