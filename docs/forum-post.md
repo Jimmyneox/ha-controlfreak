@@ -17,7 +17,7 @@ What you get: variable-speed pump as a fan (speed maps through the pump's minimu
 pump speed/mode sensors, colour lights with effects, relays/heaters as switches, water and
 air temperatures, flow, panel connectivity, CPU temperature and freeze-protection status.
 
-**Install:** HACS → Custom repositories → `https://github.com/Jimmyneox/ha-controlfreak`
+**Install:** Marketplace (Home Assistant 2026.11+) or HACS → Custom repositories → `https://github.com/Jimmyneox/ha-controlfreak`
 (Integration) → install → restart → Add integration → Control Freak → enter the panel IP.
 
 **Help wanted:**

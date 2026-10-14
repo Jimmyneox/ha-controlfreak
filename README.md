@@ -22,11 +22,17 @@ WebSockets for live values. No cloud, and your own MQTT setup is unaffected.
 
 ## Install
 
-1. In HACS, open the three dots menu > **Custom repositories**, add
-   `https://github.com/Jimmyneox/ha-controlfreak` with type **Integration**.
-2. Install **Control Freak Automated Pool System** and restart Home Assistant.
-3. Go to **Settings** > **Devices & services** > **Add integration** and select **Control
-   Freak Automated Pool System**.
+**Home Assistant 2026.11 and later (Marketplace).** Marketplace is HACS built into Home
+Assistant, under **Settings**. Until the integration is in the catalog, add
+`https://github.com/Jimmyneox/ha-controlfreak` as a custom repository of type
+**Integration** (Marketplace asks you to connect a GitHub account for custom repositories),
+then install **Control Freak Automated Pool System**.
+
+**Earlier versions (HACS).** In HACS, open the three dots menu > **Custom repositories**, add
+the same URL with type **Integration**, install, and restart Home Assistant.
+
+Then go to **Settings** > **Devices & services** > **Add integration** and select **Control
+Freak Automated Pool System**.
 
 Manual install: copy `custom_components/controlfreak` into your `config/custom_components/`.
 

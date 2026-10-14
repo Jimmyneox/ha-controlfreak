@@ -1,8 +1,13 @@
 # Catalog submission kit
 
-Home Assistant 2026.11 folds HACS into Core as **Marketplace**. Marketplace reads the same
-catalog as HACS, so getting listed is still a pull request to
-[`hacs/default`](https://github.com/hacs/default) from this repository. Every step that
+Home Assistant 2026.11 folds HACS into Core as **Marketplace**
+([home-assistant/core#183502](https://github.com/home-assistant/core/pull/183502), merged
+2026-10-01). Per that PR, the catalog that decides which repositories and versions Marketplace
+offers is data-v2.hacs.xyz, the same one HACS uses, so getting listed is still a pull request
+to [`hacs/default`](https://github.com/hacs/default) from this repository. Two consequences:
+a catalog version installs straight from its release archive, so the v0.2.0 release matters
+more than before; and without a listing, users must connect a GitHub account to add the repo
+as a custom repository. Every step that
 publishes something is the owner's click.
 
 Checked against the HACS publishing docs and the `hacs/default` PR template on 2026-10-13.

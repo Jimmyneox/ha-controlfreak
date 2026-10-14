@@ -89,7 +89,8 @@ this My button:
 
 [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=controlfreak)
 
-If the integration isn't installed yet, install it through HACS first. If the My button
+If the integration isn't installed yet, install it first: from **Marketplace** under **Settings** (Home Assistant 2026.11 and
+later), or from HACS on earlier versions. If the My button
 doesn't work, set it up manually:
 
 1. Go to **Settings** > **Devices & services**.
@@ -343,4 +344,5 @@ This integration follows standard integration removal. No extra steps are requir
 3. Next to the entry, select the three dots menu, then **Delete**.
 
 If you created a dashboard from the strategy, delete it under **Settings** > **Dashboards**.
-To remove the files, uninstall the integration in HACS and restart Home Assistant.
+To remove the files, uninstall the integration in Marketplace (or HACS on versions before
+2026.11) and restart Home Assistant.

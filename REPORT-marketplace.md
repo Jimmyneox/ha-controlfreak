@@ -125,6 +125,12 @@ rendered in a real HA frontend yet.
   README, docs, forum post, package description and module docstring now say so. Was:
   "Unofficial. Not affiliated with … Control Freak Pool Tech".
 
+- **Marketplace (2026-10-14):** confirmed from the merged core PR
+  (home-assistant/core#183502) that Marketplace reads the same catalog as HACS
+  (data-v2.hacs.xyz). The hacs/default PR is still the listing path, and the submission
+  kit is unchanged. Install and removal wording in the README, docs and forum post now
+  covers Marketplace (2026.11+) and HACS (earlier versions).
+
 ## Next step
 Merge `marketplace-0.2.0` into `main` (a fast-forward; about 10 minutes of CI on `main`). Then cut the v0.2.0 release from that green commit with the command in
 `docs/SUBMISSION.md`. That release, plus that run's HACS and hassfest job links, is
