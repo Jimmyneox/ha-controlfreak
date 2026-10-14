@@ -13,6 +13,15 @@ caught one real defect: Node 24 on CI rejects a directory argument to `node --te
 the local Node 26 accepts it. The fix passes the test files instead and was checked on both
 versions.
 
+**CI actions bumped (2026-10-14):** checkout v7, setup-node v7, upload-artifact v7 and
+setup-uv v10.3.0. setup-uv is pinned to the exact release because it publishes no floating
+`v10` tag; the first attempt failed to resolve one. No input we use changed in these majors.
+[Run 38515809198](https://github.com/Jimmyneox/ha-controlfreak/actions/runs/38515809198):
+all 5 jobs green, **0 Node.js 20 warnings** (annotations and job logs), artifact uploaded.
+The remaining notice is `ubuntu-latest` moving to Ubuntu 26 on 2026-10-19. The render job
+depends on the image: `playwright install --with-deps` installs Chromium's apt packages.
+If that job breaks after the 19th, pin it to `ubuntu-24.04` or bump Playwright.
+
 ## What changed
 
 **1. Dashboard strategy.** The new file is
