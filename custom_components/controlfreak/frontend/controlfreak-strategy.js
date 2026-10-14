@@ -88,6 +88,20 @@ const domainOf = (entityId) => entityId.split(".", 1)[0];
 const friendlyName = (hass, entityId) =>
   hass.states?.[entityId]?.attributes?.friendly_name ?? entityId;
 
+/**
+ * The tile name: the entity's own name without its device's name in front.
+ * Entities use has_entity_name, so the friendly name starts with the device
+ * name ("Control Freak Automated Pool System Pool Lights") and a narrow tile
+ * would show nothing but that prefix. Exported for tests.
+ */
+export function shortName(hass, entityId) {
+  const full = friendlyName(hass, entityId);
+  const device = hass.devices?.[hass.entities?.[entityId]?.device_id];
+  const prefix = device?.name_by_user || device?.name;
+  if (!prefix || !full.startsWith(`${prefix} `)) return full;
+  return full.slice(prefix.length + 1).trim() || full;
+}
+
 const supports = (hass, entityId, bit) =>
   ((hass.states?.[entityId]?.attributes?.supported_features ?? 0) & bit) !== 0;
 
@@ -253,6 +267,10 @@ export function buildSection(hass, type, options = {}) {
   const items = groupEntities(findEntities(hass, options))[type] ?? [];
   const cards = CARD_BUILDERS[type](hass, items);
   if (!cards.length) return null;
+  for (const card of cards) {
+    const name = shortName(hass, card.entity);
+    if (name !== friendlyName(hass, card.entity)) card.name = name;
+  }
   return {
     type: "grid",
     cards: [

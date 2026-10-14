@@ -16,6 +16,7 @@ import {
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
   sectionOrder,
+  shortName,
 } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
 
 const fixture = (name) =>
@@ -279,6 +280,34 @@ test("section strategy: missing equipment, unknown type and nothing found", asyn
   );
   const none = await ControlFreakSectionStrategy.generate({ equipment: "pumps" }, hass);
   assert.equal(none.cards[0].type, "markdown");
+});
+
+test("tile names drop the device name prefix, never shown truncated to it", () => {
+  // Live HA 2026.9.3: the device is "Control Freak Automated Pool System" and every
+  // tile read "Control Freak ..." because the prefix filled the whole name.
+  const hass = fixture("full-pool");
+  const tiles = buildSections(hass).flatMap((s) => s.cards).filter((c) => c.entity);
+  assert.ok(tiles.length > 10);
+  for (const c of tiles) {
+    assert.ok(c.name, `${c.entity}: no name`);
+    assert.ok(!c.name.startsWith("Backyard"), `${c.entity}: ${c.name}`);
+  }
+  assert.equal(card(buildSections(hass), "light.backyard_pool_light").name, "Pool Light");
+});
+
+test("short name honours a user-renamed device and leaves other names alone", () => {
+  const hass = structuredClone(fixture("full-pool"));
+  const id = "light.backyard_pool_light";
+  assert.equal(shortName(hass, id), "Pool Light");
+  hass.devices["controlfreak-device"].name_by_user = "Pool";
+  hass.states[id].attributes.friendly_name = "Pool Pool Light";
+  assert.equal(shortName(hass, id), "Pool Light");
+  hass.states[id].attributes.friendly_name = "My lamp"; // renamed entity, no prefix
+  assert.equal(shortName(hass, id), "My lamp");
+  hass.states[id].attributes.friendly_name = "Pool"; // name equals the device name
+  assert.equal(shortName(hass, id), "Pool");
+  delete hass.devices;
+  assert.equal(shortName(hass, id), "Pool");
 });
 
 test("every type has a default title", () => {

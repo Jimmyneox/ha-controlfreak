@@ -1,4 +1,11 @@
 {
+  "devices": {
+    "controlfreak-device": {
+      "id": "controlfreak-device",
+      "name": "Backyard",
+      "name_by_user": null
+    }
+  },
   "entities": {
     "binary_sensor.backyard_controller": {
       "device_id": "controlfreak-device",

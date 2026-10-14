@@ -63,8 +63,6 @@
     if (text !== undefined) e.textContent = text;
     return e;
   };
-  const stripDevice = (name) => name.replace(/^Backyard /, "");
-
   function featureEl(feature, st) {
     const f = el("div", "feature");
     const a = st.attributes ?? {};
@@ -104,7 +102,8 @@
     const label = el("div");
     const unit = st.attributes?.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : "";
     label.append(
-      el("div", "name", stripDevice(st.attributes?.friendly_name ?? card.entity)),
+      // Like the tile card: the configured name, else the full friendly name.
+      el("div", "name", card.name ?? st.attributes?.friendly_name ?? card.entity),
       el("div", "state", `${st.state}${unit} · ${card.entity}`)
     );
     row.append(label);

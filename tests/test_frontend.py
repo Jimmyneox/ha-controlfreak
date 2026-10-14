@@ -19,7 +19,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.util.unit_system import US_CUSTOMARY_SYSTEM
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -198,6 +198,15 @@ def hass_stub(hass: HomeAssistant, entry: MockConfigEntry | None) -> dict[str, A
             "entity_id": reg.entity_id,
             "state": state.state,
             "attributes": dict(state.attributes),
+        }
+    # The frontend's hass.devices: tile names drop the device name prefix.
+    for device in dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id):
+        stub["devices"] = {
+            "controlfreak-device": {
+                "id": "controlfreak-device",
+                "name": device.name,
+                "name_by_user": device.name_by_user,
+            }
         }
     stub["entities"] = dict(sorted(stub["entities"].items()))
     stub["states"] = dict(sorted(stub["states"].items()))

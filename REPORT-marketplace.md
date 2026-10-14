@@ -131,6 +131,34 @@ rendered in a real HA frontend yet.
   kit is unchanged. Install and removal wording in the README, docs and forum post now
   covers Marketplace (2026.11+) and HACS (earlier versions).
 
+## Live test on the owner's Home Assistant (2026-10-14)
+
+The owner asked for an install and test on the Mac's Home Assistant (Core 2026.9.3).
+- **Install.** 0.1.1 was backed up outside `custom_components`, and the branch build was
+  copied in. `check_config` passed, and HA was restarted with `ha-restart`. The log shows no
+  Control Freak errors.
+- **Upgrade.** Every existing entity picked up its new translation key in place. Entity ids
+  are unchanged.
+- **Frontend.** The strategy file is served (200), the page loads it with `?v=0.2.0`, and it
+  is registered in `customStrategies` and offered under **Add dashboard**. Generated against
+  the live registry, it gives pumps, lights, temperature and flow, and controller health. No
+  heater and no valves, which matches this pool.
+- **Test dashboard.** "Control Freak (test)" is admin-only and hidden from the sidebar. It
+  renders with real tiles, trend graphs, the effect picker and the speed slider, with no
+  console errors. The single-section strategy also works live.
+- **Defect found and fixed.** Every tile read "Control Freak …". The device name, "Control
+  Freak Automated Pool System", starts every friendly name and filled the whole tile. The
+  harness had hidden this by stripping a hard-coded "Backyard " itself. Fixes:
+  - The strategy now sets each tile's `name` to the friendly name without the device name.
+    It honours a user-renamed device.
+  - Fixtures now carry `hass.devices` from the real device registry.
+  - The harness renders `card.name` the way the tile card does.
+  - Two tests were added; the main one goes red without the fix. The live dashboard now
+    shows "Filter Pump.", "Pool Lights", "Air" and so on.
+- **Version floor.** `select-options` with `style: buttons` is only in the frontend from
+  2026.10. On 2026.9.3 the mode shows as a dropdown, which works; the docs now say so.
+- **CI.** The render job is pinned to `ubuntu-24.04`.
+
 ## Next step
 Merge `marketplace-0.2.0` into `main` (a fast-forward; about 10 minutes of CI on `main`). Then cut the v0.2.0 release from that green commit with the command in
 `docs/SUBMISSION.md`. That release, plus that run's HACS and hassfest job links, is

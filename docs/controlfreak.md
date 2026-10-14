@@ -194,7 +194,11 @@ only uses cards that come with Home Assistant (heading and tile cards with tile 
 you don't need to install anything else.
 
 The strategy file is served by the integration and loaded automatically. You don't need to
-add a dashboard resource.
+add a dashboard resource. Tiles show each entity's own name, without the controller's device
+name in front.
+
+On Home Assistant versions before 2026.10, the pump mode shows as a dropdown instead of a row
+of buttons. Everything else looks the same on every supported version.
 
 ![Generated dashboard for a pool with five pumps](images/dashboard-full-pool.png)
 

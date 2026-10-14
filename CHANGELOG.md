@@ -9,6 +9,8 @@
   equipment". Core cards only. Options: `hide`, `order`, `titles`, `device_id`.
   A section strategy (`equipment: <type>`) drops a single block into any
   sections view.
+- Tiles show the entity's own name, without the device name in front. Found on a live
+  Home Assistant 2026.9.3, where every tile read "Control Freak …".
 - Equipment entities carry translation keys (`pump`, `light`, `relay`, `valve`,
   `temperature`, `flow`) so the dashboard groups them without entity ids. Names
   and entity ids don't change.
