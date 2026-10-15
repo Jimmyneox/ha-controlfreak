@@ -60,3 +60,17 @@ repository root (`python3 -m http.server`) and open
 ## License
 
 MIT
+
+## How Control Freak works
+
+Sensors measure, the controller decides and your equipment acts. This integration
+talks to the controller on your LAN; the pages below show the whole system.
+[Download the 2-page PDF](https://controlfreakpool.com/assets/diagrams/Control-Freak-How-It-Works.pdf)
+or see it on [controlfreakpool.com/how-it-works](https://controlfreakpool.com/how-it-works).
+
+[![How Control Freak works: sensors, controller and equipment](docs/images/how-it-works.webp)](https://controlfreakpool.com/assets/diagrams/how-it-works-3840.webp)
+
+[![Inputs and outputs, with ideas for what you can connect](docs/images/inputs-outputs.webp)](https://controlfreakpool.com/assets/diagrams/inputs-outputs-3840.webp)
+
+\* Freeze protection is an aid and carries no warranty. Apple Watch, Siri, Alexa,
+Google Home and CarPlay work through Home Assistant.
