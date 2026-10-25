@@ -1,0 +1,191 @@
+# Control Freak pool controller — LOCAL MQTT integration (2026-09-27).
+#
+# The panel (<ip>, Raspberry Pi, ControlFreak API v1.0.13) runs an
+# open Mosquitto broker over WEBSOCKETS on port 8080 (no TCP 1883, no auth).
+# The MQTT integration entry points at it: broker <ip>, port 8080,
+# transport websockets, ws_path "/".
+#
+# Wire shapes were CAPTURED from the ControlFreak app (the same React Native
+# app as on the phone), not guessed:
+#   status (retained, every ~2 s for thermistors, 60 s for controller/status):
+#     controller/<port>/status  {"name","status","meta":{...},"timestamp"}
+#   commands the app publishes (echoed by the panel as a fresh status):
+#     controller/hv_relay1/state {"state":"active|inactive","mode":"not-syncing",
+#                                 "color_choice":"Blue","sender":"user"}
+#     controller/pump1/state     {"pump_speed":"90|inactive","mode":"pool","sender":"user"}
+#   The panel's REST API is also reachable over MQTT (controller/api/request →
+#   controller/api/response/<requestId>) and plainly at http://<ip>:8000
+#   (/docs). The AWS IoT thing (controlfreak-<id>) is the app's remote path;
+#   nothing here touches it.
+#
+# Port map on this panel today: pump1 = "Filter Pump." (Fairland/Madimack VS),
+# thermistor1 = Air, thermistor2 = Pool, hv_relay1 = "Pool Lights" (Pentair
+# colour lights, 12 colour_choice values). lv_relay1-4 / valves / flow sensors
+# are unassigned.
+#
+# OWNER, 2026-09-27: the lights, the two thermistors (Air, Pool) and the
+# filter pump (RS-485 port 1) are wired. The pressure, flow and freeze
+# entities below are
+# panel CONFIGURATION with no equipment behind them (the panel echoes a pump
+# speed command as status whether or not a pump answers on RS-485), so they
+# ship enabled_by_default: false. When a port is physically wired, flip its
+# flag to true, run action mqtt.reload, and retarget dashboards/pool.yaml.
+#
+# Entity ids are the clean names the stand-in package (pool.yaml) reserved.
+# Reload without a restart: action mqtt.reload.
+
+mqtt:
+  light:
+    - name: Pool Lights
+      unique_id: control_freak_hv_relay1
+      default_entity_id: light.pool_lights
+      icon: mdi:pool
+      command_topic: controller/hv_relay1/state
+      payload_on: '{"state":"active","mode":"not-syncing","sender":"user"}'
+      payload_off: '{"state":"inactive","mode":"not-syncing","sender":"user"}'
+      state_topic: controller/hv_relay1/status
+      # MQTT compares the template's OUTPUT to payload_on/payload_off, so the
+      # state template must yield those same JSON strings.
+      state_value_template: >-
+        {{ '{"state":"active","mode":"not-syncing","sender":"user"}' if value_json.meta.relay_state | int == 1 else '{"state":"inactive","mode":"not-syncing","sender":"user"}' }}
+      effect_command_topic: controller/hv_relay1/state
+      effect_command_template: '{"state":"active","mode":"not-syncing","color_choice":"{{ value }}","sender":"user"}'
+      effect_state_topic: controller/hv_relay1/status
+      effect_value_template: "{{ value_json.meta.last_known_state }}"
+      effect_list:
+        - Blue
+        - Green
+        - Red
+        - White
+        - Magenta
+        - SAM Mode
+        - Party Mode
+        - Romance Mode
+        - Carribbean Mode
+        - American Mode
+        - California Sunset Mode
+        - Royal Mode
+      optimistic: false
+      qos: 0
+      retain: false
+      device: &cf_device
+        identifiers: <redacted>
+        name: Control Freak
+        manufacturer: Control Freak Pool Tech
+        model: ControlFreak panel
+        sw_version: "1.0.13"
+        configuration_url: http://<ip>:8000/docs
+
+  fan:
+    # The variable-speed filter pump. ON = last speed (HA sends the percentage
+    # with turn_on when one is given; a bare turn_on sends 100). OFF sends
+    # pump_speed "inactive", which is exactly what the app's toggle sends.
+    - name: Pool Pump
+      unique_id: control_freak_pump1
+      default_entity_id: fan.pool_pump
+      icon: mdi:pump
+      command_topic: controller/pump1/state
+      payload_on: '{"pump_speed":"100","mode":"pool","sender":"user"}'
+      payload_off: '{"pump_speed":"inactive","mode":"pool","sender":"user"}'
+      state_topic: controller/pump1/status
+      state_value_template: >-
+        {{ '{"pump_speed":"100","mode":"pool","sender":"user"}' if (value_json.meta.pump_speed | int(0)) > 0 else '{"pump_speed":"inactive","mode":"pool","sender":"user"}' }}
+      percentage_command_topic: controller/pump1/state
+      percentage_command_template: '{"pump_speed":"{{ value }}","mode":"pool","sender":"user"}'
+      percentage_state_topic: controller/pump1/status
+      percentage_value_template: "{{ value_json.meta.pump_speed | int(0) }}"
+      speed_range_min: 40   # pump_speed_minimum on the panel
+      speed_range_max: 100
+      optimistic: false
+      device: *cf_device
+
+  sensor:
+    - name: Pool Water
+      unique_id: control_freak_thermistor2
+      default_entity_id: sensor.pool_water
+      device_class: temperature
+      state_class: measurement
+      unit_of_measurement: "°F"
+      suggested_display_precision: 1
+      state_topic: controller/thermistor2/status
+      value_template: "{{ value_json.meta.temperature_f if value_json.status == 'active' else 'unavailable' }}"
+      expire_after: 180
+      device: *cf_device
+    - name: Pool Air
+      unique_id: control_freak_thermistor1
+      default_entity_id: sensor.pool_air
+      device_class: temperature
+      state_class: measurement
+      unit_of_measurement: "°F"
+      suggested_display_precision: 1
+      state_topic: controller/thermistor1/status
+      value_template: "{{ value_json.meta.temperature_f if value_json.status == 'active' else 'unavailable' }}"
+      expire_after: 180
+      device: *cf_device
+    - name: Pool Pump Speed
+      unique_id: control_freak_pump1_speed
+      default_entity_id: sensor.pool_pump_speed
+      icon: mdi:speedometer
+      state_class: measurement
+      unit_of_measurement: "%"
+      state_topic: controller/pump1/status
+      value_template: "{{ value_json.meta.pump_speed | int(0) }}"
+      device: *cf_device
+    - name: Pool Pump Mode
+      unique_id: control_freak_pump1_mode
+      default_entity_id: sensor.pool_pump_mode
+      icon: mdi:swap-horizontal
+      state_topic: controller/pump1/status
+      value_template: "{{ value_json.meta.mode }}"
+      device: *cf_device
+    - name: Pool Filter Pressure
+      enabled_by_default: false
+      unique_id: control_freak_pressure
+      default_entity_id: sensor.pool_filter_pressure
+      icon: mdi:gauge
+      state_class: measurement
+      unit_of_measurement: psi
+      state_topic: controller/pressure/status
+      value_template: "{{ value_json.meta.pressure }}"
+      device: *cf_device
+    - name: Pool Freeze Protection
+      unique_id: control_freak_freeze
+      default_entity_id: sensor.pool_freeze_protection
+      icon: mdi:snowflake-alert
+      state_topic: controller/freeze-protection/status
+      value_template: "{{ value_json.status }}"
+      device: *cf_device
+    - name: Pool Controller CPU
+      enabled_by_default: false
+      unique_id: control_freak_cpu_temp
+      default_entity_id: sensor.pool_controller_cpu
+      device_class: temperature
+      state_class: measurement
+      unit_of_measurement: "°F"
+      entity_category: diagnostic
+      state_topic: controller/status
+      value_template: "{{ value_json.meta.cpuTemperature | round(1) }}"
+      expire_after: 300
+      device: *cf_device
+
+  binary_sensor:
+    # The panel publishes controller/status every 60 s; no LWT, so "offline"
+    # is the 5-minute expiry, not a broker notice.
+    - name: Pool Controller
+      unique_id: control_freak_online
+      default_entity_id: binary_sensor.pool_controller
+      device_class: connectivity
+      state_topic: controller/status
+      value_template: "{{ 'ON' if value_json.status == 'active' else 'OFF' }}"
+      expire_after: 300
+      device: *cf_device
+    - name: Pool Flow 1
+      enabled_by_default: false
+      unique_id: control_freak_flow1
+      default_entity_id: binary_sensor.pool_flow_1
+      device_class: running
+      icon: mdi:waves
+      entity_category: diagnostic
+      state_topic: controller/flow_sensor1/status
+      value_template: "{{ 'ON' if value_json.meta.active_flow else 'OFF' }}"
+      device: *cf_device

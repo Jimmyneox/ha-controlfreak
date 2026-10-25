@@ -1,0 +1,23 @@
+{
+  "domain": "controlfreak",
+  "name": "Control Freak Automated Pool System",
+  "codeowners": [
+    "@Jimmyneox"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
+  "documentation": "https://github.com/Jimmyneox/ha-controlfreak/blob/main/docs/controlfreak.md",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Jimmyneox/ha-controlfreak/issues",
+  "loggers": [
+    "aiomqtt"
+  ],
+  "requirements": [
+    "aiomqtt>=2.5.0"
+  ],
+  "version": "0.2.1"
+}

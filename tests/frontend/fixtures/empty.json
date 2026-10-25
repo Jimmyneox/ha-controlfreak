@@ -1,0 +1,16 @@
+{
+  "entities": {
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "labels": [],
+      "platform": "sun"
+    }
+  },
+  "states": {
+    "sun.sun": {
+      "attributes": {},
+      "entity_id": "sun.sun",
+      "state": "above_horizon"
+    }
+  }
+}

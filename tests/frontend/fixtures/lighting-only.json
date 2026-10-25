@@ -1,0 +1,226 @@
+{
+  "devices": {
+    "controlfreak-device": {
+      "id": "controlfreak-device",
+      "name": "Backyard",
+      "name_by_user": null
+    }
+  },
+  "entities": {
+    "binary_sensor.backyard_controller": {
+      "device_id": "controlfreak-device",
+      "entity_id": "binary_sensor.backyard_controller",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "connectivity"
+    },
+    "light.backyard_bubbler_light": {
+      "device_id": "controlfreak-device",
+      "entity_id": "light.backyard_bubbler_light",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "light"
+    },
+    "light.backyard_pool_light": {
+      "device_id": "controlfreak-device",
+      "entity_id": "light.backyard_pool_light",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "light"
+    },
+    "light.backyard_spa_light": {
+      "device_id": "controlfreak-device",
+      "entity_id": "light.backyard_spa_light",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "light"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "cpu_temperature"
+    },
+    "sensor.backyard_firmware_version": {
+      "device_id": "controlfreak-device",
+      "entity_category": "diagnostic",
+      "entity_id": "sensor.backyard_firmware_version",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "firmware"
+    },
+    "sensor.backyard_freeze_protection": {
+      "device_id": "controlfreak-device",
+      "entity_id": "sensor.backyard_freeze_protection",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "freeze_protection"
+    },
+    "sun.sun": {
+      "entity_id": "sun.sun",
+      "labels": [],
+      "platform": "sun"
+    },
+    "switch.backyard_landscape_lights": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_landscape_lights",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "relay"
+    },
+    "switch.backyard_path_lights": {
+      "device_id": "controlfreak-device",
+      "entity_id": "switch.backyard_path_lights",
+      "has_entity_name": true,
+      "labels": [],
+      "platform": "controlfreak",
+      "translation_key": "relay"
+    }
+  },
+  "states": {
+    "binary_sensor.backyard_controller": {
+      "attributes": {
+        "device_class": "connectivity",
+        "friendly_name": "Backyard Controller"
+      },
+      "entity_id": "binary_sensor.backyard_controller",
+      "state": "on"
+    },
+    "light.backyard_bubbler_light": {
+      "attributes": {
+        "color_mode": "onoff",
+        "effect": "Blue",
+        "effect_list": [
+          "SAM Mode",
+          "Party Mode",
+          "Romance Mode",
+          "Carribbean Mode",
+          "American Mode",
+          "California Sunset Mode",
+          "Royal Mode",
+          "Blue",
+          "Green",
+          "Red",
+          "White",
+          "Magenta"
+        ],
+        "friendly_name": "Backyard Bubbler Light",
+        "supported_color_modes": [
+          "onoff"
+        ],
+        "supported_features": 4
+      },
+      "entity_id": "light.backyard_bubbler_light",
+      "state": "on"
+    },
+    "light.backyard_pool_light": {
+      "attributes": {
+        "color_mode": "onoff",
+        "effect": "Blue",
+        "effect_list": [
+          "SAM Mode",
+          "Party Mode",
+          "Romance Mode",
+          "Carribbean Mode",
+          "American Mode",
+          "California Sunset Mode",
+          "Royal Mode",
+          "Blue",
+          "Green",
+          "Red",
+          "White",
+          "Magenta"
+        ],
+        "friendly_name": "Backyard Pool Light",
+        "supported_color_modes": [
+          "onoff"
+        ],
+        "supported_features": 4
+      },
+      "entity_id": "light.backyard_pool_light",
+      "state": "on"
+    },
+    "light.backyard_spa_light": {
+      "attributes": {
+        "color_mode": "onoff",
+        "effect": "Blue",
+        "effect_list": [
+          "SAM Mode",
+          "Party Mode",
+          "Romance Mode",
+          "Carribbean Mode",
+          "American Mode",
+          "California Sunset Mode",
+          "Royal Mode",
+          "Blue",
+          "Green",
+          "Red",
+          "White",
+          "Magenta"
+        ],
+        "friendly_name": "Backyard Spa Light",
+        "supported_color_modes": [
+          "onoff"
+        ],
+        "supported_features": 4
+      },
+      "entity_id": "light.backyard_spa_light",
+      "state": "on"
+    },
+    "sensor.backyard_cpu_temperature": {
+      "attributes": {
+        "device_class": "temperature",
+        "friendly_name": "Backyard CPU temperature",
+        "state_class": "measurement",
+        "unit_of_measurement": "\u00b0F"
+      },
+      "entity_id": "sensor.backyard_cpu_temperature",
+      "state": "114.4"
+    },
+    "sensor.backyard_firmware_version": {
+      "attributes": {
+        "friendly_name": "Backyard Firmware version"
+      },
+      "entity_id": "sensor.backyard_firmware_version",
+      "state": "1.0.13"
+    },
+    "sensor.backyard_freeze_protection": {
+      "attributes": {
+        "friendly_name": "Backyard Freeze protection"
+      },
+      "entity_id": "sensor.backyard_freeze_protection",
+      "state": "nominal"
+    },
+    "sun.sun": {
+      "attributes": {},
+      "entity_id": "sun.sun",
+      "state": "above_horizon"
+    },
+    "switch.backyard_landscape_lights": {
+      "attributes": {
+        "connection_type": "General",
+        "friendly_name": "Backyard Landscape Lights"
+      },
+      "entity_id": "switch.backyard_landscape_lights",
+      "state": "off"
+    },
+    "switch.backyard_path_lights": {
+      "attributes": {
+        "connection_type": "General",
+        "friendly_name": "Backyard Path Lights"
+      },
+      "entity_id": "switch.backyard_path_lights",
+      "state": "off"
+    }
+  }
+}

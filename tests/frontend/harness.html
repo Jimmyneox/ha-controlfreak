@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control Freak strategy harness</title>
+<!--
+  Render check for the dashboard strategy. Serve the repository root over HTTP
+  and open tests/frontend/harness.html?shape=full-pool. The page runs the REAL
+  strategy module against a hass stub fixture and draws the generated config
+  with simplified stand-ins for the core cards (heading, tile + features,
+  markdown). It checks structure and layout, not Home Assistant's own styling.
+-->
+<style>
+  :root { --bg: #f4f5f7; --card: #fff; --text: #1c1c1e; --muted: #6b6f76; --line: #e2e4e8;
+          --on: #ff9800; --accent: #03a9f4; --chip: #eef1f5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--card);
+           display: flex; gap: 12px; align-items: baseline; }
+  header h1 { font-size: 20px; margin: 0; }
+  header span { color: var(--muted); }
+  main { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+         gap: 16px; padding: 16px 24px; align-items: start; }
+  .section { display: grid; gap: 8px; }
+  .heading { display: flex; gap: 8px; align-items: center; font-size: 18px; font-weight: 600;
+             padding: 4px 4px 2px; }
+  .heading .mdi { color: var(--muted); font-size: 12px; font-weight: 400; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+          background: var(--chip); color: var(--muted); font-weight: 700; flex: none; }
+  .icon.on { background: #fff3e0; color: var(--on); }
+  .name { font-weight: 600; }
+  .state { color: var(--muted); font-size: 12px; }
+  .features { display: grid; gap: 6px; margin-top: 8px; }
+  .feature { background: var(--chip); border-radius: 8px; padding: 6px 8px; font-size: 12px;
+             display: flex; justify-content: space-between; gap: 8px; }
+  .feature b { color: var(--accent); font-weight: 600; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); margin-top: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .tap { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .markdown { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header><h1 id="title"></h1><span id="meta"></span></header>
+<main id="view"></main>
+<script type="module">
+  import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
+
+  const params = new URLSearchParams(location.search);
+  const shape = params.get("shape") ?? "full-pool";
+  const options = JSON.parse(params.get("options") ?? "{}");
+  const hass = await (await fetch(`./fixtures/${shape}.json`)).json();
+  const dashboard = buildDashboard(hass, options);
+  const view = dashboard.views[0];
+
+  const el = (tag, cls, text) => {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  };
+  function featureEl(feature, st) {
+    const f = el("div", "feature");
+    const a = st.attributes ?? {};
+    switch (feature.type) {
+      case "fan-speed": {
+        f.append(el("span", "", "Speed"), el("b", "", `${a.percentage ?? 0} %`));
+        const wrap = el("div"); wrap.append(f);
+        const bar = el("div", "bar"); const fill = el("i"); fill.style.width = `${a.percentage ?? 0}%`;
+        bar.append(fill); wrap.append(bar); return wrap;
+      }
+      case "select-options":
+        f.append(el("span", "", (a.options ?? []).join(" · ")), el("b", "", st.state)); return f;
+      case "fan-preset-modes":
+        f.append(el("span", "", (a.preset_modes ?? []).join(" · ")), el("b", "", a.preset_mode ?? "")); return f;
+      case "light-effect":
+        f.append(el("span", "", `Effect (${(a.effect_list ?? []).length})`), el("b", "", a.effect ?? "—")); return f;
+      case "trend-graph":
+        f.append(el("span", "", "24 h trend"), el("b", "", "∿")); return f;
+      default:
+        f.append(el("span", "", feature.type)); return f;
+    }
+  }
+
+  function cardEl(card) {
+    if (card.type === "heading") {
+      const h = el("div", "heading", card.heading);
+      if (card.icon) h.append(el("span", "mdi", card.icon));
+      return h;
+    }
+    if (card.type === "markdown") return el("div", "markdown", card.content.replace(/\*\*/g, ""));
+    const st = hass.states[card.entity] ?? { state: "missing", attributes: {} };
+    const t = el("div", "tile");
+    const row = el("div", "row");
+    const on = ["on", "open"].includes(st.state);
+    const domain = card.entity.split(".")[0];
+    row.append(el("div", `icon${on ? " on" : ""}`, domain[0].toUpperCase()));
+    const label = el("div");
+    const unit = st.attributes?.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : "";
+    label.append(
+      // Like the tile card: the configured name, else the full friendly name.
+      el("div", "name", card.name ?? st.attributes?.friendly_name ?? card.entity),
+      el("div", "state", `${st.state}${unit} · ${card.entity}`)
+    );
+    row.append(label);
+    t.append(row);
+    if (card.features?.length) {
+      const fs = el("div", "features");
+      for (const f of card.features) fs.append(featureEl(f, st));
+      t.append(fs);
+    }
+    if (card.icon_tap_action) t.append(el("div", "tap", `icon tap: ${card.icon_tap_action.action} (read-only)`));
+    return t;
+  }
+
+  document.getElementById("title").textContent = dashboard.title;
+  const nTiles = view.sections.flatMap((s) => s.cards).filter((c) => c.type === "tile").length;
+  document.getElementById("meta").textContent =
+    `shape: ${shape} · ${view.sections.length} section(s) · ${nTiles} tile(s)`;
+  const main = document.getElementById("view");
+  for (const section of view.sections) {
+    const s = el("div", "section");
+    for (const card of section.cards) s.append(cardEl(card));
+    main.append(s);
+  }
+  document.body.dataset.rendered = "true";
+</script>
+</body>
+</html>
