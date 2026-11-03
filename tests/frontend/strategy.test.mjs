@@ -11,16 +11,26 @@ import {
   buildDashboard,
   buildSection,
   buildSections,
+  buildView,
   ControlFreakSectionStrategy,
+  ControlFreakViewStrategy,
   DEFAULT_TITLES,
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
+  PICTURE_CARD,
+  pictureCards,
+  sceneFor,
   sectionOrder,
   shortName,
 } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
 
 const fixture = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
+// buildDashboard(fixture) as v0.2.1 (commit 51bef93) produced it, before pictures existed.
+const snapshot = (name) =>
+  readFileSync(new URL(`./fixtures/snapshots/${name}.v0.2.1.json`, import.meta.url), "utf8");
+const SHAPES = ["full-pool", "lighting-only", "valves-skimmers", "empty"];
+const pictures = (sections) => sections.flatMap((s) => s.cards).filter((c) => c.type === PICTURE_CARD);
 
 const headings = (sections) => sections.map((s) => s.cards[0].heading);
 const entitiesOf = (section) => section.cards.filter((c) => c.entity).map((c) => c.entity);
@@ -253,13 +263,176 @@ test("device_id limits the dashboard to one panel", () => {
   assert.equal(buildSections(hass, { device_id: "controlfreak-device" }).length, 6);
 });
 
-test("dashboard: one sections view, only core cards", () => {
+test("dashboard: one sections view, core cards plus the integration's own picture card", () => {
   const dash = buildDashboard(fixture("full-pool"), { title: "Backyard pool" });
   assert.equal(dash.title, "Backyard pool");
   assert.equal(dash.views.length, 1);
   assert.equal(dash.views[0].type, "sections");
   const types = dash.views[0].sections.flatMap((s) => s.cards.map((c) => c.type));
-  for (const t of types) assert.ok(CORE_CARDS.has(t), t);
+  for (const t of types) assert.ok(CORE_CARDS.has(t) || t === PICTURE_CARD, t);
+  assert.ok(types.includes(PICTURE_CARD));
+  const plain = buildDashboard(fixture("full-pool"), { pictures: false });
+  for (const t of plain.views[0].sections.flatMap((s) => s.cards.map((c) => c.type))) {
+    assert.ok(CORE_CARDS.has(t), t);
+  }
+});
+
+/* ----- Animated pictures (0.3.0) ----------------------------------------- */
+
+test("pictures: false reproduces the v0.2.1 output byte for byte", () => {
+  for (const name of SHAPES) {
+    const out = JSON.stringify(buildDashboard(fixture(name), { pictures: false }), null, 2) + "\n";
+    assert.equal(out, snapshot(name), name);
+  }
+  // Only the pictures were added: with them stripped, today's output is v0.2.1's.
+  for (const name of SHAPES) {
+    const dash = buildDashboard(fixture(name));
+    for (const s of dash.views[0].sections) s.cards = s.cards.filter((c) => c.type !== PICTURE_CARD);
+    assert.equal(JSON.stringify(dash, null, 2) + "\n", snapshot(name), name);
+  }
+});
+
+test("full pool: pool, spa and waterfall pictures at the top of the pumps section", () => {
+  const hass = fixture("full-pool");
+  const pumps = buildSection(hass, "pumps");
+  const expected = [
+    {
+      type: PICTURE_CARD,
+      scene: "pool",
+      pump: "fan.backyard_filter_pump",
+      light: "light.backyard_pool_light",
+      grid_options: { columns: "full" },
+    },
+    {
+      type: PICTURE_CARD,
+      scene: "spa",
+      pump: "fan.backyard_spa_jets",
+      light: "light.backyard_spa_light",
+      spillover: "sensor.backyard_filter_pump_current_mode",
+      grid_options: { columns: "full" },
+    },
+    {
+      type: PICTURE_CARD,
+      scene: "falls",
+      pump: "fan.backyard_waterfall",
+      grid_options: { columns: "full" },
+    },
+  ];
+  assert.deepEqual(pumps.cards.slice(1, 4), expected);
+  assert.equal(pumps.cards[0].type, "heading");
+  assert.equal(pumps.cards[4].entity, "fan.backyard_cleaner_booster", "tiles follow, unchanged");
+  // The cleaner booster and the solar pump move water nobody watches.
+  assert.equal(pictures(buildSections(hass)).length, 3);
+  // Pictures live in the pumps section only.
+  for (const type of EQUIPMENT_TYPES.filter((t) => t !== "pumps")) {
+    const section = buildSection(hass, type);
+    if (section) assert.equal(pictures([section]).length, 0, type);
+  }
+});
+
+test("no water-moving pump, no picture: lighting-only, valves and empty panels", () => {
+  for (const name of ["lighting-only", "valves-skimmers", "empty"]) {
+    assert.deepEqual(pictures(buildSections(fixture(name))), [], name);
+  }
+});
+
+test("scene from the pump's own name, never a guess", () => {
+  assert.equal(sceneFor("Filter Pump"), "pool");
+  assert.equal(sceneFor("Main Pump"), "pool");
+  assert.equal(sceneFor("Spa Jets"), "spa");
+  assert.equal(sceneFor("Spa Pump"), "spa");
+  assert.equal(sceneFor("Waterfall"), "falls");
+  assert.equal(sceneFor("Sheer Descent"), "falls");
+  assert.equal(sceneFor("Deck Jets"), "deck", "deck before jets");
+  assert.equal(sceneFor("Laminar Jets"), "deck");
+  assert.equal(sceneFor("Bubbler"), "bub");
+  assert.equal(sceneFor("Bubblers"), "bub");
+  assert.equal(sceneFor("Cleaner Booster"), null);
+  assert.equal(sceneFor("Pool Cleaner"), null, "exclusions win over pool");
+  assert.equal(sceneFor("Solar Pump"), null);
+  assert.equal(sceneFor("Pump 1"), null);
+  assert.equal(sceneFor(""), null);
+  assert.equal(sceneFor(undefined), null);
+});
+
+test("deck jets and bubblers get their pictures, bound to their own lights", () => {
+  const hass = structuredClone(fixture("full-pool"));
+  const add = (id, key, name, attributes) => {
+    hass.entities[id] = {
+      entity_id: id,
+      platform: "controlfreak",
+      translation_key: key,
+      device_id: "controlfreak-device",
+      labels: [],
+    };
+    hass.states[id] = { entity_id: id, state: "on", attributes: { friendly_name: `Backyard ${name}`, ...attributes } };
+  };
+  add("fan.backyard_deck_jets", "pump", "Deck Jets", { percentage: 55, supported_features: 1 });
+  add("fan.backyard_bubbler", "pump", "Bubbler", { percentage: 50, supported_features: 1 });
+  add("light.backyard_bubbler_light", "light", "Bubbler Light", { effect: "Green", supported_features: 4 });
+  const cards = pictures(buildSections(hass));
+  assert.deepEqual(
+    cards.map((c) => [c.scene, c.pump, c.light]),
+    [
+      ["pool", "fan.backyard_filter_pump", "light.backyard_pool_light"],
+      ["spa", "fan.backyard_spa_jets", "light.backyard_spa_light"],
+      ["falls", "fan.backyard_waterfall", undefined],
+      ["deck", "fan.backyard_deck_jets", undefined],
+      ["bub", "fan.backyard_bubbler", "light.backyard_bubbler_light"],
+    ]
+  );
+});
+
+test("one picture per scene: the first pump by name; lights bind by name and domain only", () => {
+  const hass = structuredClone(fixture("full-pool"));
+  // Two pool pumps: one pool picture, bound to the first by name.
+  hass.states["fan.backyard_solar_pump"].attributes.friendly_name = "Backyard Circulation Pump";
+  let cards = pictures(buildSections(hass));
+  assert.deepEqual(cards.filter((c) => c.scene === "pool").map((c) => c.pump), ["fan.backyard_solar_pump"]);
+  // A relay (switch) called "Spa Light" is not a light: the spa picture stays unlit.
+  hass.states["switch.backyard_deck_lights"].attributes.friendly_name = "Backyard Spa Light";
+  delete hass.entities["light.backyard_spa_light"];
+  delete hass.states["light.backyard_spa_light"];
+  cards = pictures(buildSections(hass));
+  assert.equal(cards.find((c) => c.scene === "spa").light, undefined);
+  // Without a pool pump there is no mode sensor to spill from.
+  delete hass.entities["fan.backyard_filter_pump"];
+  delete hass.entities["fan.backyard_solar_pump"];
+  cards = pictures(buildSections(hass));
+  assert.equal(cards.find((c) => c.scene === "pool"), undefined);
+  assert.equal(cards.find((c) => c.scene === "spa").spillover, undefined);
+});
+
+test("pictureCards honours device_id and a hidden pump", () => {
+  const hass = structuredClone(fixture("full-pool"));
+  const items = [
+    { entry: hass.entities["fan.backyard_filter_pump"], role: "pump" },
+    { entry: hass.entities["sensor.backyard_filter_pump_current_mode"], role: "mode" },
+  ];
+  assert.equal(pictureCards(hass, items).length, 1);
+  // Lights of another panel are not borrowed.
+  assert.equal(pictureCards(hass, items, { device_id: "some-other-panel" })[0].light, undefined);
+  hass.entities["fan.backyard_filter_pump"].hidden = true;
+  assert.equal(pictures(buildSections(hass)).some((c) => c.scene === "pool"), false);
+});
+
+test("pictures: false on the dashboard, view and section strategies", async () => {
+  const hass = fixture("full-pool");
+  assert.equal(pictures(buildDashboard(hass, { pictures: false }).views[0].sections).length, 0);
+  assert.equal(pictures(buildView(hass, { pictures: false }).sections).length, 0);
+  assert.equal(pictures(buildView(hass).sections).length, 3);
+  const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", pictures: false }, hass);
+  assert.equal(pictures(view.sections).length, 0);
+  const off = await ControlFreakSectionStrategy.generate(
+    { type: "custom:controlfreak", equipment: "pumps", pictures: false },
+    hass
+  );
+  assert.equal(pictures([off]).length, 0);
+  const on = await ControlFreakSectionStrategy.generate({ type: "custom:controlfreak", equipment: "pumps" }, hass);
+  assert.equal(pictures([on]).length, 3);
+  // Anything but an explicit false keeps them.
+  assert.equal(pictures(buildSections(hass, { pictures: true })).length, 3);
+  assert.equal(pictures(buildSections(hass, { pictures: undefined })).length, 3);
 });
 
 test("section strategy: one block with an optional title", async () => {

@@ -11,12 +11,16 @@
  *     - strategy:
  *         type: custom:controlfreak    # one section in an existing view
  *         equipment: pumps
+ *         pictures: false              # tiles only, no animated pictures
  *
- * Only core cards are generated (heading, tile, markdown). Sections exist only
- * for equipment the panel actually reports: entities are found through
- * hass.entities (platform "controlfreak") and grouped by translation key, never
- * by entity id. Anything this file does not recognise lands in "Other
- * equipment" rather than being dropped.
+ * Core cards are generated (heading, tile, markdown), plus the integration's
+ * own picture card (custom:controlfreak-picture, served next to this file) at
+ * the top of the pumps section: one animated picture per water-moving pump
+ * the panel reports. `pictures: false` leaves them out, which gives exactly the
+ * v0.2.1 output. Sections exist only for equipment the panel actually reports:
+ * entities are found through hass.entities (platform "controlfreak") and
+ * grouped by translation key, never by entity id. Anything this file does not
+ * recognise lands in "Other equipment" rather than being dropped.
  *
  * The generator below is pure (plain objects in, plain objects out) and is
  * unit-tested with `node --test` against fixtures in tests/frontend/.
@@ -77,6 +81,32 @@ const KNOWN = {
 };
 
 const CONTROLLER_ORDER = ["connectivity", "freeze_protection", "cpu_temperature", "firmware"];
+
+export const PICTURE_CARD = "custom:controlfreak-picture";
+
+/** Picture scenes in display order. */
+export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
+
+/**
+ * Which picture a pump (or light) gets, from its own name, first match wins.
+ * Cleaners, boosters and solar pumps move water nobody sees: no picture. A
+ * name that matches nothing gets none either; the strategy never guesses.
+ * Exported for tests.
+ */
+export const SCENE_RULES = [
+  [/cleaner|booster|vacuum|sweep|solar|heat|chlor|salt/, null],
+  [/bubbler|bubbles?\b/, "bub"],
+  [/deck|laminar/, "deck"],
+  [/waterfall|falls|sheer|cascade|fountain|scupper|curtain/, "falls"],
+  [/jet|spa|hot tub/, "spa"],
+  [/filter|circulat|main|pool/, "pool"],
+];
+
+export function sceneFor(name) {
+  const lower = String(name ?? "").toLowerCase();
+  for (const [pattern, scene] of SCENE_RULES) if (pattern.test(lower)) return scene;
+  return null;
+}
 
 const FAN_SET_SPEED = 1;
 const FAN_PRESET_MODE = 8;
@@ -152,12 +182,15 @@ const tile = (entityId, features) => {
   return card;
 };
 
-function pumpCards(hass, items) {
+/**
+ * A pump's mode sensor is named "<pump name> current mode": pair it by longest
+ * matching name prefix so it sits right under its own pump. Returns the sorted
+ * pumps, a Map pump id -> [mode entries] and the modes that matched no pump.
+ */
+function pairModes(hass, items) {
   const pumps = items.filter((i) => i.role === "pump").map((i) => i.entry);
   const modes = items.filter((i) => i.role === "mode").map((i) => i.entry);
   pumps.sort(byName(hass));
-  // A pump's mode sensor is named "<pump name> current mode": pair it by
-  // longest matching name prefix so it sits right under its own pump.
   const paired = new Map(pumps.map((p) => [p.entity_id, []]));
   const unpaired = [];
   for (const mode of modes) {
@@ -172,6 +205,47 @@ function pumpCards(hass, items) {
     if (best) paired.get(best.id).push(mode);
     else unpaired.push(mode);
   }
+  return { pumps, paired, unpaired };
+}
+
+/**
+ * One animated picture per water-moving pump, in scene order: the filter pump
+ * is the pool, the spa jets the spa, and so on (see SCENE_RULES). Each picture
+ * binds the first light whose name points at the same scene, and the spa
+ * picture the pool pump's mode sensor, so a spillover pours into the pool.
+ * Exported for tests.
+ */
+export function pictureCards(hass, items, options = {}) {
+  const { pumps, paired } = pairModes(hass, items);
+  const pumpFor = {};
+  for (const pump of pumps) {
+    const scene = sceneFor(shortName(hass, pump.entity_id));
+    if (scene && !pumpFor[scene]) pumpFor[scene] = pump;
+  }
+  const lights = findEntities(hass, options)
+    .filter((e) => classify(e)[1] === "light" && domainOf(e.entity_id) === "light")
+    .sort(byName(hass));
+  const lightFor = {};
+  for (const light of lights) {
+    const scene = sceneFor(shortName(hass, light.entity_id));
+    if (scene && !lightFor[scene]) lightFor[scene] = light;
+  }
+  const cards = [];
+  for (const scene of SCENES) {
+    const pump = pumpFor[scene];
+    if (!pump) continue;
+    const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
+    if (lightFor[scene]) card.light = lightFor[scene].entity_id;
+    const poolModes = scene === "spa" && pumpFor.pool ? paired.get(pumpFor.pool.entity_id) : [];
+    if (poolModes.length) card.spillover = poolModes[0].entity_id;
+    card.grid_options = { columns: "full" };
+    cards.push(card);
+  }
+  return cards;
+}
+
+function pumpCards(hass, items) {
+  const { pumps, paired, unpaired } = pairModes(hass, items);
   const cards = [];
   for (const pump of pumps) {
     const features = [];
@@ -262,7 +336,11 @@ export function buildSection(hass, type, options = {}) {
   const items = groupEntities(findEntities(hass, options))[type] ?? [];
   const cards = CARD_BUILDERS[type](hass, items);
   if (!cards.length) return null;
+  if (type === "pumps" && options.pictures !== false) {
+    cards.unshift(...pictureCards(hass, items, options));
+  }
   for (const card of cards) {
+    if (!card.entity) continue; // picture cards carry no entity of their own
     const name = shortName(hass, card.entity);
     if (name !== friendlyName(hass, card.entity)) card.name = name;
   }
@@ -285,7 +363,11 @@ export function sectionOrder(options = {}) {
 
 /** Every section for the panel's equipment, in order. Pure. */
 export function buildSections(hass, options = {}) {
-  const sectionOptions = { titles: options.titles, device_id: options.device_id };
+  const sectionOptions = {
+    titles: options.titles,
+    device_id: options.device_id,
+    pictures: options.pictures,
+  };
   return sectionOrder(options)
     .map((type) => buildSection(hass, type, sectionOptions))
     .filter(Boolean);

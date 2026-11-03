@@ -20,8 +20,10 @@ DEFAULT_SCAN_INTERVAL: Final = 60
 MQTT_WS_PATH: Final = "/"
 MQTT_SUBSCRIPTION: Final = "controller/#"
 
-# The dashboard strategy, served by the integration (see frontend/).
+# The dashboard strategy and the animated picture card, served by the
+# integration (see frontend/) and loaded on every frontend page.
 FRONTEND_URL: Final = "/controlfreak/controlfreak-strategy.js"
+PICTURE_URL: Final = "/controlfreak/controlfreak-picture.js"
 
 # Seconds without a publish before a value is considered stale.
 # Thermistors publish every ~2 s; controller/status every ~60 s and has no LWT.

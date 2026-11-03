@@ -184,14 +184,62 @@ The integration includes a dashboard strategy. It builds a dashboard from the eq
 your controller actually has: a section for pumps, heating and cooling, lights and relays,
 valves, temperature and flow, and controller health. Sections without equipment are left out. Equipment of a
 type the strategy doesn't know yet appears in an **Other equipment** section. The dashboard
-only uses cards that come with Home Assistant (heading and tile cards with tile features), so
-you don't need to install anything else.
+uses cards that come with Home Assistant (heading and tile cards with tile features) plus the
+integration's own picture card for the animated pictures, so you don't need to install
+anything else.
 
-The strategy file is served by the integration and loaded automatically. You don't need to
-add a dashboard resource. Tiles show each entity's own name, without the controller's device
-name in front.
+The strategy and the picture card are served by the integration and loaded automatically. You
+don't need to add a dashboard resource. Tiles show each entity's own name, without the
+controller's device name in front.
 
 ![Generated dashboard for a pool with five pumps](images/dashboard-full-pool.png)
+
+### Animated pictures
+
+At the top of the **Pumps** section, the dashboard shows an animated picture of each water
+feature the controller runs: the pool, the spa, a waterfall, deck jets or bubblers. The water
+moves with the pump's speed and stands still when the pump is off. If a light belongs to the
+same feature, the water takes the colour of the light's current effect, and a colour show
+cycles through its hues. At night (the Home Assistant dark theme, or your device's dark
+mode) the water darkens and the light stands out. When the filter pump reports the
+**spillover** mode, the spa picture pours over its edge into the pool. A tap on a picture
+makes a splash.
+
+![Animated pictures of the pool, spa and waterfall, by day and by night](images/dashboard-pictures.png)
+
+The strategy picks the picture from the pump's name, as you set it in the Control Freak app:
+
+| Name contains | Picture | Light with a matching name |
+|---|---|---|
+| filter, circulation, main, pool | Pool | for example *Pool Light* |
+| jet, spa, hot tub | Spa | for example *Spa Light* |
+| waterfall, falls, sheer, cascade, fountain, scupper, curtain | Waterfall | for example *Waterfall Light* |
+| deck, laminar | Deck jets | |
+| bubbler, bubbles | Bubblers | for example *Bubbler Light* |
+
+A cleaner, booster or solar pump gets no picture, and neither does a pump whose name matches
+nothing: the strategy never guesses. One picture is shown per feature. Pictures are drawn
+in the browser only; nothing is sent to the controller.
+
+To leave the pictures out, set `pictures: false` under `strategy` (see below). If your
+browser or operating system asks for reduced motion, each picture is a still image. Pictures
+pause while they are off screen or the tab is hidden.
+
+You can also add a picture by hand to any dashboard:
+
+```yaml
+type: custom:controlfreak-picture
+scene: spa          # pool, spa, falls, deck or bub
+pump: fan.spa_jets  # optional, the water moves with this pump's speed
+light: light.spa_light  # optional, the water takes this light's effect colour
+spillover: sensor.filter_pump_current_mode  # optional (spa only)
+```
+
+Only `scene` is required. Without `pump` the water is still; without `light` it keeps its
+natural colour. The card is full width in a sections view; its height follows the section's
+rows and is at least 200 pixels. To tune the water colours, set the CSS variables
+`--controlfreak-water-a`, `--controlfreak-water-b` and `--controlfreak-water-hi` in your theme
+(hex colours).
 
 ### Create the dashboard
 
@@ -217,6 +265,7 @@ Add options under `strategy`:
 strategy:
   type: custom:controlfreak
   title: DASHBOARD_TITLE
+  pictures: false
   hide:
     - controller
   order:
@@ -229,6 +278,7 @@ strategy:
 | Option | Description |
 |---|---|
 | `title` | The dashboard title. The default is `Pool`. |
+| `pictures` | `false` leaves out the animated pictures above the pumps. The default is `true`. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
 | `titles` | A heading per equipment type, for example `pumps: Circulation`. |
@@ -238,7 +288,7 @@ The equipment types are:
 
 | Type | Default heading | Cards |
 |---|---|---|
-| `pumps` | Pumps | A tile per pump with a speed control, followed by its current mode. |
+| `pumps` | Pumps | An animated picture per water feature, then a tile per pump with a speed control, followed by its current mode. |
 | `heating` | Heating and cooling | A tile per relay configured as a heater or chiller, with a toggle. |
 | `lights` | Lights and relays | A tile per light with its effects, and a tile per relay with a toggle. |
 | `valves` | Valves | A tile per valve. |
@@ -263,8 +313,8 @@ views:
           title: SECTION_TITLE
 ```
 
-`equipment` is required and takes one of the equipment types above. `title` and
-`device_id` are optional.
+`equipment` is required and takes one of the equipment types above. `title`, `pictures`
+and `device_id` are optional.
 
 ## Data updates
 

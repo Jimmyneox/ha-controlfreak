@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -26,12 +26,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
-from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL
+from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL, PICTURE_URL
+from custom_components.controlfreak.mapping import DEFAULT_EFFECTS, EFFECT_COLORS
 
 from .conftest import FakeMqtt, load_fixture, mock_rest
 
 ROOT = Path(__file__).parent.parent
 STRATEGY = ROOT / "custom_components" / DOMAIN / "frontend" / "controlfreak-strategy.js"
+PICTURE = ROOT / "custom_components" / DOMAIN / "frontend" / "controlfreak-picture.js"
 JS_FIXTURES = Path(__file__).parent / "frontend" / "fixtures"
 MANIFEST = json.loads((ROOT / "custom_components" / DOMAIN / "manifest.json").read_text())
 
@@ -43,13 +45,50 @@ async def test_strategy_is_served(
     stub_frontend: MagicMock,
 ) -> None:
     """The JS is registered as a frontend module and actually served over HTTP."""
-    stub_frontend.assert_called_once_with(hass, f"{FRONTEND_URL}?v={MANIFEST['version']}")
+    version = MANIFEST["version"]
+    assert stub_frontend.call_args_list == [
+        call(hass, f"{FRONTEND_URL}?v={version}"),
+        call(hass, f"{PICTURE_URL}?v={version}"),
+    ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
     assert resp.status == 200
     body = await resp.text()
     for tag in ("dashboard", "view", "section"):
         assert f'"ll-strategy-{tag}-controlfreak"' in body
+
+
+async def test_picture_card_is_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The picture card is served beside the strategy, same cache-buster (checked above)."""
+    client = await hass_client()
+    resp = await client.get(PICTURE_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert 'customElements.define("controlfreak-picture"' in body
+    assert 'type: "controlfreak-picture"' in body  # listed in the card picker
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+def js_effect_colors() -> dict[str, str]:
+    """The EFFECT_COLORS table as written in controlfreak-picture.js, in order."""
+    js = PICTURE.read_text()
+    start = js.index("export const EFFECT_COLORS = {")
+    block = js[start : js.index("};", start)]
+    pairs = re.findall(r'^\s+"?([^"\n:]+?)"?: "([^"]+)",?$', block, re.MULTILINE)
+    assert pairs, "EFFECT_COLORS table not found in the picture card"
+    return dict(pairs)
+
+
+def test_effect_table_matches_mapping() -> None:
+    """One effect table: the card's copy equals mapping.py's, same names, same order."""
+    colors = js_effect_colors()
+    assert colors == EFFECT_COLORS
+    assert list(colors) == list(DEFAULT_EFFECTS)
+    for name, value in colors.items():
+        assert value == "show" or re.fullmatch(r"#[0-9a-f]{6}", value), name
 
 
 def strategy_translation_keys() -> set[str]:

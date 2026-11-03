@@ -1,0 +1,111 @@
+{
+  "title": "Pool",
+  "views": [
+    {
+      "type": "sections",
+      "title": "Pool",
+      "path": "pool",
+      "icon": "mdi:pool",
+      "max_columns": 4,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Lights and relays",
+              "heading_style": "title",
+              "icon": "mdi:lightbulb-group"
+            },
+            {
+              "type": "tile",
+              "entity": "light.backyard_bubbler_light",
+              "features": [
+                {
+                  "type": "light-effect"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Bubbler Light"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_landscape_lights",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Landscape Lights"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_path_lights",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Path Lights"
+            },
+            {
+              "type": "tile",
+              "entity": "light.backyard_pool_light",
+              "features": [
+                {
+                  "type": "light-effect"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Pool Light"
+            },
+            {
+              "type": "tile",
+              "entity": "light.backyard_spa_light",
+              "features": [
+                {
+                  "type": "light-effect"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Spa Light"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Controller health",
+              "heading_style": "title",
+              "icon": "mdi:chip"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.backyard_controller",
+              "name": "Controller"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_freeze_protection",
+              "name": "Freeze protection"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_cpu_temperature",
+              "name": "CPU temperature"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_firmware_version",
+              "name": "Firmware version"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

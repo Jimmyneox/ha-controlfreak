@@ -9,7 +9,11 @@
   and open tests/frontend/harness.html?shape=full-pool. The page runs the REAL
   strategy module against a hass stub fixture and draws the generated config
   with simplified stand-ins for the core cards (heading, tile + features,
-  markdown). It checks structure and layout, not Home Assistant's own styling.
+  markdown) and the REAL picture card (custom:controlfreak-picture) for the
+  animated pictures. It checks structure and layout, not Home Assistant's own
+  styling. ?shape=pictures renders the full pool plus a gallery of every scene
+  by day and by night. body[data-rendered] becomes "true" once every picture
+  has drawn a frame, "error" on any script error or console.error.
 -->
 <style>
   :root { --bg: #f4f5f7; --card: #fff; --text: #1c1c1e; --muted: #6b6f76; --line: #e2e4e8;
@@ -42,18 +46,37 @@
   .bar i { display: block; height: 100%; background: var(--accent); }
   .tap { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .markdown { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+  .picture { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .picture controlfreak-picture { display: block; height: 100%; }
+  .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+  .gallery .heading { grid-column: 1 / -1; }
+  .caption { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .night { background: #0a1a24; color: #e4f2f5; border-radius: 12px; padding: 8px; }
+  .night .caption { color: #93abb3; }
+  .error { grid-column: 1 / -1; background: #fde8e8; color: #8a1c1c; padding: 12px; border-radius: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <header><h1 id="title"></h1><span id="meta"></span></header>
 <main id="view"></main>
+<script>
+  // Any script error or console.error fails the render check (see the end of the module).
+  window.__harnessErrors = [];
+  addEventListener("error", (e) => window.__harnessErrors.push(e.message));
+  addEventListener("unhandledrejection", (e) => window.__harnessErrors.push(String(e.reason)));
+  const origError = console.error.bind(console);
+  console.error = (...args) => { window.__harnessErrors.push(args.join(" ")); origError(...args); };
+</script>
 <script type="module">
   import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
+  import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
 
   const params = new URLSearchParams(location.search);
   const shape = params.get("shape") ?? "full-pool";
   const options = JSON.parse(params.get("options") ?? "{}");
-  const hass = await (await fetch(`./fixtures/${shape}.json`)).json();
+  // "pictures" is the full pool plus a gallery of every scene, day and night.
+  const fixtureName = shape === "pictures" ? "full-pool" : shape;
+  const hass = await (await fetch(`./fixtures/${fixtureName}.json`)).json();
   const dashboard = buildDashboard(hass, options);
   const view = dashboard.views[0];
 
@@ -86,7 +109,17 @@
     }
   }
 
+  function pictureEl(card, hassFor) {
+    const wrap = el("div", "picture");
+    const pic = document.createElement("controlfreak-picture");
+    pic.setConfig(card);
+    pic.hass = hassFor;
+    wrap.append(pic);
+    return wrap;
+  }
+
   function cardEl(card) {
+    if (card.type === "custom:controlfreak-picture") return pictureEl(card, hass);
     if (card.type === "heading") {
       const h = el("div", "heading", card.heading);
       if (card.icon) h.append(el("span", "mdi", card.icon));
@@ -127,7 +160,52 @@
     for (const card of section.cards) s.append(cardEl(card));
     main.append(s);
   }
-  document.body.dataset.rendered = "true";
+
+  if (shape === "pictures") {
+    // Every scene with its pump running and its light on, by day and by night.
+    // Entities are synthetic: the full-pool fixture has no deck jets or bubbler.
+    const demo = {
+      states: {
+        "fan.demo_pump": { state: "on", attributes: { percentage: 60 } },
+        "sensor.demo_mode": { state: "spillover", attributes: {} },
+        "light.demo_blue": { state: "on", attributes: { effect: "Blue" } },
+        "light.demo_magenta": { state: "on", attributes: { effect: "Magenta" } },
+        "light.demo_white": { state: "on", attributes: { effect: "White" } },
+        "light.demo_green": { state: "on", attributes: { effect: "Green" } },
+        "light.demo_show": { state: "on", attributes: { effect: "Party Mode" } },
+      },
+    };
+    const lights = ["light.demo_blue", "light.demo_magenta", "light.demo_white", "light.demo_green", "light.demo_show"];
+    for (const dark of [false, true]) {
+      const g = el("div", `gallery${dark ? " night" : ""}`);
+      g.append(el("div", "heading", dark ? "Every scene at night" : "Every scene by day"));
+      SCENES.forEach((scene, i) => {
+        const card = { type: "custom:controlfreak-picture", scene, pump: "fan.demo_pump", light: lights[i] };
+        if (scene === "spa") card.spillover = "sensor.demo_mode";
+        const cell = el("div");
+        cell.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+        cell.append(el("div", "caption", `${scene} · pump 60% · ${demo.states[lights[i]].attributes.effect}`));
+        g.append(cell);
+      });
+      main.append(g);
+    }
+  }
+
+  // Ready once every picture has drawn a frame (ResizeObserver fires after layout).
+  const pics = [...document.querySelectorAll("controlfreak-picture")];
+  const deadline = performance.now() + 8000;
+  while (pics.some((p) => p.frames === 0) && performance.now() < deadline) {
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  await new Promise((r) => requestAnimationFrame(r));
+  const undrawn = pics.filter((p) => p.frames === 0).length;
+  if (undrawn) window.__harnessErrors.push(`${undrawn} picture card(s) never drew a frame`);
+  if (window.__harnessErrors.length) {
+    main.append(el("div", "error", window.__harnessErrors.join("\n")));
+    document.body.dataset.rendered = "error";
+  } else {
+    document.body.dataset.rendered = "true";
+  }
 </script>
 </body>
 </html>

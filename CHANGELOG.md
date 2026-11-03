@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0 — unreleased
+
+- **Animated pictures on the dashboard.** The pumps section opens with a canvas picture per
+  water feature the controller runs: pool, spa, waterfall, deck jets, bubblers. The water
+  moves with the pump's speed (still when it is off), takes the colour of the matching
+  light's effect (colour shows cycle), darkens with the Home Assistant dark theme, and the
+  spa pours into the pool while the filter pump reports spillover. Pictures are chosen from
+  the pump's name; cleaner, booster and solar pumps and unrecognised names get none.
+  `pictures: false` on the dashboard, view or section strategy restores the 0.2.1 output
+  exactly. Reduced motion gives a still frame; off-screen and hidden-tab pictures pause.
+- New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`),
+  served by the integration next to the strategy with the same version cache-buster, listed in
+  the card picker. No dependencies, no dashboard resource to add.
+- The effect-to-colour table lives once in `mapping.py` (`EFFECT_COLORS`; `DEFAULT_EFFECTS`
+  derives from it) and is mirrored in the card; a test keeps the two identical.
+- Tests: `node --test` for the card's pure helpers and the strategy's picture placement,
+  including a byte-for-byte comparison with 0.2.1 dashboards; the Playwright render check
+  draws every scene by day and by night and fails on any script error.
+
 ## 0.2.1 — 2026-10-24
 
 Changes from the Home Assistant community store review (hacs/default#11967).
