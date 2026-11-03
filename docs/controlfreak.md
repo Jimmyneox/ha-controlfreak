@@ -366,6 +366,13 @@ The REST API didn't answer.
 2. Make sure nothing between Home Assistant and the controller (a firewall or VLAN rule)
    blocks port 8080.
 
+### The dashboard shows no pictures after an update
+
+A device that had Home Assistant open before the update keeps the previous frontend until
+it reloads, and the dashboard it builds has no pictures. Close the Home Assistant companion
+app fully and reopen it, or reload the page in a browser. If that isn't enough, use
+**Settings** > **Companion app** > **Debugging** > **Reset frontend cache**.
+
 ### Entities are unavailable
 
 The integration lost its MQTT connection, or a sensor stopped publishing. Check the
