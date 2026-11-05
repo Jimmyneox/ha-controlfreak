@@ -13,12 +13,18 @@
  *   pump: fan.filter_pump  # optional: water speed = the fan's percentage
  *   light: light.pool_light  # optional: water colour = the light's effect
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
+ *   style: caustic         # optional: caustic | blueprint | depth | neon | poster
+ *
+ * The styles other than caustic live in controlfreak-picture-styles.js, served
+ * beside this file and imported from here.
  *
  * No framework, no bundler, no dependencies: a plain HTMLElement and a 2D
  * canvas. Everything above the custom element (the effect table, speed to flow,
  * the water buffer, the motion gate) is pure and unit-tested with `node --test`.
  * Display only: nothing here ever writes to pool equipment.
  */
+
+import { DEFAULT_STYLE, makeStyledScene, STYLES } from "./controlfreak-picture-styles.js";
 
 /* ----- Shared tables ----------------------------------------------------- */
 
@@ -918,6 +924,9 @@ export class ControlFreakPictureCard extends Base {
         throw new Error(`controlfreak-picture: "${key}" must be an entity id`);
       }
     }
+    if (config.style != null && !STYLES.includes(config.style)) {
+      throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
+    }
     this._config = config;
     this._model = this._hass ? modelOf(this._hass, config) : null;
     this._rebuild();
@@ -988,7 +997,8 @@ export class ControlFreakPictureCard extends Base {
     root.innerHTML = `<style>${STYLE}</style><ha-card><canvas role="img"></canvas></ha-card>`;
     const canvas = root.querySelector("canvas");
     this._canvas = canvas;
-    this._scene = makeScene(canvas, this._config.scene, () => this._model_(), () => this._colors());
+    const style = this._config.style ?? DEFAULT_STYLE;
+    this._scene = makeStyledScene(canvas, this._config.scene, style, () => this._model_(), () => this._colors());
     this._label();
     canvas.addEventListener("pointerdown", (e) => {
       const r = canvas.getBoundingClientRect();
@@ -1056,7 +1066,8 @@ if (globalThis.customElements) {
     globalThis.customCards.push({
       type: "controlfreak-picture",
       name: "Control Freak picture",
-      description: "An animated pool, spa, waterfall, deck jet or bubbler picture driven by a pump and a light.",
+      description:
+        "An animated pool, spa, waterfall, deck jet or bubbler picture driven by a pump and a light, in one of five styles.",
       preview: true,
       documentationURL: DOCS_URL,
     });

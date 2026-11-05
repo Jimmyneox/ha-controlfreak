@@ -12,7 +12,9 @@
   markdown) and the REAL picture card (custom:controlfreak-picture) for the
   animated pictures. It checks structure and layout, not Home Assistant's own
   styling. ?shape=pictures renders the full pool plus a gallery of every scene
-  by day and by night. body[data-rendered] becomes "true" once every picture
+  by day and by night. ?shape=styles-day and ?shape=styles-night render the
+  contact sheet: every picture style (rows) by every scene (columns), one
+  page per time of day. body[data-rendered] becomes "true" once every picture
   has drawn a frame, "error" on any script error or console.error.
 -->
 <style>
@@ -53,6 +55,13 @@
   .caption { font-size: 12px; color: var(--muted); padding: 0 4px; }
   .night { background: #0a1a24; color: #e4f2f5; border-radius: 12px; padding: 8px; }
   .night .caption { color: #93abb3; }
+  .sheet { grid-column: 1 / -1; display: grid; grid-template-columns: 110px repeat(5, 1fr); gap: 10px; align-items: center; }
+  .sheet .picture { height: 150px; }
+  .sheet .rowlabel { font-weight: 600; font-size: 15px; }
+  .sheet .rowlabel small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .sheet .collabel { text-align: center; font-size: 12px; color: var(--muted); }
+  .night.sheet { background: #0a1a24; color: #e4f2f5; }
+  .night .rowlabel small, .night .collabel { color: #93abb3; }
   .error { grid-column: 1 / -1; background: #fde8e8; color: #8a1c1c; padding: 12px; border-radius: 12px; white-space: pre-wrap; }
 </style>
 </head>
@@ -70,12 +79,14 @@
 <script type="module">
   import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
   import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
+  import { STYLES, STYLE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-picture-styles.js";
 
   const params = new URLSearchParams(location.search);
   const shape = params.get("shape") ?? "full-pool";
   const options = JSON.parse(params.get("options") ?? "{}");
   // "pictures" is the full pool plus a gallery of every scene, day and night.
-  const fixtureName = shape === "pictures" ? "full-pool" : shape;
+  const sheet = shape === "styles-day" ? "day" : shape === "styles-night" ? "night" : null;
+  const fixtureName = shape === "pictures" || sheet ? "full-pool" : shape;
   const hass = await (await fetch(`./fixtures/${fixtureName}.json`)).json();
   const dashboard = buildDashboard(hass, options);
   const view = dashboard.views[0];
@@ -155,16 +166,17 @@
   document.getElementById("meta").textContent =
     `shape: ${shape} · ${view.sections.length} section(s) · ${nTiles} tile(s)`;
   const main = document.getElementById("view");
-  for (const section of view.sections) {
-    const s = el("div", "section");
-    for (const card of section.cards) s.append(cardEl(card));
-    main.append(s);
+  if (!sheet) {
+    for (const section of view.sections) {
+      const s = el("div", "section");
+      for (const card of section.cards) s.append(cardEl(card));
+      main.append(s);
+    }
   }
 
-  if (shape === "pictures") {
-    // Every scene with its pump running and its light on, by day and by night.
-    // Entities are synthetic: the full-pool fixture has no deck jets or bubbler.
-    const demo = {
+  // Every scene with its pump running and its light on. Entities are synthetic:
+  // the full-pool fixture has no deck jets or bubbler.
+  const demo = {
       states: {
         "fan.demo_pump": { state: "on", attributes: { percentage: 60 } },
         "sensor.demo_mode": { state: "spillover", attributes: {} },
@@ -175,7 +187,35 @@
         "light.demo_show": { state: "on", attributes: { effect: "Party Mode" } },
       },
     };
-    const lights = ["light.demo_blue", "light.demo_magenta", "light.demo_white", "light.demo_green", "light.demo_show"];
+  const lights = ["light.demo_blue", "light.demo_magenta", "light.demo_white", "light.demo_green", "light.demo_show"];
+  const STYLE_NOTES = {
+    caustic: "soft caustic water",
+    blueprint: "flat plan view, ink lines",
+    depth: "refracted tiles, glints",
+    neon: "dark mirror, glowing lights",
+    poster: "flat colours, paper grain",
+  };
+  if (sheet) {
+    // The contact sheet: styles down, scenes across, one time of day per page.
+    const dark = sheet === "night";
+    const g = el("div", `sheet${dark ? " night" : ""}`);
+    g.append(el("div", "collabel", dark ? "night" : "day"));
+    SCENES.forEach((scene, i) => g.append(el("div", "collabel", `${scene} · pump 60% · ${demo.states[lights[i]].attributes.effect}`)));
+    for (const style of STYLES) {
+      const label = el("div", "rowlabel", STYLE_LABELS[style]);
+      label.append(el("small", "", STYLE_NOTES[style]));
+      g.append(label);
+      SCENES.forEach((scene, i) => {
+        const card = { type: "custom:controlfreak-picture", scene, style, pump: "fan.demo_pump", light: lights[i] };
+        if (scene === "spa") card.spillover = "sensor.demo_mode";
+        g.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+      });
+    }
+    main.append(g);
+    document.getElementById("meta").textContent = `shape: ${shape} · ${STYLES.length} styles × ${SCENES.length} scenes`;
+  }
+
+  if (shape === "pictures") {
     for (const dark of [false, true]) {
       const g = el("div", `gallery${dark ? " night" : ""}`);
       g.append(el("div", "heading", dark ? "Every scene at night" : "Every scene by day"));

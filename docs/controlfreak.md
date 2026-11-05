@@ -236,10 +236,40 @@ spillover: sensor.filter_pump_current_mode  # optional (spa only)
 ```
 
 Only `scene` is required. Without `pump` the water is still; without `light` it keeps its
-natural colour. The card is full width in a sections view; its height follows the section's
+natural colour. Add `style:` to pick one of the picture styles below. The card is full width in a sections view; its height follows the section's
 rows and is at least 200 pixels. To tune the water colours, set the CSS variables
 `--controlfreak-water-a`, `--controlfreak-water-b` and `--controlfreak-water-hi` in your theme
 (hex colours).
+
+### Picture styles
+
+The pictures come in five styles. Every style shows the same five scenes, follows the pump's
+speed and the light's effect colour, and darkens at night.
+
+| Style | Look |
+|---|---|
+| `caustic` | Soft caustic water, as in the Control Freak app. The default. |
+| `blueprint` | A flat plan view drawn in ink lines, with slow drifting ripple rings. Reads well on small cards. |
+| `depth` | Layered water: a tiled floor seen through the ripples, sun glints by day, a shadowed edge. The richest of the five. |
+| `neon` | Made for the night: the lights are the only bright things, and the water is a dark mirror with their reflections. By day the glow dims. |
+| `poster` | A mid-century pool postcard: a few flat colours, bold shapes, paper grain. |
+
+Set the style for every picture the strategy places with `picture_style`, or for one picture
+you added by hand with `style`:
+
+```yaml
+strategy:
+  type: custom:controlfreak
+  picture_style: depth
+```
+
+```yaml
+type: custom:controlfreak-picture
+scene: pool
+style: neon
+```
+
+Leaving the option out keeps the default style. An unknown style is reported as a card error.
 
 ### Create the dashboard
 
@@ -266,6 +296,7 @@ strategy:
   type: custom:controlfreak
   title: DASHBOARD_TITLE
   pictures: false
+  picture_style: caustic
   hide:
     - controller
   order:
@@ -279,6 +310,7 @@ strategy:
 |---|---|
 | `title` | The dashboard title. The default is `Pool`. |
 | `pictures` | `false` leaves out the animated pictures above the pumps. The default is `true`. |
+| `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
 | `titles` | A heading per equipment type, for example `pumps: Circulation`. |

@@ -18,6 +18,7 @@ import {
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
   PICTURE_CARD,
+  PICTURE_STYLES,
   pictureCards,
   sceneFor,
   sectionOrder,
@@ -27,8 +28,8 @@ import {
 const fixture = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
 // buildDashboard(fixture) as v0.2.1 (commit 51bef93) produced it, before pictures existed.
-const snapshot = (name) =>
-  readFileSync(new URL(`./fixtures/snapshots/${name}.v0.2.1.json`, import.meta.url), "utf8");
+const snapshot = (name, version = "v0.2.1") =>
+  readFileSync(new URL(`./fixtures/snapshots/${name}.${version}.json`, import.meta.url), "utf8");
 const SHAPES = ["full-pool", "lighting-only", "valves-skimmers", "empty"];
 const pictures = (sections) => sections.flatMap((s) => s.cards).filter((c) => c.type === PICTURE_CARD);
 
@@ -489,4 +490,51 @@ test("short name honours a user-renamed device and leaves other names alone", ()
 
 test("every type has a default title", () => {
   for (const t of EQUIPMENT_TYPES) assert.ok(DEFAULT_TITLES[t]);
+});
+
+/* ----- Picture styles --------------------------------------------------- */
+
+test("no picture_style: the output is 0.3.0's byte for byte (cards carry no style key)", () => {
+  for (const name of SHAPES) {
+    const out = JSON.stringify(buildDashboard(fixture(name)), null, 2) + "\n";
+    assert.equal(out, snapshot(name, "v0.3.0"), name);
+    assert.equal(JSON.stringify(buildDashboard(fixture(name), { picture_style: undefined }), null, 2) + "\n", out);
+  }
+  for (const c of pictures(buildSections(fixture("full-pool")))) assert.equal("style" in c, false);
+});
+
+test("picture_style reaches every picture card from the dashboard, view and section strategies", async () => {
+  const hass = fixture("full-pool");
+  assert.deepEqual(PICTURE_STYLES, ["caustic", "blueprint", "depth", "neon", "poster"]);
+  for (const style of PICTURE_STYLES) {
+    const dash = pictures(buildDashboard(hass, { picture_style: style }).views[0].sections);
+    assert.equal(dash.length, 3, style);
+    for (const c of dash) assert.equal(c.style, style);
+    for (const c of pictures(buildView(hass, { picture_style: style }).sections)) assert.equal(c.style, style);
+    const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", picture_style: style }, hass);
+    for (const c of pictures(view.sections)) assert.equal(c.style, style);
+    const section = await ControlFreakSectionStrategy.generate(
+      { type: "custom:controlfreak", equipment: "pumps", picture_style: style },
+      hass
+    );
+    assert.equal(pictures([section]).length, 3);
+    for (const c of pictures([section])) assert.equal(c.style, style);
+  }
+  // Only the picture cards change: strip the style and the dashboard is the default one.
+  const styled = buildDashboard(hass, { picture_style: "neon" });
+  for (const c of pictures(styled.views[0].sections)) delete c.style;
+  assert.equal(JSON.stringify(styled, null, 2) + "\n", snapshot("full-pool", "v0.3.0"));
+  // Tiles never carry a style.
+  const tiles = buildSections(hass, { picture_style: "neon" }).flatMap((s) => s.cards).filter((c) => c.entity);
+  for (const c of tiles) assert.equal("style" in c, false);
+});
+
+test("an unknown picture_style is rejected; pictures: false ignores it", () => {
+  const hass = fixture("full-pool");
+  assert.throws(() => buildSection(hass, "pumps", { picture_style: "sepia" }), /Unknown Control Freak picture_style "sepia"/);
+  assert.throws(() => buildDashboard(hass, { picture_style: "sepia" }), /caustic, blueprint, depth, neon, poster/);
+  const out = JSON.stringify(buildDashboard(hass, { pictures: false, picture_style: "sepia" }), null, 2) + "\n";
+  assert.equal(out, snapshot("full-pool"));
+  // Lighting-only panels have no picture, so a style changes nothing there either.
+  assert.equal(JSON.stringify(buildDashboard(fixture("lighting-only"), { picture_style: "poster" }), null, 2) + "\n", snapshot("lighting-only", "v0.3.0"));
 });

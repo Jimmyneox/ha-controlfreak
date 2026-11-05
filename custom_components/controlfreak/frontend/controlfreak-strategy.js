@@ -12,12 +12,14 @@
  *         type: custom:controlfreak    # one section in an existing view
  *         equipment: pumps
  *         pictures: false              # tiles only, no animated pictures
+ *         picture_style: depth         # caustic (default), blueprint, depth, neon, poster
  *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
  * the top of the pumps section: one animated picture per water-moving pump
  * the panel reports. `pictures: false` leaves them out, which gives exactly the
- * v0.2.1 output. Sections exist only for equipment the panel actually reports:
+ * v0.2.1 output; `picture_style` picks one of the card's five looks (left out,
+ * the card's default applies and the output is exactly 0.3.0's). Sections exist only for equipment the panel actually reports:
  * entities are found through hass.entities (platform "controlfreak") and
  * grouped by translation key, never by entity id. Anything this file does not
  * recognise lands in "Other equipment" rather than being dropped.
@@ -83,6 +85,9 @@ const KNOWN = {
 const CONTROLLER_ORDER = ["connectivity", "freeze_protection", "cpu_temperature", "firmware"];
 
 export const PICTURE_CARD = "custom:controlfreak-picture";
+
+/** Picture styles the card knows (see controlfreak-picture-styles.js). */
+export const PICTURE_STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
 
 /** Picture scenes in display order. */
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
@@ -235,6 +240,7 @@ export function pictureCards(hass, items, options = {}) {
     const pump = pumpFor[scene];
     if (!pump) continue;
     const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
+    if (options.picture_style != null) card.style = options.picture_style;
     if (lightFor[scene]) card.light = lightFor[scene].entity_id;
     const poolModes = scene === "spa" && pumpFor.pool ? paired.get(pumpFor.pool.entity_id) : [];
     if (poolModes.length) card.spillover = poolModes[0].entity_id;
@@ -337,6 +343,11 @@ export function buildSection(hass, type, options = {}) {
   const cards = CARD_BUILDERS[type](hass, items);
   if (!cards.length) return null;
   if (type === "pumps" && options.pictures !== false) {
+    if (options.picture_style != null && !PICTURE_STYLES.includes(options.picture_style)) {
+      throw new Error(
+        `Unknown Control Freak picture_style "${options.picture_style}". Use one of: ${PICTURE_STYLES.join(", ")}`
+      );
+    }
     cards.unshift(...pictureCards(hass, items, options));
   }
   for (const card of cards) {
@@ -367,6 +378,7 @@ export function buildSections(hass, options = {}) {
     titles: options.titles,
     device_id: options.device_id,
     pictures: options.pictures,
+    picture_style: options.picture_style,
   };
   return sectionOrder(options)
     .map((type) => buildSection(hass, type, sectionOptions))

@@ -13,11 +13,19 @@
 - New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`),
   served by the integration next to the strategy with the same version cache-buster, listed in
   the card picker. No dependencies, no dashboard resource to add.
+- **Five picture styles.** `style` on the picture card and `picture_style` on the dashboard,
+  view and section strategies pick the look: `caustic` (the default, unchanged), `blueprint`
+  (flat plan view, ink lines, drifting rings), `depth` (refracted tile floor, glints, shadowed
+  edges), `neon` (dark mirror lit only by the lights; day dims the glow) and `poster`
+  (mid-century postcard, flat colours, paper grain). Every style draws all five scenes by day
+  and by night from the same pump and light state. Left out, the output is unchanged. The
+  styles live in `controlfreak-picture-styles.js`, imported by the card and served beside it.
 - The effect-to-colour table lives once in `mapping.py` (`EFFECT_COLORS`; `DEFAULT_EFFECTS`
   derives from it) and is mirrored in the card; a test keeps the two identical.
 - Tests: `node --test` for the card's pure helpers and the strategy's picture placement,
   including a byte-for-byte comparison with 0.2.1 dashboards; the Playwright render check
-  draws every scene by day and by night and fails on any script error.
+  draws every scene by day and by night and fails on any script error; `styles-day` and
+  `styles-night` contact sheets (styles down, scenes across) are kept as workflow artifacts.
 
 ## 0.2.1 — 2026-10-24
 

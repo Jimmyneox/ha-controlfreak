@@ -26,7 +26,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
-from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL, PICTURE_URL
+from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL, PICTURE_URL, STYLES_URL
 from custom_components.controlfreak.mapping import DEFAULT_EFFECTS, EFFECT_COLORS
 
 from .conftest import FakeMqtt, load_fixture, mock_rest
@@ -68,6 +68,22 @@ async def test_picture_card_is_served(
     body = await resp.text()
     assert 'customElements.define("controlfreak-picture"' in body
     assert 'type: "controlfreak-picture"' in body  # listed in the card picker
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_picture_styles_are_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The styles module the card imports is served at the path the import resolves to."""
+    picture = PICTURE.read_text()
+    assert 'from "./controlfreak-picture-styles.js"' in picture
+    assert PICTURE_URL.rsplit("/", 1)[0] + "/controlfreak-picture-styles.js" == STYLES_URL
+    client = await hass_client()
+    resp = await client.get(STYLES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert 'export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];' in body
     mime = resp.headers["Content-Type"].split(";")[0]
     assert mime in ("application/javascript", "text/javascript")
 

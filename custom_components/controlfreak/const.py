@@ -24,6 +24,8 @@ MQTT_SUBSCRIPTION: Final = "controller/#"
 # integration (see frontend/) and loaded on every frontend page.
 FRONTEND_URL: Final = "/controlfreak/controlfreak-strategy.js"
 PICTURE_URL: Final = "/controlfreak/controlfreak-picture.js"
+# Imported by the picture card (its four extra styles); served, not loaded directly.
+STYLES_URL: Final = "/controlfreak/controlfreak-picture-styles.js"
 
 # Seconds without a publish before a value is considered stale.
 # Thermistors publish every ~2 s; controller/status every ~60 s and has no LWT.

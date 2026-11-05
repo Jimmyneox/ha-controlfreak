@@ -1,0 +1,319 @@
+{
+  "title": "Pool",
+  "views": [
+    {
+      "type": "sections",
+      "title": "Pool",
+      "path": "pool",
+      "icon": "mdi:pool",
+      "max_columns": 4,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Pumps",
+              "heading_style": "title",
+              "icon": "mdi:pump"
+            },
+            {
+              "type": "custom:controlfreak-picture",
+              "scene": "pool",
+              "pump": "fan.backyard_filter_pump",
+              "light": "light.backyard_pool_light",
+              "grid_options": {
+                "columns": "full"
+              }
+            },
+            {
+              "type": "custom:controlfreak-picture",
+              "scene": "spa",
+              "pump": "fan.backyard_spa_jets",
+              "light": "light.backyard_spa_light",
+              "spillover": "sensor.backyard_filter_pump_current_mode",
+              "grid_options": {
+                "columns": "full"
+              }
+            },
+            {
+              "type": "custom:controlfreak-picture",
+              "scene": "falls",
+              "pump": "fan.backyard_waterfall",
+              "grid_options": {
+                "columns": "full"
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "fan.backyard_cleaner_booster",
+              "features": [
+                {
+                  "type": "fan-speed"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Cleaner Booster"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_cleaner_booster_current_mode",
+              "name": "Cleaner Booster current mode"
+            },
+            {
+              "type": "tile",
+              "entity": "fan.backyard_filter_pump",
+              "features": [
+                {
+                  "type": "fan-speed"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Filter Pump"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_filter_pump_current_mode",
+              "name": "Filter Pump current mode"
+            },
+            {
+              "type": "tile",
+              "entity": "fan.backyard_solar_pump",
+              "features": [
+                {
+                  "type": "fan-speed"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Solar Pump"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_solar_pump_current_mode",
+              "name": "Solar Pump current mode"
+            },
+            {
+              "type": "tile",
+              "entity": "fan.backyard_spa_jets",
+              "features": [
+                {
+                  "type": "fan-speed"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Spa Jets"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_spa_jets_current_mode",
+              "name": "Spa Jets current mode"
+            },
+            {
+              "type": "tile",
+              "entity": "fan.backyard_waterfall",
+              "features": [
+                {
+                  "type": "fan-speed"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Waterfall"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_waterfall_current_mode",
+              "name": "Waterfall current mode"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Heating and cooling",
+              "heading_style": "title",
+              "icon": "mdi:thermostat"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_pool_chiller",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Pool Chiller"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_spa_heater",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Spa Heater"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Lights and relays",
+              "heading_style": "title",
+              "icon": "mdi:lightbulb-group"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_deck_lights",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Deck Lights"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_landscape_lights",
+              "features": [
+                {
+                  "type": "toggle"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Landscape Lights"
+            },
+            {
+              "type": "tile",
+              "entity": "light.backyard_pool_light",
+              "features": [
+                {
+                  "type": "light-effect"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Pool Light"
+            },
+            {
+              "type": "tile",
+              "entity": "light.backyard_spa_light",
+              "features": [
+                {
+                  "type": "light-effect"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Spa Light"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Valves",
+              "heading_style": "title",
+              "icon": "mdi:valve"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_spa_valve",
+              "icon_tap_action": {
+                "action": "more-info"
+              },
+              "name": "Spa Valve"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Temperature and flow",
+              "heading_style": "title",
+              "icon": "mdi:thermometer-water"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_air",
+              "features": [
+                {
+                  "type": "trend-graph"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Air"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_pool_water",
+              "features": [
+                {
+                  "type": "trend-graph"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Pool Water"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_spa_water",
+              "features": [
+                {
+                  "type": "trend-graph"
+                }
+              ],
+              "features_position": "bottom",
+              "name": "Spa Water"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.backyard_main_flow",
+              "name": "Main Flow"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Controller health",
+              "heading_style": "title",
+              "icon": "mdi:chip"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.backyard_controller",
+              "name": "Controller"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_freeze_protection",
+              "name": "Freeze protection"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_cpu_temperature",
+              "name": "CPU temperature"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_firmware_version",
+              "name": "Firmware version"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
