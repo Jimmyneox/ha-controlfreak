@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import ControlFreakConfigEntry
 from .entity import ControlFreakEntity, async_setup_dynamic
-from .mapping import DEFAULT_EFFECTS, light_effects, relay_is_on
+from .mapping import DEFAULT_EFFECTS, light_effects, light_icon, relay_is_on
 
 PARALLEL_UPDATES = 1
 
@@ -30,6 +30,11 @@ class ControlFreakLight(ControlFreakEntity, LightEntity):
     _attr_color_mode = ColorMode.ONOFF
     _attr_supported_color_modes = {ColorMode.ONOFF}
     _attr_supported_features = LightEntityFeature.EFFECT
+
+    @property
+    def icon(self) -> str:
+        s = self.setting
+        return light_icon(s.name if s else None)
 
     @property
     def effect_list(self) -> list[str]:

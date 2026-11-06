@@ -14,10 +14,12 @@
  *         pictures: false              # tiles only, no animated pictures
  *         picture_shape: kidney        # the pool's outline (default rectangle)
  *         picture_style: depth         # caustic (default), blueprint, depth, neon, poster
+ *         picture_deck: pavers         # the surround: concrete (default), pavers, travertine, wood, stone
  *         picture_rows: 6              # picture height in grid rows (2..12)
+ *         controls: core               # Home Assistant's own tile features and the 0.2.1 layout
  *
  * The dashboard, view and section strategies also have a settings editor in
- * Home Assistant's edit dialog (title, pictures, style, shape, height).
+ * Home Assistant's edit dialog (title, pictures, style, shape, deck, height).
  *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
@@ -47,6 +49,8 @@ export const EQUIPMENT_TYPES = [
   "controller",
   "other",
 ];
+/** The default layout: the water readings right of the pool. `controls: core` keeps the 0.2.1 order. */
+export const DEFAULT_ORDER = ["pumps", "sensors", "heating", "lights", "valves", "controller", "other"];
 
 export const DEFAULT_TITLES = {
   pumps: "Pumps",
@@ -69,6 +73,8 @@ const ICONS = {
 };
 
 // translation_key -> [equipment type, role]. Roles decide the card.
+import { splitEffects } from "./controlfreak-features.js";
+
 const KNOWN = {
   pump: ["pumps", "pump"],
   pump_speed: ["pumps", "redundant"], // shown on the pump tile already
@@ -95,6 +101,14 @@ export const PICTURE_CARD = "custom:controlfreak-picture";
 
 /** Picture styles the card knows (see controlfreak-picture-styles.js). */
 export const PICTURE_STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
+/** The surround finishes (controlfreak-picture-styles.js DECKS), in order. */
+export const PICTURE_DECKS = ["concrete", "pavers", "travertine", "wood", "stone"];
+/** Tile features: Control Freak's own (default) or Home Assistant's core ones. */
+export const CONTROLS = ["controlfreak", "core"];
+export const PUMP_SPEED_FEATURE = "custom:controlfreak-pump-speed";
+export const LIGHT_COLORS_FEATURE = "custom:controlfreak-light-colors";
+export const LIGHT_SHOWS_FEATURE = "custom:controlfreak-light-shows";
+const coreControls = (options) => options.controls === "core";
 /** Pool shapes the card knows (the table in controlfreak-pool-shapes.js; tested equal). */
 export const PICTURE_SHAPES = [
   "rectangle",
@@ -291,6 +305,7 @@ function featureCards({ pumpFor, lightFor, spillover }, options) {
     const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
     if (scene === "pool" && options.picture_shape != null) card.shape = options.picture_shape;
     if (options.picture_style != null) card.style = options.picture_style;
+    if (options.picture_deck != null) card.deck = options.picture_deck;
     if (lightFor[scene]) card.light = lightFor[scene].entity_id;
     if (scene === "spa" && spillover) card.spillover = spillover;
     card.grid_options = pictureGrid(options);
@@ -311,6 +326,7 @@ function overviewCard({ pumpFor, lightFor, spillover }, options) {
   const card = { type: PICTURE_CARD, scene: "overview" };
   if (options.picture_shape != null) card.shape = options.picture_shape;
   if (options.picture_style != null) card.style = options.picture_style;
+  if (options.picture_deck != null) card.deck = options.picture_deck;
   card.pumps = pumps;
   if (Object.keys(lights).length) card.lights = lights;
   if (pumps.spa && spillover) card.spillover = spillover;
@@ -318,32 +334,81 @@ function overviewCard({ pumpFor, lightFor, spillover }, options) {
   return [card];
 }
 
-function pumpCards(hass, items) {
+function pumpCards(hass, items, options = {}) {
   const { pumps, paired, unpaired } = pairModes(hass, items);
+  const core = coreControls(options);
   const cards = [];
+  let poolPlaced = false;
   for (const pump of pumps) {
     const features = [];
-    if (supports(hass, pump.entity_id, FAN_SET_SPEED)) features.push({ type: "fan-speed" });
+    if (supports(hass, pump.entity_id, FAN_SET_SPEED)) {
+      features.push(core ? { type: "fan-speed" } : { type: PUMP_SPEED_FEATURE });
+    }
     const presets = hass.states[pump.entity_id]?.attributes?.preset_modes;
     if (supports(hass, pump.entity_id, FAN_PRESET_MODE) && presets?.length) {
       features.push({ type: "fan-preset-modes", style: "icons" });
     }
-    cards.push(tile(pump.entity_id, features));
-    for (const mode of paired.get(pump.entity_id)) cards.push(tile(mode.entity_id));
+    const group = [tile(pump.entity_id, features), ...paired.get(pump.entity_id).map((m) => tile(m.entity_id))];
+    // The pool's own pump goes first, full width: its speed sits right under the
+    // picture, and the pool's lights (their colour bars) right under that.
+    if (!core && !poolPlaced && features.length && sceneFor(shortName(hass, pump.entity_id)) === "pool") {
+      group[0].grid_options = { columns: "full" };
+      const lights = poolLights(hass, options).map((id) => {
+        const t = lightTile(hass, id, options);
+        t.grid_options = { columns: "full" };
+        return t;
+      });
+      cards.unshift(...group, ...lights);
+      poolPlaced = true;
+    } else {
+      cards.push(...group);
+    }
   }
   for (const mode of unpaired.sort(byName(hass))) cards.push(tile(mode.entity_id));
   return cards;
 }
 
-function lightCards(hass, items) {
+function lightTile(hass, entityId, options = {}) {
+  if (domainOf(entityId) !== "light" || !supports(hass, entityId, LIGHT_EFFECT)) {
+    return tile(entityId, domainOf(entityId) === "switch" ? [{ type: "toggle" }] : []);
+  }
+  if (coreControls(options)) return tile(entityId, [{ type: "light-effect" }]);
+  // The colours as a bar of swatches, the shows as a dropdown; the core
+  // dropdown only when the light's effects are not known yet.
+  const { colors, shows } = splitEffects(hass.states[entityId]?.attributes?.effect_list);
+  const features = [];
+  if (colors.length) features.push({ type: LIGHT_COLORS_FEATURE });
+  if (shows.length) features.push({ type: LIGHT_SHOWS_FEATURE });
+  return tile(entityId, features.length ? features : [{ type: "light-effect" }]);
+}
+
+/**
+ * The lights that light the picture (pool, spa, falls), in that order. With
+ * the default controls they sit under the pool's pump in the pumps section,
+ * their colour bars right under the picture, and leave the lights section.
+ */
+export function poolLights(hass, options = {}) {
+  if (coreControls(options)) return [];
+  const pumps = groupEntities(findEntities(hass, options)).pumps ?? [];
+  const { pumpFor, lightFor } = bindPictures(hass, pumps, options);
+  // Only when there is a pool pump with a speed slider for them to sit under;
+  // a lighting-only panel keeps its lights in the lights section.
+  if (!pumpFor.pool || !supports(hass, pumpFor.pool.entity_id, FAN_SET_SPEED)) return [];
+  const ids = [];
+  for (const scene of ["pool", "spa", "falls", "deck", "bub"]) {
+    const light = lightFor[scene];
+    if (light && !ids.includes(light.entity_id)) ids.push(light.entity_id);
+  }
+  return ids;
+}
+
+function lightCards(hass, items, options = {}) {
+  const moved = new Set(poolLights(hass, options));
   return items
     .map((i) => i.entry)
+    .filter((e) => !moved.has(e.entity_id))
     .sort(byName(hass))
-    .map((e) =>
-      domainOf(e.entity_id) === "light" && supports(hass, e.entity_id, LIGHT_EFFECT)
-        ? tile(e.entity_id, [{ type: "light-effect" }])
-        : tile(e.entity_id, domainOf(e.entity_id) === "switch" ? [{ type: "toggle" }] : [])
-    );
+    .map((e) => lightTile(hass, e.entity_id, options));
 }
 
 function valveCards(hass, items) {
@@ -407,10 +472,18 @@ export function buildSection(hass, type, options = {}) {
       `Unknown Control Freak equipment type "${type}". Use one of: ${EQUIPMENT_TYPES.join(", ")}`
     );
   }
+  if (options.controls != null && !CONTROLS.includes(options.controls)) {
+    throw new Error(`Control Freak "controls" is "controlfreak" (default) or "core", not "${options.controls}"`);
+  }
   const items = groupEntities(findEntities(hass, options))[type] ?? [];
-  const cards = CARD_BUILDERS[type](hass, items);
+  const cards = CARD_BUILDERS[type](hass, items, options);
   if (!cards.length) return null;
   if (type === "pumps" && options.pictures !== false) {
+    if (options.picture_deck != null && !PICTURE_DECKS.includes(options.picture_deck)) {
+      throw new Error(
+        `Unknown Control Freak picture_deck "${options.picture_deck}". Use one of: ${PICTURE_DECKS.join(", ")}`
+      );
+    }
     if (options.picture_style != null && !PICTURE_STYLES.includes(options.picture_style)) {
       throw new Error(
         `Unknown Control Freak picture_style "${options.picture_style}". Use one of: ${PICTURE_STYLES.join(", ")}`
@@ -447,7 +520,7 @@ export function buildSection(hass, type, options = {}) {
 export function sectionOrder(options = {}) {
   const hide = new Set(options.hide ?? []);
   const order = [...(options.order ?? [])];
-  for (const type of EQUIPMENT_TYPES) if (!order.includes(type)) order.push(type);
+  for (const type of coreControls(options) ? EQUIPMENT_TYPES : DEFAULT_ORDER) if (!order.includes(type)) order.push(type);
   return order.filter((type, i) => !hide.has(type) && order.indexOf(type) === i && CARD_BUILDERS[type]);
 }
 
@@ -459,7 +532,9 @@ export function buildSections(hass, options = {}) {
     pictures: options.pictures,
     picture_style: options.picture_style,
     picture_shape: options.picture_shape,
+    picture_deck: options.picture_deck,
     picture_rows: options.picture_rows,
+    controls: options.controls,
   };
   return sectionOrder(options)
     .map((type) => buildSection(hass, type, sectionOptions))
@@ -507,6 +582,9 @@ const PICTURE_FALLBACK = {
   STYLES: PICTURE_STYLES,
   STYLE_LABELS: {},
   DEFAULT_STYLE: "caustic",
+  DECKS: PICTURE_DECKS,
+  DECK_LABELS: {},
+  DEFAULT_DECK: "concrete",
   ROWS_MIN: 2,
   ROWS_MAX: 12,
   DEFAULT_ROWS: 4,
@@ -524,8 +602,14 @@ const EDITOR_LABELS = {
   pictures: "Animated pictures above the pumps",
   picture_style: "Picture style",
   picture_shape: "Pool shape",
+  picture_deck: "Deck finish",
   picture_rows: "Picture height (rows)",
+  controls: "Tile controls",
 };
+const CONTROL_OPTIONS = [
+  { value: "controlfreak", label: "Control Freak's pool controls (speed slider, colour bar, show menu)" },
+  { value: "core", label: "Home Assistant's own tile features" },
+];
 const titleCase = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Flat form data for the editor from a strategy config. */
@@ -535,7 +619,9 @@ export function editorData(config = {}, kind = "dashboard") {
     pictures: config.pictures === false ? "off" : config.pictures === "features" ? "features" : "overview",
     picture_style: PICTURE_STYLES.includes(config.picture_style) ? config.picture_style : info.DEFAULT_STYLE,
     picture_shape: PICTURE_SHAPES.includes(config.picture_shape) ? config.picture_shape : info.DEFAULT_SHAPE,
+    picture_deck: PICTURE_DECKS.includes(config.picture_deck) ? config.picture_deck : info.DEFAULT_DECK,
     picture_rows: pictureRows(config) ?? info.DEFAULT_ROWS,
+    controls: CONTROLS.includes(config.controls) ? config.controls : "controlfreak",
   };
   if (kind === "dashboard") data.title = config.title ?? "";
   if (kind === "section") data.equipment = config.equipment ?? "";
@@ -561,9 +647,13 @@ export function configFromEditor(data, config = {}, kind = "dashboard") {
   else delete out.picture_style;
   if (data.picture_shape && data.picture_shape !== info.DEFAULT_SHAPE) out.picture_shape = data.picture_shape;
   else delete out.picture_shape;
+  if (data.picture_deck && data.picture_deck !== info.DEFAULT_DECK) out.picture_deck = data.picture_deck;
+  else delete out.picture_deck;
   const rows = pictureRows({ picture_rows: data.picture_rows });
   if (rows && rows !== info.DEFAULT_ROWS) out.picture_rows = rows;
   else delete out.picture_rows;
+  if (data.controls === "core") out.controls = "core";
+  else delete out.controls;
   return out;
 }
 
@@ -590,8 +680,18 @@ export function strategyEditorSchema(data = {}, kind = "dashboard") {
         },
       },
     });
+    schema.push({
+      name: "picture_deck",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: PICTURE_DECKS.map((v) => ({ value: v, label: info.DECK_LABELS?.[v] ?? titleCase(v) })),
+        },
+      },
+    });
     schema.push({ name: "picture_rows", selector: { number: { min: info.ROWS_MIN, max: info.ROWS_MAX, mode: "slider" } } });
   }
+  schema.push({ name: "controls", selector: { select: { mode: "dropdown", options: CONTROL_OPTIONS } } });
   return schema;
 }
 
@@ -602,7 +702,8 @@ const Base = globalThis.HTMLElement ?? class {};
 /**
  * The settings editor Home Assistant opens from a strategy dashboard's edit
  * dialog (and for the view and section strategies): title, equipment, the
- * pictures switch, the pool shape chooser and the picture height.
+ * pictures switch, the style, the pool shape chooser, the deck finish, the
+ * picture height and which tile controls the tiles carry.
  */
 export class ControlFreakStrategyEditor extends Base {
   static forKind(kind) {

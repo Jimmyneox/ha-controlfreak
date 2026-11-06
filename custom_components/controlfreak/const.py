@@ -24,6 +24,8 @@ MQTT_SUBSCRIPTION: Final = "controller/#"
 # integration (see frontend/) and loaded on every frontend page.
 FRONTEND_URL: Final = "/controlfreak/controlfreak-strategy.js"
 PICTURE_URL: Final = "/controlfreak/controlfreak-picture.js"
+FEATURES_URL: Final = "/controlfreak/controlfreak-features.js"
+ICONS_URL: Final = "/controlfreak/controlfreak-icons.js"
 # Imported by the picture card (its four extra styles); served, not loaded directly.
 STYLES_URL: Final = "/controlfreak/controlfreak-picture-styles.js"
 SHAPES_URL: Final = "/controlfreak/controlfreak-pool-shapes.js"

@@ -183,6 +183,7 @@ function makeEngine(cv, kind, painter, getModel, getColors, rng) {
       rng,
       caustic,
       paperGrain,
+      deck: DECKS.includes(model.deck) ? model.deck : DEFAULT_DECK,
     };
   }
 
@@ -388,6 +389,148 @@ function hatch(ctx, x, y, w, h, color, gap = 9) {
   }
   ctx.stroke();
   ctx.restore();
+}
+
+/* ----- Deck finishes ------------------------------------------------------ */
+
+/** The surround around the water. Most pools sit in concrete, so that is the default. */
+export const DECKS = ["concrete", "pavers", "travertine", "wood", "stone"];
+export const DEFAULT_DECK = "concrete";
+export const DECK_LABELS = {
+  concrete: "Concrete",
+  pavers: "Pavers",
+  travertine: "Travertine",
+  wood: "Wood deck",
+  stone: "Flagstone",
+};
+// Two tones for a soft gradient, and the colour of the joints. Night is the
+// same colour, only darker (NIGHT_DIM): a grey deck stays grey after dark.
+const DECK_TONES = {
+  concrete: { day: [[218, 219, 215], [203, 205, 200]], line: [70, 76, 82] },
+  pavers: { day: [[198, 188, 174], [176, 164, 150]], line: [80, 66, 54] },
+  travertine: { day: [[239, 231, 216], [220, 210, 191]], line: [120, 100, 70] },
+  wood: { day: [[206, 162, 114], [184, 138, 94]], line: [96, 62, 34] },
+  stone: { day: [[190, 194, 190], [166, 172, 169]], line: [52, 62, 66] },
+};
+export const NIGHT_DIM = 0.78;
+const dim = (c) => c.map((v) => Math.round(v * NIGHT_DIM));
+const deckTones = (finish, dark) => {
+  const t = DECK_TONES[finish] ?? DECK_TONES.concrete;
+  return dark ? t.day.map(dim) : t.day;
+};
+
+/** The finish's base tone, for painters that mix their own palette. */
+export function deckTone(finish, dark) {
+  return deckTones(finish, dark)[0];
+}
+
+/** The joints of a finish, stroked in `color` over x,y,w,h. Deterministic. */
+export function deckPattern(ctx, x, y, w, h, finish, color, scale = 1) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 1;
+  const s = scale;
+  switch (finish) {
+    case "pavers": {
+      // Running bond: every second course shifted by half a brick.
+      const bw = 30 * s;
+      const bh = 15 * s;
+      ctx.beginPath();
+      let row = 0;
+      for (let gy = y - (y % bh); gy < y + h; gy += bh, row++) {
+        ctx.moveTo(x, gy + 0.5);
+        ctx.lineTo(x + w, gy + 0.5);
+        const off = row % 2 ? bw / 2 : 0;
+        for (let gx = x - (x % bw) - bw + off; gx < x + w; gx += bw) {
+          ctx.moveTo(gx + 0.5, gy);
+          ctx.lineTo(gx + 0.5, gy + bh);
+        }
+      }
+      ctx.stroke();
+      break;
+    }
+    case "travertine":
+      // Big square tiles.
+      pavers(ctx, x, y, w, h, color, 44 * s);
+      break;
+    case "wood": {
+      // Boards with staggered butt joints.
+      const bh = 16 * s;
+      const len = 160 * s;
+      ctx.beginPath();
+      let row = 0;
+      for (let gy = y - (y % bh); gy < y + h; gy += bh, row++) {
+        ctx.moveTo(x, gy + 0.5);
+        ctx.lineTo(x + w, gy + 0.5);
+        const jx = x + ((row * 73) % 160) * s;
+        for (let gx = jx - len * 3; gx < x + w; gx += len) {
+          ctx.moveTo(gx + 0.5, gy);
+          ctx.lineTo(gx + 0.5, gy + bh);
+        }
+      }
+      ctx.stroke();
+      break;
+    }
+    case "stone": {
+      // Flagstones: one irregular hexagon per cell.
+      const cell = 46 * s;
+      ctx.lineJoin = "round";
+      for (let gy = y - (y % cell) - cell; gy < y + h + cell; gy += cell) {
+        for (let gx = x - (x % cell) - cell; gx < x + w + cell; gx += cell) {
+          const i = Math.floor(gx / cell) * 131 + Math.floor(gy / cell) * 197;
+          ctx.beginPath();
+          for (let k = 0; k < 6; k++) {
+            const a = (k / 6) * TAU + rnd(i + k) * 0.5;
+            const r = cell * (0.36 + rnd(i * 3 + k) * 0.12);
+            const px = gx + cell / 2 + Math.cos(a) * r;
+            const py = gy + cell / 2 + Math.sin(a) * r * 0.85;
+            if (k) ctx.lineTo(px, py);
+            else ctx.moveTo(px, py);
+          }
+          ctx.closePath();
+          ctx.stroke();
+        }
+      }
+      break;
+    }
+    default: {
+      // Concrete: control joints and a light speckle.
+      const j = 96 * s;
+      ctx.beginPath();
+      for (let gx = x - (x % j); gx < x + w; gx += j) {
+        ctx.moveTo(gx + 0.5, y);
+        ctx.lineTo(gx + 0.5, y + h);
+      }
+      for (let gy = y - (y % j); gy < y + h; gy += j) {
+        ctx.moveTo(x, gy + 0.5);
+        ctx.lineTo(x + w, gy + 0.5);
+      }
+      ctx.stroke();
+      const n = Math.min(360, Math.floor((w * h) / 900));
+      ctx.globalAlpha = 0.45;
+      for (let i = 0; i < n; i++) {
+        ctx.fillRect(x + rnd(i * 7 + 1) * w, y + rnd(i * 7 + 4) * h, 1.2, 1.2);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  ctx.restore();
+}
+
+/** A finished deck: its gradient and its joints. Used by the picture styles. */
+export function deckBase(ctx, x, y, w, h, finish, dark) {
+  const t = DECK_TONES[finish] ?? DECK_TONES.concrete;
+  const [a, b] = deckTones(finish, dark);
+  const gr = ctx.createLinearGradient(x, y, x + w, y + h);
+  gr.addColorStop(0, rgb(a));
+  gr.addColorStop(1, rgb(b));
+  ctx.fillStyle = gr;
+  ctx.fillRect(x, y, w, h);
+  deckPattern(ctx, x, y, w, h, finish, rgb(t.line, dark ? 0.2 : 0.22));
 }
 
 /** The waterfall's ledge outline and rocks, as paths for a theme to fill. */
@@ -598,7 +741,8 @@ const blueprint = {
       deck(x, y, w, h) {
         ctx.fillStyle = paper;
         ctx.fillRect(x, y, w, h);
-        hatch(ctx, x, y, w, h, ink(0.22));
+        if (S.deck === "concrete") hatch(ctx, x, y, w, h, ink(0.22));
+        else deckPattern(ctx, x, y, w, h, S.deck, ink(0.3));
         line(1.5);
         ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       },
@@ -931,12 +1075,7 @@ const depth = {
         ctx.fill();
       },
       deck(x, y, w, h) {
-        const gr = ctx.createLinearGradient(x, y, x + w, y + h);
-        gr.addColorStop(0, dark ? "#35312b" : "#efe7d8");
-        gr.addColorStop(1, dark ? "#262320" : "#dcd2bf");
-        ctx.fillStyle = gr;
-        ctx.fillRect(x, y, w, h);
-        pavers(ctx, x, y, w, h, dark ? "rgba(255,255,255,0.06)" : "rgba(120,100,70,0.18)");
+        deckBase(ctx, x, y, w, h, S.deck, dark);
       },
       coping(x0, y0, x1, y1) {
         ctx.save();
@@ -1313,7 +1452,7 @@ const neon = {
       deck(x, y, w, h) {
         ctx.fillStyle = fill;
         ctx.fillRect(x, y, w, h);
-        pavers(ctx, x, y, w, h, rgb(lc, 0.1 * glow));
+        deckPattern(ctx, x, y, w, h, S.deck, rgb(lc, 0.12 * glow));
       },
       coping(x0, y0, x1, y1) {
         neonLine(2);
@@ -1632,10 +1771,10 @@ const poster = {
         flatCircle(x, y, 6, S.lit ? P.accent : P.paper);
       },
       deck(x, y, w, h) {
-        ctx.fillStyle = rgb(P.paper);
+        // The paper takes the finish's tone; the joints stay poster-bold.
+        ctx.fillStyle = rgb(mix(P.paper, deckTone(S.deck, S.dark), 0.55));
         ctx.fillRect(x, y, w, h);
-        // Big flat pavers.
-        pavers(ctx, x, y, w, h, rgb(P.sand, 0.9), 44);
+        deckPattern(ctx, x, y, w, h, S.deck, rgb(P.sand, 0.9), 1.3);
       },
       coping(x0, y0, x1, y1) {
         outline(7);

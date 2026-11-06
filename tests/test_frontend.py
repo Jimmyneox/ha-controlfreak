@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -26,9 +26,12 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
+from custom_components.controlfreak import frontend_stamp, stamped_url
 from custom_components.controlfreak.const import (
     DOMAIN,
+    FEATURES_URL,
     FRONTEND_URL,
+    ICONS_URL,
     PICTURE_URL,
     SHAPES_URL,
     STYLES_URL,
@@ -52,9 +55,17 @@ async def test_strategy_is_served(
 ) -> None:
     """The JS is registered as a frontend module and actually served over HTTP."""
     version = MANIFEST["version"]
-    assert stub_frontend.call_args_list == [
-        call(hass, f"{FRONTEND_URL}?v={version}"),
-        call(hass, f"{PICTURE_URL}?v={version}"),
+    # The modules load from /controlfreak/v/<version>.<hash>/<file>: a content
+    # stamp, so a same-version reinstall is picked up and the relative imports
+    # between the modules resolve inside the same stamp.
+    urls = [c.args[1] for c in stub_frontend.call_args_list]
+    stamps = {u.split("/")[3] for u in urls}
+    assert len(stamps) == 1, urls
+    stamp = stamps.pop()
+    assert re.fullmatch(rf"{re.escape(version)}\.[0-9a-f]{{8}}", stamp), stamp
+    assert urls == [
+        stamped_url(stamp, Path(u).name)
+        for u in (FRONTEND_URL, PICTURE_URL, FEATURES_URL, ICONS_URL)
     ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
@@ -92,6 +103,46 @@ async def test_picture_styles_are_served(
     assert 'export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];' in body
     mime = resp.headers["Content-Type"].split(";")[0]
     assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_features_are_served_and_loaded(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The tile features module is served and loaded on every page (same cache-buster)."""
+    client = await hass_client()
+    resp = await client.get(FEATURES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    for tag in ("controlfreak-pump-speed", "controlfreak-light-colors", "controlfreak-light-shows"):
+        assert f'"{tag}"' in body, tag
+    assert "customCardFeatures" in body
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_icon_set_is_served_and_every_entity_icon_exists(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The cf: icon module is served, and every cf: icon an entity reports is drawn in it."""
+    client = await hass_client()
+    resp = await client.get(ICONS_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert "window.customIcons.cf" in body
+    drawn = set(re.findall(r'^  "?([a-z-]+)"?\(\) \{', body, flags=re.M))
+    assert {"pump", "spa-jets", "heater", "valve", "flow", "controller"} <= drawn
+    used = {
+        st.attributes["icon"]
+        for st in hass.states.async_all()
+        if str(st.attributes.get("icon", "")).startswith("cf:")
+    }
+    assert used, "the entities carry cf: icons"
+    missing = {icon for icon in used if icon.removeprefix("cf:") not in drawn}
+    assert not missing, f"icons the entities use but the set does not draw: {sorted(missing)}"
+    # Every icon the integration can emit, drawn or not in this fixture.
+    src = (ROOT / "custom_components" / DOMAIN).glob("*.py")
+    emitted = {m for p in src for m in re.findall(r'"cf:([a-z-]+)"', p.read_text())}
+    assert emitted <= drawn, sorted(emitted - drawn)
 
 
 async def test_pool_shapes_are_served(
@@ -356,3 +407,39 @@ async def test_dashboard_fixture(
 async def test_empty_fixture(hass: HomeAssistant) -> None:
     """No Control Freak entry at all: only foreign entities."""
     _check_fixture("empty", hass_stub(hass, None))
+
+
+def test_frontend_stamp_changes_with_the_module_bytes(tmp_path) -> None:
+    """A same-version edit to any served module changes the stamp; the version leads it."""
+    a = tmp_path / "a.js"
+    b = tmp_path / "b.js"
+    a.write_text("export const x = 1;")
+    b.write_text("export const y = 1;")
+    before = frontend_stamp("0.3.0", [a, b])
+    assert before.startswith("0.3.0.") and len(before) == len("0.3.0.") + 8
+    assert frontend_stamp("0.3.0", [b, a]) == before  # order does not matter
+    b.write_text("export const y = 2;")
+    assert frontend_stamp("0.3.0", [a, b]) != before
+
+
+async def test_stamped_frontend_path_serves_every_module_immutably(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    setup_integration: FakeMqtt,
+    stub_frontend: MagicMock,
+) -> None:
+    """Any stamp serves the current files with an immutable cache header; other names are 404."""
+    client = await hass_client()
+    stamp = stub_frontend.call_args_list[0].args[1].split("/")[3]
+    for url in (FRONTEND_URL, PICTURE_URL, FEATURES_URL, ICONS_URL, STYLES_URL, SHAPES_URL):
+        resp = await client.get(stamped_url(stamp, Path(url).name))
+        assert resp.status == 200, url
+        assert "immutable" in resp.headers["Cache-Control"]
+        assert (await resp.text()).startswith("/**"), url
+    # A stale app shell with an older stamp still gets the current module.
+    resp = await client.get(stamped_url("0.0.1.deadbeef", "controlfreak-features.js"))
+    assert resp.status == 200
+    assert "SHOW_PALETTES" in await resp.text()
+    for bad in ("manifest.json", "..%2F__init__.py", "nope.js"):
+        resp = await client.get(f"/controlfreak/v/{stamp}/{bad}")
+        assert resp.status in (400, 404), bad  # aiohttp rejects the traversal itself with 400

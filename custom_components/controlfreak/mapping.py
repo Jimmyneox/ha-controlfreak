@@ -8,13 +8,8 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
-import math
+import re
 from typing import Any
-
-from homeassistant.util.percentage import (
-    percentage_to_ranged_value,
-    ranged_value_to_percentage,
-)
 
 from .const import LOGGER
 
@@ -166,6 +161,44 @@ def relay_role(setting: DeviceSetting) -> str:
     return "relay"
 
 
+# Icons by the panel's own name for the device, so every dashboard shows what a
+# tile controls instead of a generic fan or bulb. First match wins; mirrors the
+# strategy's SCENE_RULES.
+# The icons are Control Freak's own set (frontend/controlfreak-icons.js, prefix
+# "cf:"), served and registered by the integration on every page.
+PUMP_ICONS: tuple[tuple[str, str], ...] = (
+    ("cleaner|vacuum|sweep", "cf:cleaner"),
+    ("solar", "cf:solar"),
+    ("booster", "cf:pump"),
+    ("bubbler|bubble", "cf:bubbler"),
+    ("deck|laminar", "cf:deck-jets"),
+    ("waterfall|falls|sheer|cascade|fountain|scupper|curtain", "cf:waterfall"),
+    ("jet|spa|hot tub", "cf:spa-jets"),
+)
+LIGHT_ICONS: tuple[tuple[str, str], ...] = (
+    ("deck|landscape|garden|path|yard|patio|porch|step", "cf:outdoor-lamp"),
+    ("spa|hot tub", "cf:spa-light"),
+)
+
+
+def _icon_for(rules: tuple[tuple[str, str], ...], name: str | None, default: str) -> str:
+    lower = (name or "").lower()
+    for pattern, icon in rules:
+        if re.search(pattern, lower):
+            return icon
+    return default
+
+
+def pump_icon(name: str | None) -> str:
+    """A pump's icon from its name: filter and pool pumps are the pump, the rest what they feed."""
+    return _icon_for(PUMP_ICONS, name, "cf:pump")
+
+
+def light_icon(name: str | None) -> str:
+    """A light's icon from its name: outdoor lamps on the deck, a flood light under water."""
+    return _icon_for(LIGHT_ICONS, name, "cf:pool-light")
+
+
 def light_effects(setting: DeviceSetting) -> tuple[str, ...]:
     """Effects learned from the panel, else the captured Pentair default set."""
     return setting.effect_list or DEFAULT_EFFECTS
@@ -256,12 +289,16 @@ def pump_speed(meta: Mapping[str, Any] | None) -> int:
 
 
 def speed_to_percentage(speed: int, speed_min: int, speed_max: int) -> int:
+    """Home Assistant's percentage is the pump's own speed: 0 off, else within its range.
+
+    A 40 to 100 pump reads 40 at its floor, not 1, so a dashboard slider shows
+    what the pump runs at.
+    """
     if speed <= 0:
         return 0
-    speed = min(max(speed, speed_min), speed_max)
-    return ranged_value_to_percentage((speed_min, speed_max), speed)
+    return min(max(speed, speed_min), speed_max)
 
 
 def percentage_to_speed(percentage: int, speed_min: int, speed_max: int) -> int:
-    value = math.ceil(percentage_to_ranged_value((speed_min, speed_max), percentage))
-    return min(max(value, speed_min), speed_max)
+    """The speed to send for a percentage: clamped into the pump's range."""
+    return min(max(int(percentage), speed_min), speed_max)

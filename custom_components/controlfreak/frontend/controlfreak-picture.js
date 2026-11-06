@@ -40,10 +40,10 @@
  * Display only: nothing here ever writes to pool equipment.
  */
 
-import { DEFAULT_STYLE, makeStyledScene, setCore, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
+import { DECK_LABELS, DECKS, DEFAULT_DECK, DEFAULT_STYLE, makeStyledScene, setCore, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
 import { DEFAULT_SHAPE, layoutShape, PARTS, partsOf, SHAPE_LABELS, SHAPES } from "./controlfreak-pool-shapes.js";
 
-export { DEFAULT_SHAPE, SHAPE_LABELS, SHAPES };
+export { DECK_LABELS, DECKS, DEFAULT_DECK, DEFAULT_SHAPE, SHAPE_LABELS, SHAPES };
 
 /* ----- Shared tables ----------------------------------------------------- */
 
@@ -240,6 +240,7 @@ export function overviewModelOf(hass, config) {
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
     shape: config.shape ?? DEFAULT_SHAPE,
+    deck: config.deck ?? DEFAULT_DECK,
     parts,
     show: partsOf(config),
   };
@@ -259,6 +260,7 @@ export function modelOf(hass, config) {
     hex: light.hex,
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
+    deck: config.deck ?? DEFAULT_DECK,
     shape: config.shape ?? DEFAULT_SHAPE,
   };
 }
@@ -1175,6 +1177,9 @@ export class ControlFreakPictureCard extends Base {
     if (config.style != null && !STYLES.includes(config.style)) {
       throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
     }
+    if (config.deck != null && !DECKS.includes(config.deck)) {
+      throw new Error(`controlfreak-picture: set "deck" to one of ${DECKS.join(", ")}`);
+    }
     this._config = config;
     this._model = this._hass ? modelOf(this._hass, config) : null;
     this._rebuild();
@@ -1188,7 +1193,7 @@ export class ControlFreakPictureCard extends Base {
     this._model = next;
     const changed =
       !prev ||
-      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "shape"].some((k) => prev[k] !== next[k]) ||
+      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "deck", "shape"].some((k) => prev[k] !== next[k]) ||
       (next.parts && JSON.stringify(prev.parts) !== JSON.stringify(next.parts));
     if (changed) {
       this._label();
@@ -1321,6 +1326,7 @@ const EDITOR_LABELS = {
   scene: "Scene",
   style: "Picture style",
   shape: "Pool shape",
+  deck: "Deck finish",
   pump: "Pump (water speed)",
   light: "Light (water colour)",
   spillover: "Pump mode sensor (spillover into the pool)",
@@ -1333,7 +1339,7 @@ for (const part of OVERVIEW_PARTS) {
 
 /** Flat form data for the editor: an overview's pumps/lights maps become pump_<part> / light_<part>. */
 export function editorData(config = {}) {
-  const data = { scene: OVERVIEW, style: DEFAULT_STYLE, shape: DEFAULT_SHAPE, rows: DEFAULT_ROWS };
+  const data = { scene: OVERVIEW, style: DEFAULT_STYLE, shape: DEFAULT_SHAPE, deck: DEFAULT_DECK, rows: DEFAULT_ROWS };
   for (const [k, v] of Object.entries(config)) if (!["pumps", "lights", "type"].includes(k)) data[k] = v;
   for (const part of OVERVIEW_PARTS) {
     if (config.pumps?.[part]) data[`pump_${part}`] = config.pumps[part];
@@ -1353,6 +1359,7 @@ export function configFromEditor(data = {}, config = {}) {
     else out[k] = data[k];
   }
   if (out.style === DEFAULT_STYLE) drop("style");
+  if (out.deck === DEFAULT_DECK) drop("deck");
   if (scene === OVERVIEW || scene === "pool") {
     if (out.shape === DEFAULT_SHAPE) drop("shape");
   } else drop("shape");
@@ -1402,6 +1409,10 @@ export function editorSchema(config = {}) {
       selector: { select: { mode: "dropdown", options: SHAPES.map((s) => ({ value: s, label: SHAPE_LABELS[s] })) } },
     });
   }
+  schema.push({
+    name: "deck",
+    selector: { select: { mode: "dropdown", options: DECKS.map((d) => ({ value: d, label: DECK_LABELS[d] })) } },
+  });
   if (scene === OVERVIEW) {
     for (const part of OVERVIEW_PARTS) {
       schema.push(
@@ -1631,6 +1642,9 @@ globalThis.controlfreakPicture = {
   STYLES,
   STYLE_LABELS,
   DEFAULT_STYLE,
+  DECKS,
+  DECK_LABELS,
+  DEFAULT_DECK,
   ROWS_MIN,
   ROWS_MAX,
   DEFAULT_ROWS,

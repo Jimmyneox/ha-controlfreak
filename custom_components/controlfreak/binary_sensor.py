@@ -35,6 +35,7 @@ class ControlFreakConnectivity(ControlFreakEntity, BinarySensorEntity):
     _expire_after = CONTROLLER_EXPIRE
     _attr_translation_key = "connectivity"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
+    _attr_icon = "cf:controller"
 
     @property
     def available(self) -> bool:
@@ -52,7 +53,7 @@ class ControlFreakConnectivity(ControlFreakEntity, BinarySensorEntity):
 class ControlFreakFlow(ControlFreakEntity, BinarySensorEntity):
     _attr_translation_key = "flow"
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_icon = "mdi:waves"
+    _attr_icon = "cf:flow"
 
     @property
     def is_on(self) -> bool | None:
