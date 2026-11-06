@@ -138,6 +138,7 @@ class Feature extends Base {
     this._config = null;
     this._hass = null;
     this._context = null;
+    this._stateObj = null;
     this._key = null;
     if (this.attachShadow) this.attachShadow({ mode: "open" });
   }
@@ -169,10 +170,23 @@ class Feature extends Base {
   }
 
   get entityId() {
-    return this._context?.entity_id ?? this._config?.entity ?? null;
+    return this._context?.entity_id ?? this._stateObj?.entity_id ?? this._config?.entity ?? null;
+  }
+
+  /**
+   * The tile card assigns `stateObj` itself (and `color` and `position`) on
+   * every render, so this has to be a settable property; without a hass it
+   * is the only state the feature has. Assigning it with the getter alone
+   * throws "Cannot set property stateObj ... which has only a getter" and
+   * the feature renders blank.
+   */
+  set stateObj(stateObj) {
+    this._stateObj = stateObj ?? null;
+    this._render();
   }
 
   get stateObj() {
+    if (this._stateObj) return this._stateObj;
     return this.entityId ? this._hass?.states?.[this.entityId] : undefined;
   }
 

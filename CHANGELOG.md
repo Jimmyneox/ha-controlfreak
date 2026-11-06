@@ -2,6 +2,9 @@
 
 ## 0.3.0 — unreleased
 
+### Fixed
+- Tile features render again on a real dashboard: the tile card assigns `stateObj` on the feature element and the base class only had a getter, so every Control Freak feature threw and showed blank. The harness now assigns the element's properties the way `hui-card-feature` does.
+
 - **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,
   a slider over the pump's real range (40–100 on a typical variable-speed pump) with an Off
   button; the pool's own pump sits first in the section, full width, right under the

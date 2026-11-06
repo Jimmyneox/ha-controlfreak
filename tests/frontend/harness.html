@@ -122,9 +122,13 @@
     if (feature.type.startsWith("custom:controlfreak-")) {
       // The real feature element, as the tile card would host it; service calls are logged.
       const fe = document.createElement(feature.type.slice("custom:".length));
-      fe.setConfig(feature);
-      fe.context = { entity_id: entityId };
+      // Assigned in the order and with the properties hui-card-feature sets.
       fe.hass = { ...hass, callService: (d, s, data) => console.log("callService", d, s, JSON.stringify(data)) };
+      fe.stateObj = st;
+      fe.context = { entity_id: entityId };
+      fe.color = undefined;
+      fe.position = "bottom";
+      fe.setConfig(feature);
       const wrap = el("div", "feature-host");
       wrap.append(fe);
       return wrap;

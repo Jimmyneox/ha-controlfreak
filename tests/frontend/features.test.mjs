@@ -9,9 +9,12 @@ import { test } from "node:test";
 
 import {
   FEATURE_TYPES,
+  LightColorsFeature,
+  LightShowsFeature,
   LIGHT_COLORS,
   LIGHT_SHOWS,
   PUMP_SPEED,
+  PumpSpeedFeature,
   speedRange,
   splitEffects,
   supportsLightColors,
@@ -72,4 +75,25 @@ test("isSupported: a fan with speed control, a light with colours, a light with 
 test("the three feature tags are what the strategy writes as custom:<tag>", () => {
   assert.deepEqual(FEATURE_TYPES, [PUMP_SPEED, LIGHT_COLORS, LIGHT_SHOWS]);
   assert.deepEqual(FEATURE_TYPES, ["controlfreak-pump-speed", "controlfreak-light-colors", "controlfreak-light-shows"]);
+});
+
+test("the tile card assigns stateObj, color and position on the element; a getter-only stateObj throws", () => {
+  // Live defect 2026-11-05: HA's hui-card-feature does `feature.stateObj = ...`
+  // on every render. With only a getter that is a TypeError and every
+  // feature rendered blank on the real dashboard.
+  const st = { entity_id: "fan.pool_pump", state: "on", attributes: { percentage: 55, speed_min: 40, speed_max: 100 } };
+  for (const Cls of [PumpSpeedFeature, LightColorsFeature, LightShowsFeature]) {
+    const fe = new Cls();
+    fe.setConfig({ type: `custom:${Cls.TYPE}` });
+    fe.stateObj = st;
+    fe.color = undefined;
+    fe.position = "bottom";
+    assert.equal(fe.stateObj, st, Cls.TYPE);
+    assert.equal(fe.entityId, "fan.pool_pump", `${Cls.TYPE} takes the entity from the assigned state`);
+    fe.stateObj = null;
+    assert.equal(fe.stateObj, undefined, `${Cls.TYPE} falls back to the hass lookup`);
+    fe.context = { entity_id: "fan.pool_pump" };
+    fe.hass = { states: { "fan.pool_pump": st } };
+    assert.equal(fe.stateObj, st, `${Cls.TYPE} hass lookup`);
+  }
 });
