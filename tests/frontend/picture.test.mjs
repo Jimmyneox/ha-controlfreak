@@ -133,6 +133,7 @@ test("the scene model binds pump, light and spillover by entity id", () => {
     hex: "#e04bd6",
     spilling: true,
     dark: true,
+    deck: "concrete",
   });
   // Unbound: still water, no light, no spillover.
   const bare = modelOf(hass, { scene: "pool" });

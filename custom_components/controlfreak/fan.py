@@ -24,7 +24,13 @@ async def async_setup_entry(
 
 
 class ControlFreakPump(ControlFreakEntity, FanEntity):
-    """on/off + percentage; HA 1 % maps to the pump's configured minimum speed."""
+    """on/off + percentage.
+
+    The percentage is the pump's own speed, in the range the panel configured
+    for it (speed_min to speed_max, typically 40 to 100): a slider reads what the pump
+    runs at, and anything below the floor is sent as the floor. The range is
+    published as attributes so a dashboard slider can start at the floor.
+    """
 
     _attr_translation_key = "pump"
     _attr_supported_features = (
@@ -39,8 +45,7 @@ class ControlFreakPump(ControlFreakEntity, FanEntity):
 
     @property
     def speed_count(self) -> int:
-        low, high = self._range
-        return high - low + 1
+        return 100  # one percent per step: the percentage is the speed itself
 
     @property
     def _speed(self) -> int:
@@ -61,11 +66,14 @@ class ControlFreakPump(ControlFreakEntity, FanEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        low, high = self._range
+        attrs: dict[str, Any] = {"speed_min": low, "speed_max": high}
         s = self.setting
-        if s is None or not s.pump_model_uuid or self.coordinator.data is None:
-            return None
-        model = self.coordinator.data.pump_models.get(s.pump_model_uuid)
-        return {"pump_model": model} if model else None
+        if s is not None and s.pump_model_uuid and self.coordinator.data is not None:
+            model = self.coordinator.data.pump_models.get(s.pump_model_uuid)
+            if model:
+                attrs["pump_model"] = model
+        return attrs
 
     def _mode(self) -> str:
         mode = self.meta.get("mode")

@@ -69,7 +69,7 @@ jobs:
               "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"
           done
           # The overview contact sheets have six columns: give them a wider page.
-          for shape in shapes-day shapes-night; do
+          for shape in shapes-day shapes-night decks-day decks-night; do
             npx -y playwright@1.64.0 screenshot --full-page --viewport-size=1800,1000 \
               --wait-for-selector='body[data-rendered="true"]' --timeout=20000 \
               "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"

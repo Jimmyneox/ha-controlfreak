@@ -8,13 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Mapping
 from dataclasses import dataclass
-import math
 from typing import Any
-
-from homeassistant.util.percentage import (
-    percentage_to_ranged_value,
-    ranged_value_to_percentage,
-)
 
 from .const import LOGGER
 
@@ -256,12 +250,16 @@ def pump_speed(meta: Mapping[str, Any] | None) -> int:
 
 
 def speed_to_percentage(speed: int, speed_min: int, speed_max: int) -> int:
+    """Home Assistant's percentage is the pump's own speed: 0 off, else within its range.
+
+    A 40 to 100 pump reads 40 at its floor, not 1, so a dashboard slider shows
+    what the pump runs at.
+    """
     if speed <= 0:
         return 0
-    speed = min(max(speed, speed_min), speed_max)
-    return ranged_value_to_percentage((speed_min, speed_max), speed)
+    return min(max(speed, speed_min), speed_max)
 
 
 def percentage_to_speed(percentage: int, speed_min: int, speed_max: int) -> int:
-    value = math.ceil(percentage_to_ranged_value((speed_min, speed_max), percentage))
-    return min(max(value, speed_min), speed_max)
+    """The speed to send for a percentage: clamped into the pump's range."""
+    return min(max(int(percentage), speed_min), speed_max)

@@ -60,6 +60,9 @@
   .sheet.shapes { grid-template-columns: 110px repeat(6, 1fr); }
   .sheet .picture { height: 150px; --controlfreak-picture-height: 150px; }
   .sheet.shapes .picture { height: 170px; --controlfreak-picture-height: 170px; }
+  .sheet.decks { grid-template-columns: 110px repeat(5, 1fr); }
+  .sheet.decks .picture { height: 170px; --controlfreak-picture-height: 170px; }
+  .feature-host { --feature-height: 42px; --feature-border-radius: 12px; --feature-button-spacing: 12px; --primary-color: #03a9f4; margin-top: 8px; }
   .sheet .rowlabel { font-weight: 600; font-size: 15px; }
   .sheet .rowlabel small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
   .sheet .collabel { text-align: center; font-size: 12px; color: var(--muted); }
@@ -82,7 +85,8 @@
 <script type="module">
   import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
   import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
-  import { STYLES, STYLE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-picture-styles.js";
+  import { DECKS, DECK_LABELS, STYLES, STYLE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-picture-styles.js";
+  import "../../custom_components/controlfreak/frontend/controlfreak-features.js";
   import { SHAPES, SHAPE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-pool-shapes.js";
 
   const params = new URLSearchParams(location.search);
@@ -91,7 +95,8 @@
   // "pictures" is the full pool plus a gallery of every scene, day and night.
   const sheet = shape === "styles-day" ? "day" : shape === "styles-night" ? "night" : null;
   const shapesSheet = shape === "shapes-day" ? "day" : shape === "shapes-night" ? "night" : null;
-  const fixtureName = shape === "pictures" || sheet || shapesSheet ? "full-pool" : shape;
+  const decksSheet = shape === "decks-day" ? "day" : shape === "decks-night" ? "night" : null;
+  const fixtureName = shape === "pictures" || sheet || shapesSheet || decksSheet ? "full-pool" : shape;
   const hass = await (await fetch(`./fixtures/${fixtureName}.json`)).json();
   const dashboard = buildDashboard(hass, options);
   const view = dashboard.views[0];
@@ -102,9 +107,19 @@
     if (text !== undefined) e.textContent = text;
     return e;
   };
-  function featureEl(feature, st) {
+  function featureEl(feature, st, entityId) {
     const f = el("div", "feature");
     const a = st.attributes ?? {};
+    if (feature.type.startsWith("custom:controlfreak-")) {
+      // The real feature element, as the tile card would host it; service calls are logged.
+      const fe = document.createElement(feature.type.slice("custom:".length));
+      fe.setConfig(feature);
+      fe.context = { entity_id: entityId };
+      fe.hass = { ...hass, callService: (d, s, data) => console.log("callService", d, s, JSON.stringify(data)) };
+      const wrap = el("div", "feature-host");
+      wrap.append(fe);
+      return wrap;
+    }
     switch (feature.type) {
       case "fan-speed": {
         f.append(el("span", "", "Speed"), el("b", "", `${a.percentage ?? 0} %`));
@@ -159,7 +174,7 @@
     t.append(row);
     if (card.features?.length) {
       const fs = el("div", "features");
-      for (const f of card.features) fs.append(featureEl(f, st));
+      for (const f of card.features) fs.append(featureEl(f, st, card.entity));
       t.append(fs);
     }
     if (card.icon_tap_action) t.append(el("div", "tap", `icon tap: ${card.icon_tap_action.action} (read-only)`));
@@ -171,7 +186,7 @@
   document.getElementById("meta").textContent =
     `shape: ${shape} · ${view.sections.length} section(s) · ${nTiles} tile(s)`;
   const main = document.getElementById("view");
-  if (!sheet && !shapesSheet) {
+  if (!sheet && !shapesSheet && !decksSheet) {
     for (const section of view.sections) {
       const s = el("div", "section");
       for (const card of section.cards) s.append(cardEl(card));
@@ -245,6 +260,33 @@
     }
     main.append(g);
     document.getElementById("meta").textContent = `shape: ${shape} · ${STYLES.length} styles × ${SHAPES.length} shapes`;
+  }
+
+  if (decksSheet) {
+    // The deck contact sheet: styles down, finishes across, the default shape, every part running.
+    const dark = decksSheet === "night";
+    const g = el("div", `sheet decks${dark ? " night" : ""}`);
+    g.append(el("div", "collabel", dark ? "night" : "day"));
+    for (const d of DECKS) g.append(el("div", "collabel", DECK_LABELS[d]));
+    for (const style of STYLES) {
+      const label = el("div", "rowlabel", STYLE_LABELS[style]);
+      label.append(el("small", "", STYLE_NOTES[style]));
+      g.append(label);
+      for (const d of DECKS) {
+        const card = {
+          type: "custom:controlfreak-picture",
+          scene: "overview",
+          style,
+          deck: d,
+          pumps: { pool: "fan.demo_pump", spa: "fan.demo_pump", falls: "fan.demo_pump", deck: "fan.demo_pump", bub: "fan.demo_pump" },
+          lights: { pool: "light.demo_blue", spa: "light.demo_magenta", falls: "light.demo_white" },
+          spillover: "sensor.demo_mode",
+        };
+        g.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+      }
+    }
+    main.append(g);
+    document.getElementById("meta").textContent = `shape: ${shape} · ${STYLES.length} styles × ${DECKS.length} decks`;
   }
 
   if (shape === "pictures") {

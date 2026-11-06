@@ -17,6 +17,12 @@ import {
   WHITE,
 } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
 import {
+  DECK_LABELS,
+  DECKS,
+  deckBase,
+  deckPattern,
+  deckTone,
+  DEFAULT_DECK,
   DEFAULT_STYLE,
   flatWater,
   makeStyledScene,
@@ -346,4 +352,57 @@ test("overviewModelOf: each part reads its own pump and light; the pool part is 
   assert.equal(m.spilling, true);
   assert.deepEqual(m.show, { spa: true, falls: false, deck: false, bub: false, steps: false, ledge: true });
   assert.equal(overviewModelOf(hass, { scene: OVERVIEW }).shape, DEFAULT_SHAPE);
+});
+
+/* ----- Deck finishes ----------------------------------------------------- */
+
+test("every style draws every deck finish by day and by night, and the finish changes the picture", () => {
+  assert.deepEqual(DECKS, ["concrete", "pavers", "travertine", "wood", "stone"]);
+  assert.equal(DEFAULT_DECK, "concrete");
+  for (const d of DECKS) assert.equal(typeof DECK_LABELS[d], "string", d);
+  let cases = 0;
+  for (const style of STYLES) {
+    const logs = new Set();
+    for (const deck of DECKS) {
+      for (const dark of [false, true]) {
+        const { cv, s } = drawOnce(style, OVERVIEW, { ...overviewModel({ dark }), deck });
+        const tag = `${style}/${deck}/${dark ? "night" : "day"}`;
+        assert.equal(s.frames, 1, `${tag} drew one frame`);
+        assert.ok(paints(cv) > 20, `${tag} painted (${paints(cv)} ops)`);
+        logs.add(JSON.stringify(cv.log));
+        cases++;
+      }
+    }
+    assert.equal(logs.size, DECKS.length * 2, `${style}: every finish and time of day paints differently`);
+  }
+  assert.equal(cases, 50);
+  // No deck in the model: the default finish, the same picture as asking for it by name.
+  const bare = drawOnce("depth", OVERVIEW, overviewModel());
+  const named = drawOnce("depth", OVERVIEW, { ...overviewModel(), deck: DEFAULT_DECK });
+  assert.equal(JSON.stringify(bare.cv.log), JSON.stringify(named.cv.log));
+  // The per-feature scenes with a deck strip (spa, deck jets) take the finish too.
+  for (const scene of ["spa", "deck"]) {
+    const a = drawOnce("depth", scene, { ...still, on: true, speed: 0.6, deck: "concrete" });
+    const b = drawOnce("depth", scene, { ...still, on: true, speed: 0.6, deck: "wood" });
+    assert.notEqual(JSON.stringify(a.cv.log), JSON.stringify(b.cv.log), `depth/${scene}: the finish shows`);
+  }
+});
+
+test("deck helpers: a light day tone for concrete, a pattern per finish, and an unknown finish falls back to concrete", () => {
+  const [r, g, b] = deckTone("concrete", false);
+  assert.ok(r > 200 && g > 200 && b > 200, "concrete by day is light grey");
+  const night = deckTone("concrete", true);
+  assert.ok(night[0] < 120 && night[0] > 50, "concrete by night is a mid grey, not black");
+  assert.deepEqual(deckTone("lawn", false), deckTone("concrete", false));
+  const patterns = new Set();
+  for (const d of DECKS) {
+    const log = [];
+    deckPattern(recordingContext(log), 0, 0, 300, 200, d, "#000");
+    assert.ok(log.some(([op]) => op === "stroke" || op === "fillRect"), `${d} draws joints`);
+    patterns.add(JSON.stringify(log));
+  }
+  assert.equal(patterns.size, DECKS.length, "each finish has its own pattern");
+  const log = [];
+  deckBase(recordingContext(log), 0, 0, 300, 200, "pavers", false);
+  assert.ok(log.some(([op]) => op === "fillRect"), "the base fills the deck");
 });

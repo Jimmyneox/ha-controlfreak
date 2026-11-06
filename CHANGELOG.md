@@ -2,6 +2,23 @@
 
 ## 0.3.0 — unreleased
 
+- **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,
+  a slider over the pump's real range (40–100 on a typical variable-speed pump) with an Off
+  button; the pool's own pump sits first in the section, full width, right under the
+  picture. Colour lights carry `custom:controlfreak-light-colors` (a bar of swatches) and
+  `custom:controlfreak-light-shows` (a dropdown of the shows) in place of one long effect
+  dropdown. `controls: core` restores Home Assistant's `fan-speed` and `light-effect`.
+  The features live in `controlfreak-features.js`, loaded beside the strategy.
+- **The fan percentage is the pump's speed.** `fan.*` reports and takes the pump's own
+  speed (0 off, else within its range), not a fraction of the range: a 40–100 pump reads
+  40 at its floor where it used to read 1. The range is published as `speed_min` and
+  `speed_max` attributes. A dashboard or automation that set `percentage: 1` to mean the
+  floor still gets the floor; one that mapped the old 1–100 scale should send speeds now.
+- **Deck finishes.** The surround is a light concrete grey by default (the earlier deck
+  was too dark); `picture_deck` on the strategy and `deck` on the picture card pick
+  `pavers`, `travertine`, `wood` or `stone` instead. Every style draws the finish its own
+  way, by day and by night.
+
 - **The pool from above.** The pumps section opens with one animated overview of the whole
   pool: the water inside one of six outlines (`picture_shape`: rectangle, roman, kidney,
   freeform, lagoon, figure8), deck and coping around it, and the parts the controller runs

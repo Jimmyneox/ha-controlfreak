@@ -276,11 +276,13 @@
     "fan.backyard_cleaner_booster": {
       "attributes": {
         "friendly_name": "Backyard Cleaner Booster",
-        "percentage": 67,
-        "percentage_step": 1.639344262295082,
+        "percentage": 80,
+        "percentage_step": 1.0,
         "preset_mode": null,
         "preset_modes": null,
         "pump_model": "Fairland",
+        "speed_max": 100,
+        "speed_min": 40,
         "supported_features": 49
       },
       "entity_id": "fan.backyard_cleaner_booster",
@@ -289,11 +291,13 @@
     "fan.backyard_filter_pump": {
       "attributes": {
         "friendly_name": "Backyard Filter Pump",
-        "percentage": 18,
-        "percentage_step": 1.639344262295082,
+        "percentage": 50,
+        "percentage_step": 1.0,
         "preset_mode": null,
         "preset_modes": null,
         "pump_model": "Fairland",
+        "speed_max": 100,
+        "speed_min": 40,
         "supported_features": 49
       },
       "entity_id": "fan.backyard_filter_pump",
@@ -302,11 +306,13 @@
     "fan.backyard_solar_pump": {
       "attributes": {
         "friendly_name": "Backyard Solar Pump",
-        "percentage": 83,
-        "percentage_step": 1.639344262295082,
+        "percentage": 90,
+        "percentage_step": 1.0,
         "preset_mode": null,
         "preset_modes": null,
         "pump_model": "Fairland",
+        "speed_max": 100,
+        "speed_min": 40,
         "supported_features": 49
       },
       "entity_id": "fan.backyard_solar_pump",
@@ -315,11 +321,13 @@
     "fan.backyard_spa_jets": {
       "attributes": {
         "friendly_name": "Backyard Spa Jets",
-        "percentage": 34,
-        "percentage_step": 1.639344262295082,
+        "percentage": 60,
+        "percentage_step": 1.0,
         "preset_mode": null,
         "preset_modes": null,
         "pump_model": "Fairland",
+        "speed_max": 100,
+        "speed_min": 40,
         "supported_features": 49
       },
       "entity_id": "fan.backyard_spa_jets",
@@ -328,11 +336,13 @@
     "fan.backyard_waterfall": {
       "attributes": {
         "friendly_name": "Backyard Waterfall",
-        "percentage": 50,
-        "percentage_step": 1.639344262295082,
+        "percentage": 70,
+        "percentage_step": 1.0,
         "preset_mode": null,
         "preset_modes": null,
         "pump_model": "Fairland",
+        "speed_max": 100,
+        "speed_min": 40,
         "supported_features": 49
       },
       "entity_id": "fan.backyard_waterfall",

@@ -297,6 +297,52 @@ style: neon
 
 Leaving the option out keeps the default style. An unknown style is reported as a card error.
 
+### Deck finishes
+
+The deck around the water is concrete by default, a light grey, since that is what most
+pools sit in. `picture_deck` on the strategy (or `deck` on a picture card) picks another
+finish: `pavers` (running bond), `travertine` (large square tiles), `wood` (boards) or
+`stone` (flagstone). Every style draws the finish its own way, by day and by night.
+
+![The five deck finishes in every style](images/dashboard-decks.png)
+
+### Pool controls
+
+The pump and light tiles carry Control Freak's own features, built for a pool panel:
+
+- **Pump speed** (`custom:controlfreak-pump-speed`): a slider over the pump's real speed
+  range, 40–100 % on a typical variable-speed pump, with an Off button. The percentage is
+  the speed the pump runs at, not a fraction of its range, so 40 % reads 40 on the panel
+  too. The pool's own pump sits first in the section, full width, right under the picture.
+- **Light colours** (`custom:controlfreak-light-colors`): a bar of swatches, one per
+  colour the light offers (Blue, Green, Red, White, Magenta on a Pentair set); the current
+  one is marked.
+- **Light shows** (`custom:controlfreak-light-shows`): a dropdown of the shows (SAM,
+  Party, Romance, Caribbean, American, California Sunset, Royal). The two features split the
+  light's effect list between them by name; a light whose effects are not known yet keeps
+  the core `light-effect` dropdown.
+
+They are plain tile features, so a hand-written tile card can use them too:
+
+```yaml
+type: tile
+entity: fan.backyard_filter_pump
+features:
+  - type: custom:controlfreak-pump-speed
+    off_button: true          # default; false hides the Off button
+---
+type: tile
+entity: light.backyard_pool_light
+features:
+  - type: custom:controlfreak-light-colors
+    # effects: [Blue, White]  # optional: only these swatches
+  - type: custom:controlfreak-light-shows
+    label: Light show         # the placeholder when no show is running
+```
+
+`controls: core` on the strategy puts Home Assistant's own `fan-speed` and `light-effect`
+features back.
+
 ### Create the dashboard
 
 1. Go to **Settings** > **Dashboards**.
@@ -324,6 +370,8 @@ strategy:
   pictures: false
   picture_shape: freeform
   picture_style: caustic
+  picture_deck: concrete
+  controls: controlfreak
   hide:
     - controller
   order:
@@ -339,6 +387,8 @@ strategy:
 | `pictures` | `false` leaves out the animated picture above the pumps; `features` shows one picture per water feature instead of the overview. The default is `true`. |
 | `picture_shape` | The overview's outline: `rectangle`, `roman`, `kidney`, `freeform`, `lagoon` or `figure8`. The default is `freeform`. |
 | `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
+| `picture_deck` | The surround around the water: `concrete` (the default, a light grey most pools sit in), `pavers`, `travertine`, `wood` or `stone`. |
+| `controls` | The tile features: `controlfreak` (the default: the pump speed slider, the light colour bar and the light show dropdown below) or `core` for Home Assistant's own `fan-speed` and `light-effect` features. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
 | `titles` | A heading per equipment type, for example `pumps: Circulation`. |

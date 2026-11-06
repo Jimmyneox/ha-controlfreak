@@ -17,14 +17,19 @@ import {
   DEFAULT_TITLES,
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
+  LIGHT_COLORS_FEATURE,
+  LIGHT_SHOWS_FEATURE,
   PICTURE_CARD,
+  PICTURE_DECKS,
   PICTURE_SHAPES,
   PICTURE_STYLES,
+  PUMP_SPEED_FEATURE,
   pictureCards,
   sceneFor,
   sectionOrder,
   shortName,
 } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
+import { FEATURE_TYPES } from "../../custom_components/controlfreak/frontend/controlfreak-features.js";
 
 const fixture = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
@@ -35,6 +40,8 @@ const SHAPES = ["full-pool", "lighting-only", "valves-skimmers", "empty"];
 const pictures = (sections) => sections.flatMap((s) => s.cards).filter((c) => c.type === PICTURE_CARD);
 // The per-feature pictures (0.3.0's layout before the overview), on request.
 const FEATURES = { pictures: "features" };
+// Home Assistant's own tile features: what the snapshots were taken with.
+const CORE = { controls: "core" };
 
 const headings = (sections) => sections.map((s) => s.cards[0].heading);
 const entitiesOf = (section) => section.cards.filter((c) => c.entity).map((c) => c.entity);
@@ -59,11 +66,12 @@ test("full pool: a section per equipment type, in default order", () => {
 test("full pool: five pump tiles with speed control, each read-only mode under its pump", () => {
   const hass = fixture("full-pool");
   const pumps = buildSection(hass, "pumps");
+  // The pool's own pump leads (its speed sits under the picture); the rest keep their name order.
   assert.deepEqual(entitiesOf(pumps), [
-    "fan.backyard_cleaner_booster",
-    "sensor.backyard_cleaner_booster_current_mode",
     "fan.backyard_filter_pump",
     "sensor.backyard_filter_pump_current_mode",
+    "fan.backyard_cleaner_booster",
+    "sensor.backyard_cleaner_booster_current_mode",
     "fan.backyard_solar_pump",
     "sensor.backyard_solar_pump_current_mode",
     "fan.backyard_spa_jets",
@@ -72,8 +80,12 @@ test("full pool: five pump tiles with speed control, each read-only mode under i
     "sensor.backyard_waterfall_current_mode",
   ]);
   for (const c of pumps.cards.filter((c) => c.entity?.startsWith("fan."))) {
-    assert.deepEqual(featureTypes(c), ["fan-speed"]);
+    assert.deepEqual(featureTypes(c), [PUMP_SPEED_FEATURE]);
   }
+  // controls: core puts Home Assistant's features back and the pool pump in name order.
+  const core = buildSection(hass, "pumps", CORE);
+  assert.equal(entitiesOf(core)[0], "fan.backyard_cleaner_booster");
+  for (const c of core.cards.filter((c) => c.entity?.startsWith("fan."))) assert.deepEqual(featureTypes(c), ["fan-speed"]);
   // The mode is shown, never commanded: no mode-changing feature anywhere.
   assert.deepEqual(featureTypes(card([pumps], "sensor.backyard_spa_jets_current_mode")), []);
   assert.ok(!allEntities([pumps]).some((e) => e.startsWith("select.")));
@@ -101,15 +113,20 @@ test("pump with preset modes gets the preset-modes feature", () => {
   attrs.supported_features |= 8;
   attrs.preset_modes = ["pool", "spa"];
   assert.deepEqual(featureTypes(card(buildSections(hass), "fan.backyard_waterfall")), [
+    PUMP_SPEED_FEATURE,
+    "fan-preset-modes",
+  ]);
+  assert.deepEqual(featureTypes(card(buildSections(hass, CORE), "fan.backyard_waterfall")), [
     "fan-speed",
     "fan-preset-modes",
   ]);
 });
 
-test("lights get the effect feature, plain relays a toggle", () => {
+test("lights get the colour bar and the show dropdown, plain relays a toggle", () => {
   const sections = buildSections(fixture("full-pool"));
-  assert.deepEqual(featureTypes(card(sections, "light.backyard_pool_light")), ["light-effect"]);
+  assert.deepEqual(featureTypes(card(sections, "light.backyard_pool_light")), [LIGHT_COLORS_FEATURE, LIGHT_SHOWS_FEATURE]);
   assert.deepEqual(featureTypes(card(sections, "switch.backyard_deck_lights")), ["toggle"]);
+  assert.deepEqual(featureTypes(card(buildSections(fixture("full-pool"), CORE), "light.backyard_pool_light")), ["light-effect"]);
 });
 
 test("heaters and chillers are grouped by role, general relays stay relays", () => {
@@ -283,14 +300,14 @@ test("dashboard: one sections view, core cards plus the integration's own pictur
 
 /* ----- Animated pictures (0.3.0) ----------------------------------------- */
 
-test("pictures: false reproduces the v0.2.1 output byte for byte", () => {
+test("pictures: false, controls: core reproduces the v0.2.1 output byte for byte", () => {
   for (const name of SHAPES) {
-    const out = JSON.stringify(buildDashboard(fixture(name), { pictures: false }), null, 2) + "\n";
+    const out = JSON.stringify(buildDashboard(fixture(name), { pictures: false, ...CORE }), null, 2) + "\n";
     assert.equal(out, snapshot(name), name);
   }
-  // Only the pictures were added: with them stripped, today's output is v0.2.1's.
+  // Only the pictures were added: with them stripped, today's core output is v0.2.1's.
   for (const name of SHAPES) {
-    const dash = buildDashboard(fixture(name));
+    const dash = buildDashboard(fixture(name), CORE);
     for (const s of dash.views[0].sections) s.cards = s.cards.filter((c) => c.type !== PICTURE_CARD);
     assert.equal(JSON.stringify(dash, null, 2) + "\n", snapshot(name), name);
   }
@@ -313,7 +330,8 @@ test("full pool: one overview of the whole pool at the top of the pumps section"
   };
   assert.deepEqual(pumps.cards[1], expected);
   assert.equal(pumps.cards[0].type, "heading");
-  assert.equal(pumps.cards[2].entity, "fan.backyard_cleaner_booster", "tiles follow, unchanged");
+  assert.equal(pumps.cards[2].entity, "fan.backyard_filter_pump", "the pool pump's speed sits right under it");
+  assert.equal(buildSection(hass, "pumps", CORE).cards[2].entity, "fan.backyard_cleaner_booster", "core: tiles in name order");
   // No shape or style key unless asked: the card falls back to the module defaults.
   assert.equal("shape" in pumps.cards[1], false);
   assert.equal("style" in pumps.cards[1], false);
@@ -354,7 +372,8 @@ test("full pool, pictures: features: pool, spa and waterfall pictures instead of
   ];
   assert.deepEqual(pumps.cards.slice(1, 4), expected);
   assert.equal(pumps.cards[0].type, "heading");
-  assert.equal(pumps.cards[4].entity, "fan.backyard_cleaner_booster", "tiles follow, unchanged");
+  assert.equal(pumps.cards[4].entity, "fan.backyard_filter_pump", "the pool pump's tile follows its pictures");
+  assert.equal(buildSection(hass, "pumps", { ...FEATURES, ...CORE }).cards[4].entity, "fan.backyard_cleaner_booster");
   assert.equal(pictures(buildSections(hass, FEATURES)).length, 3);
   assert.equal(pictures(buildSections(hass, FEATURES)).some((c) => c.scene === "overview"), false);
 });
@@ -555,21 +574,21 @@ test("every type has a default title", () => {
 
 /* ----- Picture styles --------------------------------------------------- */
 
-test("pictures: features reproduces the 0.3.0 output byte for byte (cards carry no style key)", () => {
+test("pictures: features, controls: core reproduces the 0.3.0 output byte for byte (cards carry no style key)", () => {
   for (const name of SHAPES) {
-    const out = JSON.stringify(buildDashboard(fixture(name), FEATURES), null, 2) + "\n";
+    const out = JSON.stringify(buildDashboard(fixture(name), { ...FEATURES, ...CORE }), null, 2) + "\n";
     assert.equal(out, snapshot(name, "v0.3.0"), name);
     assert.equal(
-      JSON.stringify(buildDashboard(fixture(name), { ...FEATURES, picture_style: undefined, picture_shape: undefined }), null, 2) + "\n",
+      JSON.stringify(buildDashboard(fixture(name), { ...FEATURES, ...CORE, picture_style: undefined, picture_shape: undefined }), null, 2) + "\n",
       out
     );
   }
   for (const c of pictures(buildSections(fixture("full-pool"), FEATURES))) assert.equal("style" in c, false);
-  // The default dashboard differs from 0.3.0 in exactly one way: one overview card where the three were.
-  const dash = buildDashboard(fixture("full-pool"));
+  // The core dashboard differs from 0.3.0 in exactly one way: one overview card where the three were.
+  const dash = buildDashboard(fixture("full-pool"), CORE);
   const pumps = dash.views[0].sections.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
   const [overview] = pictures([pumps]);
-  pumps.cards.splice(pumps.cards.indexOf(overview), 1, ...pictures(buildSections(fixture("full-pool"), FEATURES)));
+  pumps.cards.splice(pumps.cards.indexOf(overview), 1, ...pictures(buildSections(fixture("full-pool"), { ...FEATURES, ...CORE })));
   assert.equal(JSON.stringify(dash, null, 2) + "\n", snapshot("full-pool", "v0.3.0"));
 });
 
@@ -594,7 +613,7 @@ test("picture_style reaches every picture card from the dashboard, view and sect
     for (const c of pictures([section])) assert.equal(c.style, style);
   }
   // Only the picture cards change: strip the style and the dashboard is the default one.
-  const styled = buildDashboard(hass, { ...FEATURES, picture_style: "neon" });
+  const styled = buildDashboard(hass, { ...FEATURES, ...CORE, picture_style: "neon" });
   for (const c of pictures(styled.views[0].sections)) delete c.style;
   assert.equal(JSON.stringify(styled, null, 2) + "\n", snapshot("full-pool", "v0.3.0"));
   assert.throws(() => buildSections(hass, { picture_style: "sepia" }), /picture_style/);
@@ -607,10 +626,10 @@ test("an unknown picture_style is rejected; pictures: false ignores it", () => {
   const hass = fixture("full-pool");
   assert.throws(() => buildSection(hass, "pumps", { picture_style: "sepia" }), /Unknown Control Freak picture_style "sepia"/);
   assert.throws(() => buildDashboard(hass, { picture_style: "sepia" }), /caustic, blueprint, depth, neon, poster/);
-  const out = JSON.stringify(buildDashboard(hass, { pictures: false, picture_style: "sepia" }), null, 2) + "\n";
+  const out = JSON.stringify(buildDashboard(hass, { pictures: false, ...CORE, picture_style: "sepia" }), null, 2) + "\n";
   assert.equal(out, snapshot("full-pool"));
   // Lighting-only panels have no picture, so a style changes nothing there either.
-  assert.equal(JSON.stringify(buildDashboard(fixture("lighting-only"), { picture_style: "poster" }), null, 2) + "\n", snapshot("lighting-only", "v0.3.0"));
+  assert.equal(JSON.stringify(buildDashboard(fixture("lighting-only"), { ...CORE, picture_style: "poster" }), null, 2) + "\n", snapshot("lighting-only", "v0.3.0"));
 });
 
 test("picture_shape reaches the overview from the dashboard, view and section strategies", async () => {
@@ -649,4 +668,83 @@ test("the overview shows the parts the panel runs: a pool-only panel gets just t
   assert.deepEqual(card.lights, { pool: "light.backyard_pool_light" });
   assert.equal("spillover" in card, false, "no spa, nothing to spill");
   assert.equal("show" in card, false, "the strategy never guesses at unpowered parts");
+});
+
+/* ----- Control Freak tile features and the deck finish ------------------- */
+
+test("controls: core gives Home Assistant's own features and keeps the 0.2.1 and 0.3.0 snapshots byte for byte", () => {
+  for (const name of SHAPES) {
+    const core = buildDashboard(fixture(name), { controls: "core", pictures: false });
+    assert.equal(JSON.stringify(core, null, 2) + "\n", snapshot(name), name);
+    const features = buildDashboard(fixture(name), { controls: "core", ...FEATURES });
+    assert.equal(JSON.stringify(features, null, 2) + "\n", snapshot(name, "v0.3.0"), name);
+  }
+  assert.throws(() => buildSections(fixture("full-pool"), { controls: "fancy" }), /controls/);
+});
+
+test("default controls: the pool pump first and full width with the speed slider; other pumps keep theirs", () => {
+  const hass = fixture("full-pool");
+  const sections = buildSections(hass);
+  const pumps = sections.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
+  const tiles = pumps.cards.filter((c) => c.type === "tile");
+  const fans = tiles.filter((c) => c.entity.startsWith("fan."));
+  assert.equal(fans.length, 5);
+  // The overview first, then the pool's own pump straight under it, full width.
+  assert.equal(pumps.cards[1].type, PICTURE_CARD);
+  assert.equal(pumps.cards[2].entity, "fan.backyard_filter_pump");
+  assert.deepEqual(pumps.cards[2].grid_options, { columns: "full" });
+  assert.deepEqual(featureTypes(pumps.cards[2]), [PUMP_SPEED_FEATURE]);
+  for (const f of fans) {
+    assert.deepEqual(featureTypes(f), [PUMP_SPEED_FEATURE], f.entity);
+    if (f !== pumps.cards[2]) assert.equal("grid_options" in f, false, f.entity);
+  }
+  // Nothing else about the dashboard changed: swap the features and placement back and it is the default of 0.3.0 + overview.
+  for (const t of fans) t.features = [{ type: "fan-speed" }];
+  delete pumps.cards[2].grid_options;
+  const core = buildSections(hass, { controls: "core" });
+  const corePumps = core.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
+  const sortTiles = (cards) => cards.filter((c) => c.type === "tile").sort((a, b) => a.entity.localeCompare(b.entity));
+  assert.deepEqual(sortTiles(pumps.cards), sortTiles(corePumps.cards));
+  const lightsHeading = DEFAULT_TITLES.lights;
+  const rest = (secs) => secs.filter((s) => ![DEFAULT_TITLES.pumps, lightsHeading].includes(s.cards[0].heading));
+  assert.deepEqual(rest(sections), rest(core));
+});
+
+test("default controls: a colour light gets the colour bar and the show dropdown, not the core dropdown", () => {
+  const hass = fixture("full-pool");
+  const sections = buildSections(hass);
+  const pool = card(sections, "light.backyard_pool_light");
+  assert.deepEqual(featureTypes(pool), [LIGHT_COLORS_FEATURE, LIGHT_SHOWS_FEATURE]);
+  const core = card(buildSections(hass, { controls: "core" }), "light.backyard_pool_light");
+  assert.deepEqual(featureTypes(core), ["light-effect"]);
+  // A light that lists only colours gets the bar alone; one that lists nothing yet keeps the core dropdown.
+  const onlyColors = structuredClone(hass);
+  onlyColors.states["light.backyard_pool_light"].attributes.effect_list = ["Blue", "Red"];
+  assert.deepEqual(featureTypes(card(buildSections(onlyColors), "light.backyard_pool_light")), [LIGHT_COLORS_FEATURE]);
+  const noList = structuredClone(hass);
+  delete noList.states["light.backyard_pool_light"].attributes.effect_list;
+  assert.deepEqual(featureTypes(card(buildSections(noList), "light.backyard_pool_light")), ["light-effect"]);
+  // The strategy and the features module agree on the tags.
+  assert.deepEqual([PUMP_SPEED_FEATURE, LIGHT_COLORS_FEATURE, LIGHT_SHOWS_FEATURE], FEATURE_TYPES.map((t) => `custom:${t}`));
+});
+
+test("picture_deck reaches every picture card from the dashboard, view and section strategies", async () => {
+  const hass = fixture("full-pool");
+  assert.deepEqual(PICTURE_DECKS, ["concrete", "pavers", "travertine", "wood", "stone"]);
+  for (const deck of PICTURE_DECKS) {
+    for (const c of pictures(buildDashboard(hass, { picture_deck: deck }).views[0].sections)) assert.equal(c.deck, deck);
+    const tiles = pictures(buildDashboard(hass, { ...FEATURES, picture_deck: deck }).views[0].sections);
+    assert.equal(tiles.length, 3, deck);
+    for (const c of tiles) assert.equal(c.deck, deck);
+    const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", picture_deck: deck }, hass);
+    for (const c of pictures(view.sections)) assert.equal(c.deck, deck);
+    const section = await ControlFreakSectionStrategy.generate(
+      { type: "custom:controlfreak", equipment: "pumps", picture_deck: deck },
+      hass
+    );
+    for (const c of pictures([section])) assert.equal(c.deck, deck);
+  }
+  // Left out, no card carries a deck key (the card's own default applies).
+  for (const c of pictures(buildSections(hass))) assert.equal("deck" in c, false);
+  assert.throws(() => buildSections(hass, { picture_deck: "grass" }), /picture_deck/);
 });

@@ -34,7 +34,7 @@
  * Display only: nothing here ever writes to pool equipment.
  */
 
-import { DEFAULT_STYLE, makeStyledScene, STYLES } from "./controlfreak-picture-styles.js";
+import { DECKS, DEFAULT_DECK, DEFAULT_STYLE, STYLES, makeStyledScene } from "./controlfreak-picture-styles.js";
 import { DEFAULT_SHAPE, PARTS, partsOf, SHAPES } from "./controlfreak-pool-shapes.js";
 
 /* ----- Shared tables ----------------------------------------------------- */
@@ -185,6 +185,7 @@ export function overviewModelOf(hass, config) {
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
     shape: config.shape ?? DEFAULT_SHAPE,
+    deck: config.deck ?? DEFAULT_DECK,
     parts,
     show: partsOf(config),
   };
@@ -204,6 +205,7 @@ export function modelOf(hass, config) {
     hex: light.hex,
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
+    deck: config.deck ?? DEFAULT_DECK,
   };
 }
 
@@ -998,6 +1000,9 @@ export class ControlFreakPictureCard extends Base {
     if (config.style != null && !STYLES.includes(config.style)) {
       throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
     }
+    if (config.deck != null && !DECKS.includes(config.deck)) {
+      throw new Error(`controlfreak-picture: set "deck" to one of ${DECKS.join(", ")}`);
+    }
     this._config = config;
     this._model = this._hass ? modelOf(this._hass, config) : null;
     this._rebuild();
@@ -1011,7 +1016,7 @@ export class ControlFreakPictureCard extends Base {
     this._model = next;
     const changed =
       !prev ||
-      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark"].some((k) => prev[k] !== next[k]) ||
+      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "deck"].some((k) => prev[k] !== next[k]) ||
       (next.parts && JSON.stringify(prev.parts) !== JSON.stringify(next.parts));
     if (changed) {
       this._label();

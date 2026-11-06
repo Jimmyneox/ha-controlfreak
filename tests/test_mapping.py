@@ -133,15 +133,18 @@ def test_unknown_type_and_missing_topic_skipped(device_settings: list[dict[str, 
     assert set(parse_settings([odd, no_topic])) == set()
 
 
-def test_pump_percentage_maps_through_min_40() -> None:
-    assert percentage_to_speed(1, 40, 100) == 40
+def test_pump_percentage_is_the_pumps_own_speed() -> None:
+    """HA's percentage reads the pump's speed: a 40 to 100 pump reads 40 at its floor, not 1."""
+    assert percentage_to_speed(40, 40, 100) == 40
     assert percentage_to_speed(100, 40, 100) == 100
-    assert percentage_to_speed(50, 40, 100) == 70
-    assert speed_to_percentage(40, 40, 100) == 1
+    assert percentage_to_speed(70, 40, 100) == 70
+    assert percentage_to_speed(1, 40, 100) == 40, "below the floor is the floor"
+    assert percentage_to_speed(150, 40, 100) == 100
+    assert speed_to_percentage(40, 40, 100) == 40
     assert speed_to_percentage(100, 40, 100) == 100
+    assert speed_to_percentage(70, 40, 100) == 70
     assert speed_to_percentage(0, 40, 100) == 0
-    # A green that cannot fail is not evidence: a naive 1:1 mapping would give 1.
-    assert percentage_to_speed(1, 40, 100) != 1
+    assert speed_to_percentage(25, 40, 100) == 40, "a reading under the floor shows the floor"
 
 
 def test_relay_state_shapes() -> None:

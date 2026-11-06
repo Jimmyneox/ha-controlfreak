@@ -28,6 +28,7 @@ from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
 from custom_components.controlfreak.const import (
     DOMAIN,
+    FEATURES_URL,
     FRONTEND_URL,
     PICTURE_URL,
     SHAPES_URL,
@@ -55,6 +56,7 @@ async def test_strategy_is_served(
     assert stub_frontend.call_args_list == [
         call(hass, f"{FRONTEND_URL}?v={version}"),
         call(hass, f"{PICTURE_URL}?v={version}"),
+        call(hass, f"{FEATURES_URL}?v={version}"),
     ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
@@ -90,6 +92,21 @@ async def test_picture_styles_are_served(
     assert resp.status == 200
     body = await resp.text()
     assert 'export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];' in body
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_features_are_served_and_loaded(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The tile features module is served and loaded on every page (same cache-buster)."""
+    client = await hass_client()
+    resp = await client.get(FEATURES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    for tag in ("controlfreak-pump-speed", "controlfreak-light-colors", "controlfreak-light-shows"):
+        assert f'"{tag}"' in body, tag
+    assert "customCardFeatures" in body
     mime = resp.headers["Content-Type"].split(";")[0]
     assert mime in ("application/javascript", "text/javascript")
 
