@@ -173,12 +173,9 @@
     ic.title = iconName;
     row.append(ic);
     const label = el("div");
-    const unit = st.attributes?.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : "";
-    label.append(
-      // Like the tile card: the configured name, else the full friendly name.
-      el("div", "name", card.name ?? st.attributes?.friendly_name ?? card.entity),
-      el("div", "state", `${st.state}${unit} · ${card.entity}`)
-    );
+    // Like the tile card: the configured name, else the full friendly name.
+    // No status line under it: the icon colour and the features carry the state.
+    label.append(el("div", "name", card.name ?? st.attributes?.friendly_name ?? card.entity));
     row.append(label);
     t.append(row);
     if (card.features?.length) {
