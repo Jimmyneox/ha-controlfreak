@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 
 from homeassistant.components.frontend import add_extra_js_url
@@ -35,6 +36,15 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+def frontend_stamp(version: str, paths: list[Path]) -> str:
+    """`<version>.<8 hex>`: the hash of every served frontend module."""
+    digest = hashlib.sha256()
+    for path in sorted(paths):
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return f"{version}.{digest.hexdigest()[:8]}"
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Serve the dashboard strategy and the picture card to every frontend page."""
     integration = await async_get_integration(hass, DOMAIN)
@@ -54,9 +64,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(url, str(path), cache_headers=False) for url, path in served.items()]
     )
-    # The version query busts the browser cache after an upgrade.
+    # The query busts the browser cache: the version for an upgrade, and the
+    # modules' content hash for a same-version reinstall (HA serves these with
+    # no cache headers, so Chrome would otherwise keep the old file).
+    stamp = await hass.async_add_executor_job(
+        frontend_stamp, integration.version, list(served.values())
+    )
     for url in files:
-        add_extra_js_url(hass, f"{url}?v={integration.version}")
+        add_extra_js_url(hass, f"{url}?v={stamp}")
     return True
 
 

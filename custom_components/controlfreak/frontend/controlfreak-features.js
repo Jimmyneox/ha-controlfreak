@@ -132,6 +132,9 @@ const COMMON_CSS = `
   .off svg { width: 20px; height: 20px; fill: currentColor; opacity: 1; }
 `;
 
+/** Keys a control consumes; they must not reach the tile card's action handler. */
+export const KEYS_KEPT = new Set(["Enter", " ", "Spacebar", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "Escape"]);
+
 class Feature extends Base {
   constructor() {
     super();
@@ -141,6 +144,17 @@ class Feature extends Base {
     this._stateObj = null;
     this._key = null;
     if (this.attachShadow) this.attachShadow({ mode: "open" });
+    // The tile card runs its tap action on Enter and Space anywhere inside the
+    // card (keyboard a11y), so a key pressed in one of these controls would also
+    // open more-info. Keys used by the controls stay inside the feature.
+    if (this.addEventListener) {
+      this.addEventListener("keydown", (ev) => {
+        if (KEYS_KEPT.has(ev.key)) ev.stopPropagation();
+      });
+      this.addEventListener("keyup", (ev) => {
+        if (KEYS_KEPT.has(ev.key)) ev.stopPropagation();
+      });
+    }
   }
 
   setConfig(config) {

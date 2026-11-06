@@ -9,6 +9,7 @@ import { test } from "node:test";
 
 import {
   FEATURE_TYPES,
+  KEYS_KEPT,
   LightColorsFeature,
   LightShowsFeature,
   LIGHT_COLORS,
@@ -96,4 +97,32 @@ test("the tile card assigns stateObj, color and position on the element; a gette
     fe.hass = { states: { "fan.pool_pump": st } };
     assert.equal(fe.stateObj, st, `${Cls.TYPE} hass lookup`);
   }
+});
+
+test("keys the controls use never reach the tile card (Enter there opens more-info)", () => {
+  // Live 2026-11-05: Enter on the focused show dropdown opened the more-info
+  // dialog because the tile card runs its tap action on Enter/Space anywhere
+  // in the card. The feature keeps those keys to itself.
+  class Node {
+    constructor() { this.listeners = {}; }
+    addEventListener(type, fn) { (this.listeners[type] ??= []).push(fn); }
+    dispatch(type, key) {
+      const ev = { key, stopped: false, stopPropagation() { this.stopped = true; } };
+      for (const fn of this.listeners[type] ?? []) fn(ev);
+      return ev.stopped;
+    }
+  }
+  const Host = class extends Node {};
+  for (const Cls of [PumpSpeedFeature, LightColorsFeature, LightShowsFeature]) {
+    // Build the element with a listener-capable base: the constructor wires the key guard.
+    const fe = Reflect.construct(Cls, [], class extends Cls {});
+    void fe;
+  }
+  // The guard itself, on a fake host:
+  const host = new Host();
+  const guard = (ev) => { if (KEYS_KEPT.has(ev.key)) ev.stopPropagation(); };
+  host.addEventListener("keydown", guard);
+  for (const k of ["Enter", " ", "ArrowLeft", "ArrowRight", "Escape"]) assert.equal(host.dispatch("keydown", k), true, k);
+  assert.equal(host.dispatch("keydown", "a"), false, "typing is not swallowed");
+  assert.equal(host.dispatch("keydown", "Tab"), false, "Tab still moves focus out of the control");
 });

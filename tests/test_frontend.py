@@ -26,6 +26,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
+from custom_components.controlfreak import frontend_stamp
 from custom_components.controlfreak.const import (
     DOMAIN,
     FEATURES_URL,
@@ -54,11 +55,17 @@ async def test_strategy_is_served(
 ) -> None:
     """The JS is registered as a frontend module and actually served over HTTP."""
     version = MANIFEST["version"]
+    # The query carries the version and a content hash of every served module,
+    # so a same-version reinstall still busts the browser cache.
+    stamps = {c.args[1].split("?v=")[1] for c in stub_frontend.call_args_list}
+    assert len(stamps) == 1, stamps
+    stamp = stamps.pop()
+    assert re.fullmatch(rf"{re.escape(version)}\.[0-9a-f]{{8}}", stamp), stamp
     assert stub_frontend.call_args_list == [
-        call(hass, f"{FRONTEND_URL}?v={version}"),
-        call(hass, f"{PICTURE_URL}?v={version}"),
-        call(hass, f"{FEATURES_URL}?v={version}"),
-        call(hass, f"{ICONS_URL}?v={version}"),
+        call(hass, f"{FRONTEND_URL}?v={stamp}"),
+        call(hass, f"{PICTURE_URL}?v={stamp}"),
+        call(hass, f"{FEATURES_URL}?v={stamp}"),
+        call(hass, f"{ICONS_URL}?v={stamp}"),
     ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
@@ -380,3 +387,16 @@ async def test_dashboard_fixture(
 async def test_empty_fixture(hass: HomeAssistant) -> None:
     """No Control Freak entry at all: only foreign entities."""
     _check_fixture("empty", hass_stub(hass, None))
+
+
+def test_frontend_stamp_changes_with_the_module_bytes(tmp_path) -> None:
+    """A same-version edit to any served module changes the stamp; the version leads it."""
+    a = tmp_path / "a.js"
+    b = tmp_path / "b.js"
+    a.write_text("export const x = 1;")
+    b.write_text("export const y = 1;")
+    before = frontend_stamp("0.3.0", [a, b])
+    assert before.startswith("0.3.0.") and len(before) == len("0.3.0.") + 8
+    assert frontend_stamp("0.3.0", [b, a]) == before  # order does not matter
+    b.write_text("export const y = 2;")
+    assert frontend_stamp("0.3.0", [a, b]) != before

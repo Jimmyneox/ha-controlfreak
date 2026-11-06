@@ -3,6 +3,8 @@
 ## 0.3.0 — unreleased
 
 ### Fixed
+- Enter or Space inside a tile feature no longer opens the entity's more-info dialog: the controls keep the keys they use.
+- The frontend module URLs carry a content hash after the version, so a same-version reinstall is picked up without a hard reload.
 - Tile features render again on a real dashboard: the tile card assigns `stateObj` on the feature element and the base class only had a getter, so every Control Freak feature threw and showed blank. The harness now assigns the element's properties the way `hui-card-feature` does.
 
 - **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,
