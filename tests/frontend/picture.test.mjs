@@ -319,12 +319,16 @@ test("pool shapes: the standard set, each a closed path inside the unit square",
     "oval",
     "round",
     "kidney",
+    "figure-8",
     "lazy-l",
+    "true-l",
+    "mountain-lake",
     "freeform",
     "custom",
   ]);
   assert.equal(DEFAULT_SHAPE, "rectangle");
-  for (const [name, d] of Object.entries(POOL_SHAPES)) {
+  for (const [name, def] of Object.entries(POOL_SHAPES)) {
+    const d = def.path;
     assert.match(d, /^M/, name);
     assert.match(d, /Z$/, name);
     const pts = pathPoints(d);
@@ -334,17 +338,39 @@ test("pool shapes: the standard set, each a closed path inside the unit square",
       if (y != null) assert.ok(y >= 0 && y <= 1, `${name} y ${y}`);
     }
     assert.ok(/[ACQ]/.test(d) || name === "grecian", `${name} is drawn with curves or cut corners`);
+    // Steps at the shallow end on the left, the drain at the deep end on the right.
+    for (const key of ["steps", "deep"]) {
+      assert.equal(def[key].length, 2, `${name} ${key}`);
+      for (const n of def[key]) assert.ok(n >= 0 && n <= 1, `${name} ${key} ${n}`);
+    }
+    assert.ok(def.steps[0] < 0.2, `${name} steps at the left wall`);
+    assert.ok(def.deep[0] > 0.8, `${name} deep end at the right`);
   }
 });
 
 test("poolOutline: a named shape, the default, round keeps 1:1, custom takes a path", () => {
-  assert.deepEqual(poolOutline(), { shape: "rectangle", path: POOL_SHAPES.rectangle, uniform: false });
+  assert.deepEqual(poolOutline(), {
+    shape: "rectangle",
+    path: POOL_SHAPES.rectangle.path,
+    uniform: false,
+    steps: POOL_SHAPES.rectangle.steps,
+    deep: POOL_SHAPES.rectangle.deep,
+  });
   assert.deepEqual(poolOutline({ scene: "pool" }), poolOutline({}));
-  assert.equal(poolOutline({ shape: "kidney" }).path, POOL_SHAPES.kidney);
+  assert.equal(poolOutline({ shape: "kidney" }).path, POOL_SHAPES.kidney.path);
   assert.equal(poolOutline({ shape: "round" }).uniform, true);
   assert.equal(poolOutline({ shape: "oval" }).uniform, false);
   const custom = poolOutline({ shape: "custom", path: " M0 0 H1 V1 H0 Z " });
-  assert.deepEqual(custom, { shape: "custom", path: "M0 0 H1 V1 H0 Z", uniform: false });
+  assert.deepEqual(custom, {
+    shape: "custom",
+    path: "M0 0 H1 V1 H0 Z",
+    uniform: false,
+    steps: [0.06, 0.5],
+    deep: [0.94, 0.5],
+  });
+  const placed = poolOutline({ shape: "custom", path: "M0 0 Z", steps: [0.5, "1.4"], deep: [-1, 0.2] });
+  assert.deepEqual([placed.steps, placed.deep], [[0.5, 1], [0, 0.2]], "custom points are clamped to the square");
+  assert.deepEqual(poolOutline({ shape: "custom", path: "M0 0 Z", steps: "left" }).steps, [0.06, 0.5]);
   assert.throws(() => poolOutline({ shape: "custom" }), /needs "path"/);
   assert.throws(() => poolOutline({ shape: "custom", path: "H1 V1" }), /starting with M/);
   assert.throws(() => poolOutline({ shape: "octagon" }), /unknown shape "octagon".*rectangle.*custom/);

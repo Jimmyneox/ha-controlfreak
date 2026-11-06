@@ -195,7 +195,11 @@
     g.append(el("div", "heading", "Every pool shape"));
     for (const shape of SHAPE_NAMES) {
       const card = { type: "custom:controlfreak-picture", scene: "pool", shape, pump: "fan.demo_pump", light: "light.demo_blue" };
-      if (shape === "custom") card.path = "M0.25 0.04 H0.75 L0.96 0.5 L0.75 0.96 H0.25 L0.04 0.5 Z";
+      if (shape === "custom") {
+        card.path = "M0.25 0.06 H0.75 L0.96 0.5 L0.75 0.94 H0.25 L0.04 0.5 Z";
+        card.steps = [0.08, 0.5];
+        card.deep = [0.9, 0.5];
+      }
       const cell = el("div");
       cell.append(pictureEl(card, { ...demo, themes: { darkMode: false } }));
       cell.append(el("div", "caption", `pool · ${shape}`));

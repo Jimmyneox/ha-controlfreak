@@ -246,14 +246,19 @@ strategy:
 | `oval` | An ellipse that fills the picture. |
 | `round` | A circle, centred. |
 | `kidney` | The classic bean. |
-| `lazy-l` | An L with a wide shallow end and a narrow deep end. |
+| `figure-8` | Two round lobes with a waist. |
+| `lazy-l` | An L whose deep leg meets the wide shallow end at an angle. |
+| `true-l` | An L with a square inner corner. |
+| `mountain-lake` | An oblong with gently curved sides. |
 | `freeform` | A lagoon with no straight edge. |
-| `custom` | Your own outline: add `path`, SVG path data drawn in a 0..1 square (x right, y down), for example `path: "M0.1 0.1 H0.9 V0.9 H0.1 Z"`. |
+| `custom` | Your own outline: add `path`, SVG path data drawn in a 0..1 square (x right, y down), for example `path: "M0.1 0.1 H0.9 V0.9 H0.1 Z"`. Optional `steps: [x, y]` and `deep: [x, y]` place the entry steps and the main drain (defaults: left and right wall centres). |
 
 ![Every pool shape](images/pool-shapes.png)
 
-The spa, waterfall, deck jets and bubblers keep their own geometry; the shape applies to the
-pool picture only.
+Every pool is drawn from above on a paver deck with its coping: Roman entry steps at the
+shallow end, the water deepening towards the main drain, and a band of waterline tile. The
+spa, waterfall, deck jets and bubblers keep their own geometry; the shape applies to the pool
+picture only.
 
 #### Picture size
 

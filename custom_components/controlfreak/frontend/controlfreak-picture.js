@@ -11,7 +11,8 @@
  *   type: custom:controlfreak-picture
  *   scene: pool            # pool | spa | falls | deck | bub
  *   shape: kidney          # pool only: rectangle | roman | grecian | oval | round |
- *                          #   kidney | lazy-l | freeform | custom (+ path: "M…Z")
+ *                          #   kidney | figure-8 | lazy-l | true-l | mountain-lake |
+ *                          #   freeform | custom (+ path: "M…Z")
  *   pump: fan.filter_pump  # optional: water speed = the fan's percentage
  *   light: light.pool_light  # optional: water colour = the light's effect
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
@@ -60,42 +61,117 @@ export const PALETTE = {
 };
 
 /**
- * Pool outlines as SVG path data in a unit square (x right, y down). The card
- * scales them to the picture; "round" keeps a 1:1 aspect. Add a shape here and
- * it appears in the editor, the strategy option and the docs table.
+ * Pool outlines: SVG path data in a unit square (x right, y down), the point
+ * where the entry steps sit ("steps") and where the deep end is ("deep"), both
+ * in the same square. The card scales them to the picture; "round" keeps a
+ * 1:1 aspect. Add a shape here and it appears in the editor, the strategy
+ * option and the docs table.
  */
 export const POOL_SHAPES = {
-  rectangle:
-    "M0.1 0.04 H0.9 Q0.96 0.04 0.96 0.1 V0.9 Q0.96 0.96 0.9 0.96 H0.1 Q0.04 0.96 0.04 0.9 V0.1 Q0.04 0.04 0.1 0.04 Z",
-  roman: "M0.2 0.06 H0.8 A0.14 0.44 0 0 1 0.8 0.94 H0.2 A0.14 0.44 0 0 1 0.2 0.06 Z",
-  grecian: "M0.14 0.04 H0.86 L0.96 0.18 V0.82 L0.86 0.96 H0.14 L0.04 0.82 V0.18 Z",
-  oval: "M0.5 0.04 A0.46 0.46 0 1 1 0.5 0.96 A0.46 0.46 0 1 1 0.5 0.04 Z",
-  round: "M0.5 0.04 A0.46 0.46 0 1 1 0.5 0.96 A0.46 0.46 0 1 1 0.5 0.04 Z",
-  kidney:
-    "M0.08 0.42 C0.06 0.18 0.26 0.04 0.46 0.08 C0.58 0.1 0.64 0.2 0.76 0.18 C0.9 0.16 0.98 0.3 0.96 0.46 " +
-    "C0.94 0.66 0.84 0.86 0.64 0.92 C0.5 0.96 0.42 0.84 0.34 0.82 C0.22 0.8 0.1 0.66 0.08 0.42 Z",
-  "lazy-l":
-    "M0.1 0.04 H0.56 Q0.6 0.04 0.6 0.08 V0.44 Q0.6 0.48 0.64 0.48 H0.9 Q0.94 0.48 0.94 0.52 V0.9 " +
-    "Q0.94 0.96 0.9 0.96 H0.1 Q0.06 0.96 0.06 0.92 V0.08 Q0.06 0.04 0.1 0.04 Z",
-  freeform:
-    "M0.14 0.3 C0.16 0.1 0.36 0.02 0.52 0.08 C0.66 0.14 0.72 0.06 0.86 0.14 C0.98 0.22 0.98 0.42 0.9 0.54 " +
-    "C0.84 0.64 0.92 0.76 0.82 0.86 C0.7 0.98 0.52 0.9 0.4 0.92 C0.26 0.94 0.1 0.9 0.06 0.74 C0.02 0.58 0.12 0.48 0.14 0.3 Z",
+  rectangle: {
+    path:
+      "M0.08 0.06 H0.92 Q0.96 0.06 0.96 0.10 V0.90 Q0.96 0.94 0.92 0.94 H0.08 " +
+      "Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
+    steps: [0.04, 0.5],
+    deep: [0.94, 0.5],
+  },
+  roman: {
+    path: "M0.22 0.06 H0.78 A0.18 0.44 0 0 1 0.78 0.94 H0.22 A0.18 0.44 0 0 1 0.22 0.06 Z",
+    steps: [0.05, 0.5],
+    deep: [0.93, 0.5],
+  },
+  grecian: {
+    path: "M0.14 0.06 H0.86 L0.96 0.22 V0.78 L0.86 0.94 H0.14 L0.04 0.78 V0.22 Z",
+    steps: [0.04, 0.5],
+    deep: [0.94, 0.5],
+  },
+  oval: {
+    path: "M0.5 0.06 A0.46 0.44 0 1 1 0.5 0.94 A0.46 0.44 0 1 1 0.5 0.06 Z",
+    steps: [0.05, 0.5],
+    deep: [0.93, 0.5],
+  },
+  round: {
+    path: "M0.5 0.06 A0.44 0.44 0 1 1 0.5 0.94 A0.44 0.44 0 1 1 0.5 0.06 Z",
+    steps: [0.07, 0.5],
+    deep: [0.92, 0.5],
+    uniform: true,
+  },
+  kidney: {
+    path:
+      "M0.10 0.32 C0.10 0.12 0.30 0.04 0.46 0.08 C0.56 0.11 0.60 0.30 0.72 0.24 C0.84 0.18 0.98 0.28 0.96 0.48 " +
+      "C0.94 0.70 0.82 0.92 0.62 0.95 C0.48 0.97 0.40 0.86 0.30 0.86 C0.16 0.86 0.06 0.72 0.06 0.54 " +
+      "C0.06 0.44 0.08 0.38 0.10 0.32 Z",
+    steps: [0.07, 0.54],
+    deep: [0.90, 0.46],
+  },
+  "figure-8": {
+    path:
+      "M0.27 0.10 C0.40 0.10 0.46 0.22 0.52 0.26 C0.58 0.18 0.63 0.06 0.76 0.06 C0.92 0.06 0.97 0.30 0.96 0.50 " +
+      "C0.95 0.72 0.90 0.94 0.74 0.94 C0.62 0.94 0.58 0.82 0.52 0.74 C0.46 0.78 0.41 0.90 0.27 0.90 " +
+      "C0.12 0.90 0.04 0.72 0.04 0.50 C0.04 0.28 0.12 0.10 0.27 0.10 Z",
+    steps: [0.05, 0.5],
+    deep: [0.92, 0.5],
+  },
+  "lazy-l": {
+    path:
+      "M0.08 0.06 H0.58 Q0.62 0.06 0.62 0.10 V0.30 L0.76 0.50 H0.92 Q0.96 0.50 0.96 0.54 V0.90 " +
+      "Q0.96 0.94 0.92 0.94 H0.08 Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
+    steps: [0.04, 0.30],
+    deep: [0.92, 0.74],
+  },
+  "true-l": {
+    path:
+      "M0.08 0.06 H0.56 Q0.60 0.06 0.60 0.10 V0.50 Q0.60 0.54 0.64 0.54 H0.92 Q0.96 0.54 0.96 0.58 V0.90 " +
+      "Q0.96 0.94 0.92 0.94 H0.08 Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
+    steps: [0.04, 0.30],
+    deep: [0.92, 0.76],
+  },
+  "mountain-lake": {
+    path:
+      "M0.14 0.16 C0.26 0.04 0.44 0.10 0.56 0.08 C0.70 0.06 0.86 0.08 0.94 0.24 C0.98 0.36 0.92 0.48 0.94 0.62 " +
+      "C0.96 0.78 0.84 0.94 0.66 0.92 C0.52 0.90 0.44 0.96 0.30 0.92 C0.14 0.88 0.04 0.76 0.06 0.58 " +
+      "C0.08 0.44 0.04 0.28 0.14 0.16 Z",
+    steps: [0.08, 0.42],
+    deep: [0.90, 0.54],
+  },
+  freeform: {
+    path:
+      "M0.14 0.30 C0.16 0.10 0.36 0.02 0.52 0.08 C0.66 0.14 0.72 0.06 0.86 0.14 C0.98 0.22 0.98 0.42 0.90 0.54 " +
+      "C0.84 0.64 0.92 0.76 0.82 0.86 C0.70 0.98 0.52 0.90 0.40 0.92 C0.26 0.94 0.10 0.90 0.06 0.74 " +
+      "C0.02 0.58 0.12 0.48 0.14 0.30 Z",
+    steps: [0.10, 0.44],
+    deep: [0.86, 0.58],
+  },
 };
 export const DEFAULT_SHAPE = "rectangle";
 export const SHAPE_NAMES = [...Object.keys(POOL_SHAPES), "custom"];
 
-/** The pool outline for a card config: a named shape, or "custom" with its own path. */
+const unitPoint = (value, fallback) =>
+  Array.isArray(value) && value.length === 2 && value.every((n) => Number.isFinite(Number(n)))
+    ? value.map((n) => Math.min(1, Math.max(0, Number(n))))
+    : fallback;
+
+/**
+ * The pool outline for a card config: a named shape, or "custom" with its own
+ * `path` (and optional `steps` / `deep` points in the same 0..1 square).
+ */
 export function poolOutline(config = {}) {
   const shape = config.shape ?? DEFAULT_SHAPE;
   if (shape === "custom") {
     if (typeof config.path !== "string" || !/^\s*M/i.test(config.path)) {
       throw new Error('controlfreak-picture: shape "custom" needs "path", SVG path data in a 0..1 square starting with M');
     }
-    return { shape, path: config.path.trim(), uniform: false };
+    return {
+      shape,
+      path: config.path.trim(),
+      uniform: false,
+      steps: unitPoint(config.steps, [0.06, 0.5]),
+      deep: unitPoint(config.deep, [0.94, 0.5]),
+    };
   }
-  const path = POOL_SHAPES[shape];
-  if (!path) throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPE_NAMES.join(", ")}`);
-  return { shape, path, uniform: shape === "round" };
+  const def = POOL_SHAPES[shape];
+  if (!def) throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPE_NAMES.join(", ")}`);
+  return { shape, path: def.path, uniform: def.uniform === true, steps: def.steps, deep: def.deep };
 }
 
 export const ROWS_MIN = 2;
@@ -499,23 +575,26 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
     return strength;
   }
 
-  // Travertine deck with paver joints.
+  // Travertine deck: running-bond pavers, each a slightly different tone,
+  // with sand joints. The tone comes from the paver's position, so it is the
+  // same every frame.
   function deck(dark, x, y, w, h) {
-    ctx.fillStyle = dark ? "#2e2b26" : "#e9e1d2";
+    ctx.fillStyle = dark ? "#262320" : "#d9cfbc";
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = dark ? "rgba(255,255,255,0.05)" : "rgba(120,100,70,0.16)";
-    ctx.lineWidth = 1;
-    const sz = 34;
-    ctx.beginPath();
-    for (let gx = x - (x % sz); gx < x + w; gx += sz) {
-      ctx.moveTo(gx + 0.5, y);
-      ctx.lineTo(gx + 0.5, y + h);
+    const pw = 46;
+    const ph = 23;
+    const joint = 1.5;
+    let row = 0;
+    for (let gy = y - (y % ph) - ph; gy < y + h; gy += ph, row++) {
+      const shift = row % 2 ? pw / 2 : 0;
+      for (let gx = x - (x % pw) - pw + shift; gx < x + w; gx += pw) {
+        const n = Math.sin(gx * 12.9898 + gy * 78.233) * 43758.5453;
+        const t = n - Math.floor(n); // 0..1, fixed per paver
+        const l = dark ? 17 + t * 5 : 86 + t * 7;
+        ctx.fillStyle = `hsl(${36 + t * 8} ${dark ? 10 : 30}% ${l}%)`;
+        ctx.fillRect(gx + joint, gy + joint, pw - 2 * joint, ph - 2 * joint);
+      }
     }
-    for (let gy = y - (y % sz); gy < y + h; gy += sz) {
-      ctx.moveTo(x, gy + 0.5);
-      ctx.lineTo(x + w, gy + 0.5);
-    }
-    ctx.stroke();
   }
   function coping(dark, x0, y0, x1, y1) {
     ctx.lineCap = "butt";
@@ -538,8 +617,8 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
 
   // The pool outline in canvas pixels: the unit-square path scaled into the
   // picture inside a deck margin ("round" keeps a 1:1 aspect, centred).
-  function poolPath() {
-    const m = Math.max(8, Math.min(W, H) * 0.06);
+  function poolMetrics() {
+    const m = Math.max(10, Math.min(W, H) * 0.07);
     let sx = W - 2 * m;
     let sy = H - 2 * m;
     let tx = m;
@@ -550,24 +629,84 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
       ty += (sy - side) / 2;
       sx = sy = side;
     }
+    return { sx, sy, tx, ty };
+  }
+  function poolPath() {
+    const { sx, sy, tx, ty } = poolMetrics();
     const path = new Path2D();
     path.addPath(new Path2D(outline.path), new DOMMatrix([sx, 0, 0, sy, tx, ty]));
     return path;
   }
 
-  // The pool: deck all round, coping, then the lit water clipped to the outline.
+  // The pool from above: pavers all round, the coping's shadow and lip, then
+  // inside the outline the lit water, a shallow-to-deep gradient, Roman entry
+  // steps at the shallow end, the main drain at the deep end, the waterline
+  // tile band and the wall's shadow.
   function drawPool(dark) {
     const path = poolPath();
+    const m = poolMetrics();
+    const sx = m.tx + outline.steps[0] * m.sx;
+    const sy = m.ty + outline.steps[1] * m.sy;
+    const dx = m.tx + outline.deep[0] * m.sx;
+    const dy = m.ty + outline.deep[1] * m.sy;
+    const unit = Math.min(W, H);
     deck(dark, 0, 0, W, H);
+    // Coping: a soft shadow on the pavers, the stone lip, a hairline at its edge.
     ctx.save();
     ctx.lineJoin = "round";
-    ctx.lineWidth = 12;
-    ctx.strokeStyle = dark ? "#5d5850" : "#f4efe5";
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = dark ? "rgba(0,0,0,0.35)" : "rgba(80,60,30,0.16)";
     ctx.stroke(path);
+    ctx.lineWidth = 13;
+    ctx.strokeStyle = dark ? "#57524a" : "#f3eee4";
+    ctx.stroke(path);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = dark ? "rgba(255,255,255,0.10)" : "rgba(120,100,70,0.35)";
+    const lip = new Path2D();
+    lip.addPath(path);
+    ctx.stroke(lip);
     ctx.restore();
+
     ctx.save();
     ctx.clip(path);
     const strength = water(dark, true);
+    // Depth: the shallow end is brighter and greener, the deep end darker.
+    const depth = ctx.createLinearGradient(sx, sy, dx, dy);
+    if (dark) {
+      depth.addColorStop(0, "rgba(90,160,170,0.18)");
+      depth.addColorStop(0.45, "rgba(0,0,0,0)");
+      depth.addColorStop(1, "rgba(0,4,24,0.5)");
+    } else {
+      depth.addColorStop(0, "rgba(170,240,230,0.34)");
+      depth.addColorStop(0.45, "rgba(0,0,0,0)");
+      depth.addColorStop(1, "rgba(2,28,80,0.42)");
+    }
+    ctx.fillStyle = depth;
+    ctx.fillRect(0, 0, W, H);
+    // Roman steps: three treads fanning out from the shallow wall.
+    for (let i = 3; i >= 1; i--) {
+      const r = unit * (0.08 + i * 0.065);
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fillStyle = dark ? "rgba(140,200,215,0.12)" : "rgba(220,250,250,0.22)";
+      ctx.fill();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = dark ? "rgba(180,230,240,0.22)" : "rgba(255,255,255,0.45)";
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = dark ? "rgba(0,10,30,0.25)" : "rgba(10,60,90,0.14)";
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Main drain at the deep end.
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, unit * 0.03, unit * 0.022, 0, 0, Math.PI * 2);
+    ctx.fillStyle = dark ? "rgba(0,8,24,0.55)" : "rgba(6,36,70,0.42)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = dark ? "rgba(180,220,235,0.22)" : "rgba(255,255,255,0.4)";
+    ctx.stroke();
     if (on()) {
       const n = 6;
       const sp = speed();
@@ -584,16 +723,24 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
         ctx.stroke();
       }
     }
-    // The wall's shadow into the water (half the stroke falls inside the clip).
+    // Waterline: a band of glass tile just below the coping, then the wall's
+    // shadow into the water (half of each stroke falls inside the clip).
     ctx.lineJoin = "round";
-    ctx.lineWidth = 16;
-    ctx.strokeStyle = dark ? "rgba(0,0,0,0.45)" : "rgba(8,50,64,0.26)";
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = dark ? "rgba(10,30,60,0.75)" : "rgba(16,58,110,0.62)";
+    ctx.stroke(path);
+    ctx.lineWidth = 7;
+    ctx.setLineDash([5, 1.5]);
+    ctx.strokeStyle = dark ? "rgba(70,130,170,0.35)" : "rgba(120,190,230,0.5)";
+    ctx.stroke(path);
+    ctx.setLineDash([]);
+    ctx.lineWidth = 30;
+    const shade = ctx.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, dark ? "rgba(0,0,0,0.45)" : "rgba(8,40,70,0.30)");
+    shade.addColorStop(1, dark ? "rgba(0,0,0,0.2)" : "rgba(8,40,70,0.12)");
+    ctx.strokeStyle = shade;
     ctx.stroke(path);
     ctx.restore();
-    ctx.lineJoin = "round";
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = dark ? "rgba(255,255,255,0.12)" : "rgba(120,100,70,0.3)";
-    ctx.stroke(path);
     return strength;
   }
 
@@ -1184,7 +1331,10 @@ const SHAPE_LABELS = {
   oval: "Oval",
   round: "Round",
   kidney: "Kidney",
+  "figure-8": "Figure 8",
   "lazy-l": "Lazy L",
+  "true-l": "True L",
+  "mountain-lake": "Mountain lake",
   freeform: "Freeform",
   custom: "Custom path",
 };

@@ -14,9 +14,12 @@
   served by the integration next to the strategy with the same version cache-buster, listed in
   the card picker with a visual editor. No dependencies, no dashboard resource to add.
 - **Pool shapes.** The pool picture is drawn in the outline of your pool: `rectangle`
-  (default), `roman`, `grecian`, `oval`, `round`, `kidney`, `lazy-l`, `freeform`, or
-  `custom` with your own SVG `path`. Pick it with `pictures: { shape: kidney }` on the
-  strategy, with `shape` on a hand-placed card, or in the card editor.
+  (default), `roman`, `grecian`, `oval`, `round`, `kidney`, `figure-8`, `lazy-l`, `true-l`,
+  `mountain-lake`, `freeform`, or `custom` with your own SVG `path` (and `steps` / `deep`
+  points). Pick it with `pictures: { shape: kidney }` on the strategy, with `shape` on a
+  hand-placed card, or in the card editor. The pool sits on a paver deck with coping, Roman
+  entry steps at the shallow end, a shallow-to-deep gradient, the main drain and a waterline
+  tile band.
 - **Resizable pictures.** In a sections view each picture can be dragged taller or shorter
   (2 to 12 rows) in the layout editor; `pictures: { rows: 6 }` on the strategy sets the
   starting height of every picture, and a hand-placed card takes `rows`, `height` or
