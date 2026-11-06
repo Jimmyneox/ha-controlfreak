@@ -12,14 +12,17 @@
  *         type: custom:controlfreak    # one section in an existing view
  *         equipment: pumps
  *         pictures: false              # tiles only, no animated pictures
+ *         picture_shape: kidney        # the overview's outline (default freeform)
  *         picture_style: depth         # caustic (default), blueprint, depth, neon, poster
  *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
- * the top of the pumps section: one animated picture per water-moving pump
- * the panel reports. `pictures: false` leaves them out, which gives exactly the
- * v0.2.1 output; `picture_style` picks one of the card's five looks (left out,
- * the card's default applies and the output is exactly 0.3.0's). Sections exist only for equipment the panel actually reports:
+ * the top of the pumps section: one overview of the whole pool from above,
+ * with every water-moving pump and matching light the panel reports bound to
+ * its part of the picture. `pictures: features` gives one picture per feature
+ * instead; `pictures: false` leaves them out, which gives exactly the v0.2.1
+ * output. `picture_shape` picks the overview's outline and `picture_style` one
+ * of the card's five looks. Sections exist only for equipment the panel actually reports:
  * entities are found through hass.entities (platform "controlfreak") and
  * grouped by translation key, never by entity id. Anything this file does not
  * recognise lands in "Other equipment" rather than being dropped.
@@ -88,6 +91,8 @@ export const PICTURE_CARD = "custom:controlfreak-picture";
 
 /** Picture styles the card knows (see controlfreak-picture-styles.js). */
 export const PICTURE_STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
+/** Pool shapes the overview knows (see controlfreak-pool-shapes.js). */
+export const PICTURE_SHAPES = ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"];
 
 /** Picture scenes in display order. */
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
@@ -221,6 +226,13 @@ function pairModes(hass, items) {
  * Exported for tests.
  */
 export function pictureCards(hass, items, options = {}) {
+  const bound = bindPictures(hass, items, options);
+  if (options.pictures === "features") return featureCards(bound, options);
+  return overviewCard(bound, options);
+}
+
+/** Pump, light and spillover sensor per scene, from names. Exported for tests. */
+export function bindPictures(hass, items, options = {}) {
   const { pumps, paired } = pairModes(hass, items);
   const pumpFor = {};
   for (const pump of pumps) {
@@ -235,6 +247,12 @@ export function pictureCards(hass, items, options = {}) {
     const scene = sceneFor(shortName(hass, light.entity_id));
     if (scene && !lightFor[scene]) lightFor[scene] = light;
   }
+  const poolModes = pumpFor.pool ? paired.get(pumpFor.pool.entity_id) : [];
+  return { pumpFor, lightFor, spillover: poolModes.length ? poolModes[0].entity_id : null };
+}
+
+/** One picture per water-moving pump, in scene order (the 0.3.0 layout). */
+function featureCards({ pumpFor, lightFor, spillover }, options) {
   const cards = [];
   for (const scene of SCENES) {
     const pump = pumpFor[scene];
@@ -242,12 +260,30 @@ export function pictureCards(hass, items, options = {}) {
     const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
     if (options.picture_style != null) card.style = options.picture_style;
     if (lightFor[scene]) card.light = lightFor[scene].entity_id;
-    const poolModes = scene === "spa" && pumpFor.pool ? paired.get(pumpFor.pool.entity_id) : [];
-    if (poolModes.length) card.spillover = poolModes[0].entity_id;
+    if (scene === "spa" && spillover) card.spillover = spillover;
     card.grid_options = { columns: "full" };
     cards.push(card);
   }
   return cards;
+}
+
+/** One overview of the whole pool, every bound pump and light in its place. */
+function overviewCard({ pumpFor, lightFor, spillover }, options) {
+  const pumps = {};
+  const lights = {};
+  for (const scene of SCENES) {
+    if (pumpFor[scene]) pumps[scene] = pumpFor[scene].entity_id;
+    if (lightFor[scene]) lights[scene] = lightFor[scene].entity_id;
+  }
+  if (!Object.keys(pumps).length) return [];
+  const card = { type: PICTURE_CARD, scene: "overview" };
+  if (options.picture_shape != null) card.shape = options.picture_shape;
+  if (options.picture_style != null) card.style = options.picture_style;
+  card.pumps = pumps;
+  if (Object.keys(lights).length) card.lights = lights;
+  if (pumps.spa && spillover) card.spillover = spillover;
+  card.grid_options = { columns: "full" };
+  return [card];
 }
 
 function pumpCards(hass, items) {
@@ -348,6 +384,14 @@ export function buildSection(hass, type, options = {}) {
         `Unknown Control Freak picture_style "${options.picture_style}". Use one of: ${PICTURE_STYLES.join(", ")}`
       );
     }
+    if (options.picture_shape != null && !PICTURE_SHAPES.includes(options.picture_shape)) {
+      throw new Error(
+        `Unknown Control Freak picture_shape "${options.picture_shape}". Use one of: ${PICTURE_SHAPES.join(", ")}`
+      );
+    }
+    if (![undefined, true, "features"].includes(options.pictures)) {
+      throw new Error(`Control Freak "pictures" is true, false or "features", not "${options.pictures}"`);
+    }
     cards.unshift(...pictureCards(hass, items, options));
   }
   for (const card of cards) {
@@ -379,6 +423,7 @@ export function buildSections(hass, options = {}) {
     device_id: options.device_id,
     pictures: options.pictures,
     picture_style: options.picture_style,
+    picture_shape: options.picture_shape,
   };
   return sectionOrder(options)
     .map((type) => buildSection(hass, type, sectionOptions))

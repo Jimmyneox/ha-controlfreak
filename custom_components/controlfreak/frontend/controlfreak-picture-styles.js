@@ -17,6 +17,12 @@
  *
  * `makeStyledScene(canvas, scene, style, getModel, getColors)` returns the same
  * object as `makeScene` (resize, start, stop, kick, splash, draw, frames).
+ *
+ * Scene "overview" is the whole pool from above in one of the shapes from
+ * controlfreak-pool-shapes.js: deck and coping around the outline, the water
+ * inside it in the chosen style, and the spa, steps, ledge, waterfall rocks,
+ * deck jets, bubblers and lights at the shape's anchors, each driven by its
+ * own pump and light (see `overview` below).
  */
 
 import {
@@ -33,6 +39,7 @@ import {
   spaGeo,
   stepLights,
 } from "./controlfreak-picture.js";
+import { layoutShape, partsOf } from "./controlfreak-pool-shapes.js";
 
 export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
 export const DEFAULT_STYLE = "caustic";
@@ -114,10 +121,10 @@ function makeEngine(cv, kind, painter, getModel, getColors, rng) {
   /** The caustic water buffer (see renderWater), as a canvas to drawImage. */
   function caustic(S, lightOn = true) {
     renderWater(img.data, BW, BH, sim, {
-      kind,
+      kind: S.kind,
       dark: S.dark,
       colors: S.colors,
-      fx: fixtures(kind, W, H, S.sp),
+      fx: S.fx ?? fixtures(S.kind, W, H, S.sp),
       strength: lightOn ? S.strength : 0,
     });
     bctx.putImageData(img, 0, 0);
@@ -175,11 +182,20 @@ function makeEngine(cv, kind, painter, getModel, getColors, rng) {
     const S = state();
     ctx.save();
     ctx.clearRect(0, 0, W, H);
-    painter.water(S);
-    features(S, painter.theme(S));
+    if (kind === "overview") overview(S, painter);
+    else {
+      painter.water(S);
+      features(S, painter.theme(S));
+    }
     painter.finish?.(S);
     ctx.restore();
     frames++;
+  }
+
+  /** Where falling water lands this frame (ripple sources), in pixels. */
+  function lands(model) {
+    if (kind === "overview") return overviewLandings(W, H, model);
+    return landings(kind, W, H, model);
   }
 
   function frame(now) {
@@ -187,12 +203,12 @@ function makeEngine(cv, kind, painter, getModel, getColors, rng) {
     const dt = Math.min(0.05, (now - (last || now)) / 1000);
     last = now;
     const model = getModel();
-    advance(sim, dt, model, kind);
-    const lands = landings(kind, W, H, model);
-    if (lands.length && (sim.clock += dt) > 0.85 - 0.5 * (kind === "spa" ? 0.6 : model.speed)) {
+    advance(sim, dt, model, kind === "overview" ? "pool" : kind);
+    const L = lands(model);
+    if (L.length && (sim.clock += dt) > 0.85 - 0.5 * (kind === "spa" ? 0.6 : model.speed)) {
       sim.clock = 0;
-      const L = lands[Math.floor(rng() * lands.length)];
-      addRipple(sim, L[0] / W, L[1] / H, 1);
+      const p = L[Math.floor(rng() * L.length)];
+      addRipple(sim, p[0] / W, p[1] / H, 1);
     }
     draw();
     requestAnimationFrame(frame);
@@ -476,8 +492,28 @@ const blueprint = {
       }
       ctx.stroke();
     }
+    if (S.on) {
+      // Circulation arrows along the contours, marching with the pump.
+      ctx.strokeStyle = ink(0.55);
+      ctx.lineWidth = 1.2;
+      const gap = 64;
+      const a = 4 + 3 * S.sp;
+      for (let i = 0; i < 6; i++) {
+        const yb = H * (0.1 + i * 0.16);
+        const dir = i % 2 ? -1 : 1;
+        const off = ((drift * 3 * dir) % gap + gap) % gap;
+        for (let x = -gap + off; x <= W + gap; x += gap) {
+          const y = yb + Math.sin((x + drift) * 0.025 + i) * H * 0.03;
+          ctx.beginPath();
+          ctx.moveTo(x - a * dir, y - a * 0.6);
+          ctx.lineTo(x, y);
+          ctx.lineTo(x - a * dir, y + a * 0.6);
+          ctx.stroke();
+        }
+      }
+    }
     // Slow drifting ripple rings from the fixtures and landings.
-    const centres = ringCentres(S.kind, W, H, S.model);
+    const centres = S.centres ?? ringCentres(S.kind, W, H, S.model);
     const maxR = Math.min(W, H) * (S.kind === "pool" ? 0.5 : 0.3);
     for (let c = 0; c < centres.length; c++) {
       const [fx, fy] = centres[c];
@@ -563,6 +599,53 @@ const blueprint = {
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
         ctx.stroke();
+      },
+      copingPath(trace, w) {
+        trace(ctx);
+        line(w);
+        ctx.strokeStyle = paper;
+        ctx.stroke();
+        trace(ctx);
+        line(1.5);
+        ctx.stroke();
+        trace(ctx);
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      },
+      rock(cx, cy, r, sd) {
+        ctx.beginPath();
+        for (let i = 0; i <= 7; i++) {
+          const a = (i / 7) * TAU + sd;
+          const rr = r * (0.78 + rnd(sd * 10 + (i % 7)) * 0.34);
+          if (i) ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+          else ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+        }
+        ctx.closePath();
+        ctx.fillStyle = paper;
+        ctx.fill();
+        line(1);
+        ctx.stroke();
+      },
+      steps(x, y, r, ang) {
+        line(1.2);
+        for (let k = 1; k <= 3; k++) {
+          ctx.beginPath();
+          ctx.arc(x, y, (r * k) / 3, ang - Math.PI / 2, ang + Math.PI / 2);
+          ctx.stroke();
+        }
+      },
+      shelfDisc(x, y, r, ang) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, ang - Math.PI / 2, ang + Math.PI / 2);
+        ctx.closePath();
+        ctx.fillStyle = ink(0.07);
+        ctx.fill();
+        line(1.2);
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
       },
       spaWall(g) {
         ctx.fillStyle = paper;
@@ -760,7 +843,7 @@ const depth = {
     if (S.lit && !spa) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      for (const f of fixtures(kind, W, H, S.sp)) {
+      for (const f of S.fx ?? fixtures(kind, W, H, S.sp)) {
         const px = f.x * W;
         const py = f.y * H;
         const g = ctx.createRadialGradient(px, py, 0, px, py, Math.max(W, H) * (kind === "pool" ? 0.55 : 0.35));
@@ -857,6 +940,62 @@ const depth = {
         ctx.lineTo(x1, y1);
         ctx.stroke();
         ctx.restore();
+      },
+      copingPath(trace, w) {
+        ctx.save();
+        shadowOn(12, 0, 4);
+        trace(ctx);
+        ctx.lineJoin = "round";
+        ctx.lineWidth = w;
+        ctx.strokeStyle = dark ? "#5d5850" : "#f4efe5";
+        ctx.stroke();
+        ctx.restore();
+        trace(ctx);
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = dark ? "rgba(255,255,255,0.12)" : "rgba(120,100,70,0.3)";
+        ctx.stroke();
+      },
+      rock(cx, cy, r, sd) {
+        const stone = dark ? [104, 96, 84] : [196, 184, 162];
+        ctx.save();
+        shadowOn(10, 3, 4);
+        ctx.beginPath();
+        for (let i = 0; i <= 7; i++) {
+          const a = (i / 7) * TAU + sd;
+          const rr = r * (0.78 + rnd(sd * 10 + (i % 7)) * 0.34);
+          if (i) ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+          else ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+        }
+        ctx.closePath();
+        const sh = 0.86 + rnd(sd) * 0.22;
+        const gr = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+        gr.addColorStop(0, `rgb(${stone.map((c) => Math.min(255, c * sh * 1.2) | 0)})`);
+        gr.addColorStop(1, `rgb(${stone.map((c) => (c * sh * 0.68) | 0)})`);
+        ctx.fillStyle = gr;
+        ctx.fill();
+        ctx.restore();
+      },
+      steps(x, y, r, ang) {
+        for (let k = 3; k >= 1; k--) {
+          ctx.beginPath();
+          ctx.arc(x, y, (r * k) / 3, ang - Math.PI / 2, ang + Math.PI / 2);
+          ctx.closePath();
+          ctx.fillStyle = white(0.1 + (3 - k) * 0.07);
+          ctx.fill();
+          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = dark ? "rgba(0,0,0,0.35)" : "rgba(8,50,64,0.3)";
+          ctx.stroke();
+        }
+      },
+      shelfDisc(x, y, r, ang) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, ang - Math.PI / 2, ang + Math.PI / 2);
+        ctx.closePath();
+        ctx.fillStyle = white(dark ? 0.1 : 0.3);
+        ctx.fill();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = white(dark ? 0.2 : 0.7);
+        ctx.stroke();
       },
       spaWall(g) {
         ctx.save();
@@ -1070,7 +1209,7 @@ const neon = {
     ctx.fillStyle = dark ? "#04080f" : "#0b1420";
     ctx.fillRect(0, 0, W, H);
     // Reflections: soft vertical bars of the light's colour under each fixture.
-    const fx = fixtures(kind, W, H, S.sp);
+    const fx = S.fx ?? fixtures(kind, W, H, S.sp);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (let i = 0; i < fx.length; i++) {
@@ -1172,6 +1311,51 @@ const neon = {
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
+        ctx.stroke();
+        off();
+      },
+      copingPath(trace, w) {
+        trace(ctx);
+        ctx.lineJoin = "round";
+        ctx.lineWidth = w;
+        ctx.strokeStyle = "#141920";
+        ctx.stroke();
+        trace(ctx);
+        neonLine(2);
+        ctx.stroke();
+        off();
+      },
+      rock(cx, cy, r, sd) {
+        ctx.beginPath();
+        for (let i = 0; i <= 7; i++) {
+          const a = (i / 7) * TAU + sd;
+          const rr = r * (0.78 + rnd(sd * 10 + (i % 7)) * 0.34);
+          if (i) ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+          else ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+        }
+        ctx.closePath();
+        ctx.fillStyle = "#11161d";
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = rgb(lc, 0.35 * glow);
+        ctx.stroke();
+      },
+      steps(x, y, r, ang) {
+        ctx.lineWidth = 1;
+        for (let k = 1; k <= 3; k++) {
+          ctx.strokeStyle = rgb(lc, 0.35 * glow);
+          ctx.beginPath();
+          ctx.arc(x, y, (r * k) / 3, ang - Math.PI / 2, ang + Math.PI / 2);
+          ctx.stroke();
+        }
+      },
+      shelfDisc(x, y, r, ang) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, ang - Math.PI / 2, ang + Math.PI / 2);
+        ctx.closePath();
+        ctx.fillStyle = rgb(lc, 0.06 * glow);
+        ctx.fill();
+        neonLine(1.2, 0.5);
         ctx.stroke();
         off();
       },
@@ -1356,7 +1540,7 @@ const poster = {
       ctx.fillRect(0, (H * i) / 3, W, H / 3 + 1);
     }
     // Bold concentric ripple rings, breathing slowly with the pump.
-    const centres = ringCentres(S.kind, W, H, S.model);
+    const centres = S.centres ?? ringCentres(S.kind, W, H, S.model);
     const maxR = Math.min(W, H) * (S.kind === "pool" ? 0.55 : 0.32);
     ctx.lineWidth = 2.5;
     ctx.lineCap = "round";
@@ -1455,6 +1639,49 @@ const poster = {
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.lineTo(x1, y1);
+        ctx.stroke();
+      },
+      copingPath(trace, w) {
+        trace(ctx);
+        outline(w);
+        ctx.strokeStyle = rgb(P.sand);
+        ctx.stroke();
+        trace(ctx);
+        outline(2.5);
+        ctx.stroke();
+      },
+      rock(cx, cy, r, sd) {
+        ctx.beginPath();
+        for (let i = 0; i <= 7; i++) {
+          const a = (i / 7) * TAU + sd;
+          const rr = r * (0.78 + rnd(sd * 10 + (i % 7)) * 0.34);
+          if (i) ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+          else ctx.moveTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.9);
+        }
+        ctx.closePath();
+        ctx.fillStyle = rgb(mix(P.sand, P.paper, 0.3 + rnd(sd) * 0.4));
+        ctx.fill();
+        outline(2);
+        ctx.stroke();
+      },
+      steps(x, y, r, ang) {
+        for (let k = 3; k >= 1; k--) {
+          ctx.beginPath();
+          ctx.arc(x, y, (r * k) / 3, ang - Math.PI / 2, ang + Math.PI / 2);
+          ctx.closePath();
+          ctx.fillStyle = rgb(P.paper, 0.18 + (3 - k) * 0.14);
+          ctx.fill();
+          outline(2);
+          ctx.stroke();
+        }
+      },
+      shelfDisc(x, y, r, ang) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, ang - Math.PI / 2, ang + Math.PI / 2);
+        ctx.closePath();
+        ctx.fillStyle = rgb(P.paper, 0.35);
+        ctx.fill();
+        outline(2.5);
         ctx.stroke();
       },
       spaWall(g) {
@@ -1572,7 +1799,7 @@ const poster = {
         ctx.stroke();
       },
       head(x, y) {
-        flatCircle(x, y, 4, P.navy, 1.5);
+        flatCircle(x, y, 4, S.lit ? S.lc : P.navy, 1.5);
       },
       dome(x, y, R) {
         // A stack of flat semicircles, like a fountain on a poster.
@@ -1600,7 +1827,224 @@ const poster = {
   },
 };
 
-export const PAINTERS = { blueprint, depth, neon, poster };
+/* ----- caustic, as a painter (the overview needs the engine) --------------- */
+
+const caustic = {
+  water(S) {
+    const { ctx, W, H, kind } = S;
+    const buf = S.caustic(S, kind !== "spa");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(buf, 0, 0, W, H);
+    if (S.lit && kind !== "spa") {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const f of S.fx ?? fixtures(kind, W, H, S.sp)) {
+        const px = f.x * W;
+        const py = f.y * H;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, Math.max(W, H) * (kind === "pool" ? 0.55 : 0.35));
+        g.addColorStop(0, rgb(S.lc, 0.4 * S.strength));
+        g.addColorStop(0.4, rgb(S.lc, 0.14 * S.strength));
+        g.addColorStop(1, rgb(S.lc, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+      }
+      ctx.restore();
+    }
+  },
+  theme: (S) => depth.theme(S),
+};
+
+/* ----- overview: the whole pool from above --------------------------------- */
+
+/** Deck padding around the water, in pixels. */
+export function overviewPad(W, H) {
+  return Math.round(Math.min(W, H) * 0.17) + 4;
+}
+
+/** The overview's geometry: the laid-out shape and every part's position. */
+export function overviewGeo(W, H, model) {
+  const L = layoutShape(model.shape, W, H, overviewPad(W, H));
+  const d = L.def;
+  const m = Math.min(L.box.w, L.box.h);
+  const spaEdge = L.at(d.spa.t);
+  const spaR = d.spa.r * m * 0.78;
+  const spaWall = Math.max(8, spaR * 0.2);
+  // Outside the outline, but never off the picture: slide it inward if needed.
+  const keep = spaR + spaWall + 3;
+  const spa = {
+    x: Math.min(W - keep, Math.max(keep, spaEdge.x - spaEdge.nx * spaR * 0.56)),
+    y: Math.min(H - keep, Math.max(keep, spaEdge.y - spaEdge.ny * spaR * 0.56)),
+    r: spaR,
+    wall: spaWall,
+    edge: spaEdge,
+    land: [spaEdge.x + spaEdge.nx * spaR * 0.9, spaEdge.y + spaEdge.ny * spaR * 0.9],
+  };
+  const stepsEdge = L.at(d.steps.t);
+  const steps = { x: stepsEdge.x, y: stepsEdge.y, r: d.steps.r * m, ang: Math.atan2(stepsEdge.ny, stepsEdge.nx) };
+  const ledgeEdge = L.at(d.ledge.t);
+  const ledge = { x: ledgeEdge.x, y: ledgeEdge.y, r: d.ledge.r * m, ang: Math.atan2(ledgeEdge.ny, ledgeEdge.nx) };
+  const heads = [-0.5, 0, 0.5].map((k) => {
+    const a = ledge.ang + k * 0.9;
+    return [ledge.x + Math.cos(a) * ledge.r * 0.55, ledge.y + Math.sin(a) * ledge.r * 0.55];
+  });
+  const fallsMid = L.at((d.falls.t0 + d.falls.t1) / 2);
+  const rocks = [];
+  for (let i = 0; i < 7; i++) {
+    const t = d.falls.t0 + ((d.falls.t1 - d.falls.t0) * (i + 0.5)) / 7;
+    const e = L.at(t);
+    const r = m * (0.055 + rnd(i + 11) * 0.03);
+    const out = r * (0.5 + (i % 2) * 0.5);
+    rocks.push({ cx: e.x - e.nx * out, cy: e.y - e.ny * out, r, s: i + 1 });
+  }
+  const falls = { edge: fallsMid, half: m * 0.06, rocks };
+  const jets = [0, 1, 2].map((i) => {
+    const e = L.at(d.deck.t0 + ((d.deck.t1 - d.deck.t0) * (i + 0.5)) / 3);
+    return { edge: e, i };
+  });
+  const lights = d.lights.map((t) => L.at(t));
+  return { L, m, spa, steps, ledge, heads, falls, jets, lights };
+}
+
+/** Ripple sources for the overview: wherever water falls into the pool. */
+export function overviewLandings(W, H, model) {
+  const g = overviewGeo(W, H, model);
+  const f = model.parts;
+  const out = [];
+  if (f.falls?.on) out.push([g.falls.edge.x + g.falls.edge.nx * (g.m * 0.16 + f.falls.speed * g.m * 0.1), g.falls.edge.y + g.falls.edge.ny * (g.m * 0.16 + f.falls.speed * g.m * 0.1)]);
+  if (f.spa && model.spilling) out.push(g.spa.land);
+  if (f.deck?.on) for (const j of g.jets) out.push([j.edge.x + j.edge.nx * g.m * (0.2 + 0.25 * f.deck.speed), j.edge.y + j.edge.ny * g.m * (0.2 + 0.25 * f.deck.speed)]);
+  if (f.bub?.on) out.push(...g.heads);
+  return out;
+}
+
+/** A sub-state for one part: its own pump speed and light. */
+function partState(S, part) {
+  const p = S.model.parts[part] ?? { on: false, speed: 0, lightOn: false, hex: null };
+  const lc = p.lightOn && p.rgb ? p.rgb : S.lc;
+  const lit = p.lightOn ? true : S.lit;
+  const strength = p.lightOn ? (S.dark ? 1 : 0.7) : S.strength;
+  return { ...S, on: p.on, sp: p.on ? p.speed : 0, lc, lit, strength, spilling: S.spilling, ownLight: Boolean(p.lightOn) };
+}
+
+function overview(S, painter) {
+  const { ctx, W, H } = S;
+  const g = overviewGeo(W, H, S.model);
+  const show = S.model.show;
+  const trace = (c) => {
+    c.beginPath();
+    g.L.points.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+    c.closePath();
+  };
+  const T = painter.theme(S);
+  // Deck everywhere, then the water inside the outline.
+  T.deck(0, 0, W, H);
+  const fx = g.lights.map((l) => ({ x: (l.x + l.nx * g.m * 0.12) / W, y: (l.y + l.ny * g.m * 0.12) / H }));
+  const centres = fx.map((f) => [f.x, f.y]);
+  const SW = { ...S, kind: "pool", fx, centres };
+  ctx.save();
+  trace(ctx);
+  ctx.clip();
+  painter.water(SW);
+  // Shallow end at the steps, deep end opposite.
+  const sh = ctx.createRadialGradient(g.steps.x, g.steps.y, 0, g.steps.x, g.steps.y, Math.max(W, H));
+  sh.addColorStop(0, S.dark ? "rgba(120,200,220,0.14)" : "rgba(255,255,255,0.22)");
+  sh.addColorStop(0.35, "rgba(0,0,0,0)");
+  sh.addColorStop(1, S.dark ? "rgba(0,0,0,0.35)" : "rgba(8,40,60,0.2)");
+  ctx.fillStyle = sh;
+  ctx.fillRect(0, 0, W, H);
+  if (show.ledge) T.shelfDisc(g.ledge.x, g.ledge.y, g.ledge.r, g.ledge.ang);
+  if (show.steps) T.steps(g.steps.x, g.steps.y, g.steps.r, g.steps.ang);
+  if (show.bub) {
+    const B = partState(S, "bub");
+    const TB = painter.theme(B);
+    g.heads.forEach(([x, y], i) => {
+      TB.head(x, y);
+      if (!B.on) return;
+      const pulse = 0.88 + 0.12 * Math.sin(S.wt * (6 + B.sp * 6) + i * 1.7);
+      TB.dome(x, y, (g.m * 0.04 + g.m * 0.07 * B.sp) * pulse, i);
+    });
+  }
+  for (const l of g.lights) T.fixture(l.x + l.nx * 3, l.y + l.ny * 3);
+  ctx.restore();
+  T.copingPath(trace, Math.max(6, g.m * 0.05));
+
+  // Waterfall: rocks on the deck, a sheet into the pool.
+  if (show.falls) {
+    const F = partState(S, "falls");
+    const TF = painter.theme(F);
+    for (const r of g.falls.rocks) TF.rock(r.cx, r.cy, r.r, r.s);
+    // The waterfall's own light: a fixture under the lip, shining up the sheet.
+    if (F.ownLight) {
+      const e = g.falls.edge;
+      TF.fixture(e.x + e.nx * 7, e.y + e.ny * 7);
+    }
+    if (F.on) {
+      const e = g.falls.edge;
+      const run = g.m * (0.14 + 0.1 * F.sp);
+      const half = g.falls.half * (0.7 + 0.6 * F.sp);
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(Math.atan2(e.ny, e.nx));
+      TF.lip(-3, -half * 1.3, -3, half * 1.3);
+      TF.sheet([0, -half], [run, -half * 1.1], [run, half * 1.1], [0, half], { len: run, dir: 1, lines: 8, speed: 0.45 + F.sp * 0.9 });
+      TF.foam(run + 3, 0, half * 0.9, half * 1.4);
+      TF.rings(run + 4, 0, half * 2.6, 0.5, true);
+      ctx.restore();
+    }
+  }
+  // Attached spa on the deck, spilling over its lip into the pool.
+  if (show.spa) {
+    const P = partState(S, "spa");
+    const TP = painter.theme(P);
+    const sg = { x: g.spa.x, y: g.spa.y, r: g.spa.r, wall: g.spa.wall };
+    TP.spaWall(sg);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(sg.x, sg.y, sg.r, 0, TAU);
+    ctx.clip();
+    TP.waterDisc(sg);
+    if (P.on) TP.froth(sg);
+    ctx.restore();
+    TP.spaRim(sg);
+    const e = g.spa.edge;
+    const half = sg.r * 0.3;
+    ctx.save();
+    ctx.translate(e.x, e.y);
+    ctx.rotate(Math.atan2(e.ny, e.nx));
+    TP.lip(sg.r * 0.26, -half, sg.r * 0.26, half);
+    if (S.spilling) {
+      const run = sg.r * 0.9;
+      TP.sheet([sg.r * 0.26, -half], [run, -half * 1.15], [run, half * 1.15], [sg.r * 0.26, half], { len: run - sg.r * 0.26, dir: 1, lines: 6, speed: 0.9 });
+      TP.foam(run + 2, 0, half * 0.9, half * 1.5);
+      TP.rings(run + 3, 0, half * 2.4, 0.5, true);
+    }
+    ctx.restore();
+  }
+  // Deck jets: nozzles in the coping, arcs into the pool.
+  if (show.deck) {
+    const D = partState(S, "deck");
+    const TD = painter.theme(D);
+    for (const j of g.jets) {
+      const e = j.edge;
+      ctx.save();
+      ctx.translate(e.x, e.y);
+      ctx.rotate(Math.atan2(e.ny, e.nx));
+      TD.nozzle(-g.m * 0.03, 0);
+      if (D.on) {
+        const reach = g.m * (0.2 + 0.25 * D.sp);
+        const drift = (j.i - 1) * g.m * 0.08;
+        const cx = reach * 0.5;
+        const cy = drift * 0.5 - reach * 0.35;
+        TD.arc(-g.m * 0.03, 0, cx, cy, reach, drift, j.i);
+        TD.foam(reach, drift, 5 + 4 * D.sp, 4 + 3 * D.sp);
+      }
+      ctx.restore();
+    }
+  }
+}
+
+export const PAINTERS = { caustic, blueprint, depth, neon, poster };
 
 /* ----- Entry point --------------------------------------------------------- */
 
@@ -1612,6 +2056,6 @@ export function makeStyledScene(cv, kind, style = DEFAULT_STYLE, getModel, getCo
   if (!STYLES.includes(style)) {
     throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
   }
-  if (style === "caustic") return makeScene(cv, kind, getModel, getColors, rng);
+  if (style === "caustic" && kind !== "overview") return makeScene(cv, kind, getModel, getColors, rng);
   return makeEngine(cv, kind, PAINTERS[style], getModel, getColors, rng);
 }

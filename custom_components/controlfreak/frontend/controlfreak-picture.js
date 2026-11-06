@@ -15,6 +15,16 @@
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
  *   style: caustic         # optional: caustic | blueprint | depth | neon | poster
  *
+ * Or the whole pool from above (see controlfreak-pool-shapes.js for the shapes):
+ *
+ *   type: custom:controlfreak-picture
+ *   scene: overview
+ *   shape: freeform        # rectangle | roman | kidney | freeform | lagoon | figure8
+ *   pumps: { pool: fan.filter_pump, spa: fan.spa_jets, falls: fan.waterfall }
+ *   lights: { pool: light.pool_light, spa: light.spa_light }
+ *   spillover: sensor.filter_pump_current_mode
+ *   show: [steps, ledge]   # optional: parts to draw without a pump or light
+ *
  * The styles other than caustic live in controlfreak-picture-styles.js, served
  * beside this file and imported from here.
  *
@@ -25,6 +35,7 @@
  */
 
 import { DEFAULT_STYLE, makeStyledScene, STYLES } from "./controlfreak-picture-styles.js";
+import { DEFAULT_SHAPE, PARTS, partsOf, SHAPES } from "./controlfreak-pool-shapes.js";
 
 /* ----- Shared tables ----------------------------------------------------- */
 
@@ -50,6 +61,9 @@ export const EFFECT_COLORS = {
 export const SHOW = "show";
 export const WHITE = EFFECT_COLORS.White;
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
+export const OVERVIEW = "overview";
+/** The parts of an overview a pump or a light can bind to. */
+export const OVERVIEW_PARTS = ["pool", "spa", "falls", "deck", "bub"];
 
 /** Water colours by time of day, overridable with --controlfreak-water-a/-b/-hi. */
 export const PALETTE = {
@@ -140,8 +154,45 @@ export function isDarkMode(hass, matchMedia = globalThis.matchMedia) {
   return Boolean(matchMedia?.("(prefers-color-scheme: dark)")?.matches);
 }
 
+/**
+ * The overview's model: the filter pump and pool light drive the water (the
+ * top-level fields), every other part carries its own pump and light.
+ */
+export function overviewModelOf(hass, config) {
+  const states = hass?.states ?? {};
+  const pumps = config.pumps ?? {};
+  const lights = config.lights ?? {};
+  const parts = {};
+  for (const part of OVERVIEW_PARTS) {
+    const pump = pumps[part] ? flowOf(states[pumps[part]]) : { on: false, speed: 0 };
+    const light = lights[part] ? lightOf(states[lights[part]]) : { on: false, effect: null, hex: WHITE };
+    parts[part] = {
+      on: pump.on,
+      speed: pump.speed,
+      lightOn: light.on,
+      effect: light.effect,
+      hex: light.hex,
+      rgb: light.hex === SHOW ? null : hexToRgb(light.hex),
+    };
+  }
+  const pool = parts.pool;
+  return {
+    on: pool.on,
+    speed: pool.speed,
+    lightOn: pool.lightOn,
+    effect: pool.effect,
+    hex: pool.hex,
+    spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
+    dark: isDarkMode(hass),
+    shape: config.shape ?? DEFAULT_SHAPE,
+    parts,
+    show: partsOf(config),
+  };
+}
+
 /** Everything the renderer needs, from the hass object and the card config. */
 export function modelOf(hass, config) {
+  if (config.scene === OVERVIEW) return overviewModelOf(hass, config);
   const states = hass?.states ?? {};
   const pump = config.pump ? flowOf(states[config.pump]) : { on: false, speed: 0 };
   const light = config.light ? lightOf(states[config.light]) : { on: false, effect: null, hex: WHITE };
@@ -886,7 +937,7 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
 
 const Base = globalThis.HTMLElement ?? class {};
 const DOCS_URL = "https://github.com/Jimmyneox/ha-controlfreak/blob/main/docs/controlfreak.md";
-const SCENE_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers" };
+const SCENE_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers", overview: "Pool overview" };
 
 const STYLE = `
   :host { display: block; height: 100%; }
@@ -916,12 +967,32 @@ export class ControlFreakPictureCard extends Base {
   }
 
   setConfig(config) {
-    if (!config || !SCENES.includes(config.scene)) {
-      throw new Error(`controlfreak-picture: set "scene" to one of ${SCENES.join(", ")}`);
+    if (!config || (!SCENES.includes(config.scene) && config.scene !== OVERVIEW)) {
+      throw new Error(`controlfreak-picture: set "scene" to one of ${[...SCENES, OVERVIEW].join(", ")}`);
     }
     for (const key of ["pump", "light", "spillover"]) {
       if (config[key] != null && typeof config[key] !== "string") {
         throw new Error(`controlfreak-picture: "${key}" must be an entity id`);
+      }
+    }
+    if (config.scene === OVERVIEW) {
+      if (config.shape != null && !SHAPES.includes(config.shape)) {
+        throw new Error(`controlfreak-picture: set "shape" to one of ${SHAPES.join(", ")}`);
+      }
+      for (const key of ["pumps", "lights"]) {
+        const map = config[key];
+        if (map == null) continue;
+        if (typeof map !== "object" || Array.isArray(map)) {
+          throw new Error(`controlfreak-picture: "${key}" maps parts (${OVERVIEW_PARTS.join(", ")}) to entity ids`);
+        }
+        for (const [part, id] of Object.entries(map)) {
+          if (!OVERVIEW_PARTS.includes(part) || typeof id !== "string") {
+            throw new Error(`controlfreak-picture: "${key}.${part}" must be an entity id for one of ${OVERVIEW_PARTS.join(", ")}`);
+          }
+        }
+      }
+      if (config.show != null && (!Array.isArray(config.show) || config.show.some((p) => !PARTS.includes(p)))) {
+        throw new Error(`controlfreak-picture: "show" lists parts from ${PARTS.join(", ")}`);
       }
     }
     if (config.style != null && !STYLES.includes(config.style)) {
@@ -939,7 +1010,9 @@ export class ControlFreakPictureCard extends Base {
     const prev = this._model;
     this._model = next;
     const changed =
-      !prev || ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark"].some((k) => prev[k] !== next[k]);
+      !prev ||
+      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark"].some((k) => prev[k] !== next[k]) ||
+      (next.parts && JSON.stringify(prev.parts) !== JSON.stringify(next.parts));
     if (changed) {
       this._label();
       this._scene?.kick();
@@ -1050,6 +1123,13 @@ export class ControlFreakPictureCard extends Base {
     if (!this._canvas || !this._config) return;
     const m = this._model_();
     const parts = [SCENE_LABELS[this._config.scene]];
+    if (m.parts) {
+      parts.push(`${m.shape} shape`);
+      for (const [name, p] of Object.entries(m.parts)) {
+        if (this._config.pumps?.[name]) parts.push(`${name} pump ${p.on ? `on at ${Math.round(p.speed * 100)}%` : "off"}`);
+        if (this._config.lights?.[name]) parts.push(`${name} light ${p.lightOn ? (p.effect ?? "on") : "off"}`);
+      }
+    }
     if (this._config.pump) parts.push(m.on ? `pump on at ${Math.round(m.speed * 100)}%` : "pump off");
     if (this._config.light) parts.push(m.lightOn ? `light ${m.effect ?? "on"}` : "light off");
     if (this._config.spillover && m.spilling) parts.push("spillover running");

@@ -196,9 +196,11 @@ controller's device name in front.
 
 ### Animated pictures
 
-At the top of the **Pumps** section, the dashboard shows an animated picture of each water
-feature the controller runs: the pool, the spa, a waterfall, deck jets or bubblers. The water
-moves with the pump's speed and stands still when the pump is off. If a light belongs to the
+At the top of the **Pumps** section, the dashboard shows an animated picture of your pool from
+above: the water inside the pool's outline, the deck and coping around it, and the parts the
+controller runs in their places: an attached spa, the steps, a tanning ledge with bubblers, a
+waterfall over rocks, deck jets and the lights. Each part follows its own pump and light. The
+water moves with the pump's speed and stands still when the pump is off. If a light belongs to the
 same feature, the water takes the colour of the light's current effect, and a colour show
 cycles through its hues. At night (the Home Assistant dark theme, or your device's dark
 mode) the water darkens and the light stands out. When the filter pump reports the
@@ -207,9 +209,14 @@ makes a splash.
 
 ![Animated pictures of the pool, spa and waterfall, by day and by night](images/dashboard-pictures.png)
 
-The strategy picks the picture from the pump's name, as you set it in the Control Freak app:
+Pick the outline that looks most like your pool with `picture_shape`: `rectangle`, `roman`,
+`kidney`, `freeform` (the default), `lagoon` or `figure8`.
 
-| Name contains | Picture | Light with a matching name |
+![Every pool shape in every style](images/dashboard-shapes.png)
+
+The strategy finds each part from the pump's name, as you set it in the Control Freak app:
+
+| Name contains | Part | Light with a matching name |
 |---|---|---|
 | filter, circulation, main, pool | Pool | for example *Pool Light* |
 | jet, spa, hot tub | Spa | for example *Spa Light* |
@@ -217,15 +224,34 @@ The strategy picks the picture from the pump's name, as you set it in the Contro
 | deck, laminar | Deck jets | |
 | bubbler, bubbles | Bubblers | for example *Bubbler Light* |
 
-A cleaner, booster or solar pump gets no picture, and neither does a pump whose name matches
-nothing: the strategy never guesses. One picture is shown per feature. Pictures are drawn
-in the browser only; nothing is sent to the controller.
+A cleaner, booster or solar pump gets no part, and neither does a pump whose name matches
+nothing: the strategy never guesses. A part the controller doesn't run isn't drawn. Pictures
+are drawn in the browser only; nothing is sent to the controller.
 
-To leave the pictures out, set `pictures: false` under `strategy` (see below). If your
+To leave the picture out, set `pictures: false` under `strategy` (see below). To get one
+picture per water feature instead of the overview, set `pictures: features`. If your
 browser or operating system asks for reduced motion, each picture is a still image. Pictures
 pause while they are off screen or the tab is hidden.
 
-You can also add a picture by hand to any dashboard:
+You can also add a picture by hand to any dashboard. The overview:
+
+```yaml
+type: custom:controlfreak-picture
+scene: overview
+shape: kidney                      # rectangle, roman, kidney, freeform, lagoon or figure8
+pumps:
+  pool: fan.filter_pump            # the water moves with this pump
+  spa: fan.spa_jets                # each part follows its own pump
+  falls: fan.waterfall
+lights:
+  pool: light.pool_light           # and its own light
+  spa: light.spa_light
+spillover: sensor.filter_pump_current_mode  # optional
+show: [steps, ledge]               # optional: parts to draw without a pump or light
+```
+
+A part is drawn when it has a pump or a light, or is listed under `show` (`spa`, `falls`,
+`deck`, `bub`, `steps`, `ledge`). Or one water feature on its own:
 
 ```yaml
 type: custom:controlfreak-picture
@@ -235,7 +261,7 @@ light: light.spa_light  # optional, the water takes this light's effect colour
 spillover: sensor.filter_pump_current_mode  # optional (spa only)
 ```
 
-Only `scene` is required. Without `pump` the water is still; without `light` it keeps its
+Only `scene` is required. Without a pump the water is still; without a light it keeps its
 natural colour. Add `style:` to pick one of the picture styles below. The card is full width in a sections view; its height follows the section's
 rows and is at least 200 pixels. To tune the water colours, set the CSS variables
 `--controlfreak-water-a`, `--controlfreak-water-b` and `--controlfreak-water-hi` in your theme
@@ -296,6 +322,7 @@ strategy:
   type: custom:controlfreak
   title: DASHBOARD_TITLE
   pictures: false
+  picture_shape: freeform
   picture_style: caustic
   hide:
     - controller
@@ -309,7 +336,8 @@ strategy:
 | Option | Description |
 |---|---|
 | `title` | The dashboard title. The default is `Pool`. |
-| `pictures` | `false` leaves out the animated pictures above the pumps. The default is `true`. |
+| `pictures` | `false` leaves out the animated picture above the pumps; `features` shows one picture per water feature instead of the overview. The default is `true`. |
+| `picture_shape` | The overview's outline: `rectangle`, `roman`, `kidney`, `freeform`, `lagoon` or `figure8`. The default is `freeform`. |
 | `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
@@ -320,7 +348,7 @@ The equipment types are:
 
 | Type | Default heading | Cards |
 |---|---|---|
-| `pumps` | Pumps | An animated picture per water feature, then a tile per pump with a speed control, followed by its current mode. |
+| `pumps` | Pumps | The animated pool overview, then a tile per pump with a speed control, followed by its current mode. |
 | `heating` | Heating and cooling | A tile per relay configured as a heater or chiller, with a toggle. |
 | `lights` | Lights and relays | A tile per light with its effects, and a tile per relay with a toggle. |
 | `valves` | Valves | A tile per valve. |

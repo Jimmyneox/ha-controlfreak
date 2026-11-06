@@ -18,6 +18,7 @@ import {
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
   PICTURE_CARD,
+  PICTURE_SHAPES,
   PICTURE_STYLES,
   pictureCards,
   sceneFor,
@@ -32,6 +33,8 @@ const snapshot = (name, version = "v0.2.1") =>
   readFileSync(new URL(`./fixtures/snapshots/${name}.${version}.json`, import.meta.url), "utf8");
 const SHAPES = ["full-pool", "lighting-only", "valves-skimmers", "empty"];
 const pictures = (sections) => sections.flatMap((s) => s.cards).filter((c) => c.type === PICTURE_CARD);
+// The per-feature pictures (0.3.0's layout before the overview), on request.
+const FEATURES = { pictures: "features" };
 
 const headings = (sections) => sections.map((s) => s.cards[0].heading);
 const entitiesOf = (section) => section.cards.filter((c) => c.entity).map((c) => c.entity);
@@ -293,9 +296,39 @@ test("pictures: false reproduces the v0.2.1 output byte for byte", () => {
   }
 });
 
-test("full pool: pool, spa and waterfall pictures at the top of the pumps section", () => {
+test("full pool: one overview of the whole pool at the top of the pumps section", () => {
   const hass = fixture("full-pool");
   const pumps = buildSection(hass, "pumps");
+  const expected = {
+    type: PICTURE_CARD,
+    scene: "overview",
+    pumps: {
+      pool: "fan.backyard_filter_pump",
+      spa: "fan.backyard_spa_jets",
+      falls: "fan.backyard_waterfall",
+    },
+    lights: { pool: "light.backyard_pool_light", spa: "light.backyard_spa_light" },
+    spillover: "sensor.backyard_filter_pump_current_mode",
+    grid_options: { columns: "full" },
+  };
+  assert.deepEqual(pumps.cards[1], expected);
+  assert.equal(pumps.cards[0].type, "heading");
+  assert.equal(pumps.cards[2].entity, "fan.backyard_cleaner_booster", "tiles follow, unchanged");
+  // No shape or style key unless asked: the card falls back to the module defaults.
+  assert.equal("shape" in pumps.cards[1], false);
+  assert.equal("style" in pumps.cards[1], false);
+  // The cleaner booster and the solar pump move water nobody watches.
+  assert.equal(pictures(buildSections(hass)).length, 1);
+  // Pictures live in the pumps section only.
+  for (const type of EQUIPMENT_TYPES.filter((t) => t !== "pumps")) {
+    const section = buildSection(hass, type);
+    if (section) assert.equal(pictures([section]).length, 0, type);
+  }
+});
+
+test("full pool, pictures: features: pool, spa and waterfall pictures instead of the overview", () => {
+  const hass = fixture("full-pool");
+  const pumps = buildSection(hass, "pumps", FEATURES);
   const expected = [
     {
       type: PICTURE_CARD,
@@ -322,18 +355,14 @@ test("full pool: pool, spa and waterfall pictures at the top of the pumps sectio
   assert.deepEqual(pumps.cards.slice(1, 4), expected);
   assert.equal(pumps.cards[0].type, "heading");
   assert.equal(pumps.cards[4].entity, "fan.backyard_cleaner_booster", "tiles follow, unchanged");
-  // The cleaner booster and the solar pump move water nobody watches.
-  assert.equal(pictures(buildSections(hass)).length, 3);
-  // Pictures live in the pumps section only.
-  for (const type of EQUIPMENT_TYPES.filter((t) => t !== "pumps")) {
-    const section = buildSection(hass, type);
-    if (section) assert.equal(pictures([section]).length, 0, type);
-  }
+  assert.equal(pictures(buildSections(hass, FEATURES)).length, 3);
+  assert.equal(pictures(buildSections(hass, FEATURES)).some((c) => c.scene === "overview"), false);
 });
 
 test("no water-moving pump, no picture: lighting-only, valves and empty panels", () => {
   for (const name of ["lighting-only", "valves-skimmers", "empty"]) {
     assert.deepEqual(pictures(buildSections(fixture(name))), [], name);
+    assert.deepEqual(pictures(buildSections(fixture(name), FEATURES)), [], name);
   }
 });
 
@@ -371,7 +400,7 @@ test("deck jets and bubblers get their pictures, bound to their own lights", () 
   add("fan.backyard_deck_jets", "pump", "Deck Jets", { percentage: 55, supported_features: 1 });
   add("fan.backyard_bubbler", "pump", "Bubbler", { percentage: 50, supported_features: 1 });
   add("light.backyard_bubbler_light", "light", "Bubbler Light", { effect: "Green", supported_features: 4 });
-  const cards = pictures(buildSections(hass));
+  const cards = pictures(buildSections(hass, FEATURES));
   assert.deepEqual(
     cards.map((c) => [c.scene, c.pump, c.light]),
     [
@@ -382,26 +411,45 @@ test("deck jets and bubblers get their pictures, bound to their own lights", () 
       ["bub", "fan.backyard_bubbler", "light.backyard_bubbler_light"],
     ]
   );
+  // The overview carries the same bindings, part by part.
+  const [overview] = pictures(buildSections(hass));
+  assert.deepEqual(overview.pumps, {
+    pool: "fan.backyard_filter_pump",
+    spa: "fan.backyard_spa_jets",
+    falls: "fan.backyard_waterfall",
+    deck: "fan.backyard_deck_jets",
+    bub: "fan.backyard_bubbler",
+  });
+  assert.deepEqual(overview.lights, {
+    pool: "light.backyard_pool_light",
+    spa: "light.backyard_spa_light",
+    bub: "light.backyard_bubbler_light",
+  });
 });
 
 test("one picture per scene: the first pump by name; lights bind by name and domain only", () => {
   const hass = structuredClone(fixture("full-pool"));
   // Two pool pumps: one pool picture, bound to the first by name.
   hass.states["fan.backyard_solar_pump"].attributes.friendly_name = "Backyard Circulation Pump";
-  let cards = pictures(buildSections(hass));
+  let cards = pictures(buildSections(hass, FEATURES));
   assert.deepEqual(cards.filter((c) => c.scene === "pool").map((c) => c.pump), ["fan.backyard_solar_pump"]);
+  assert.equal(pictures(buildSections(hass))[0].pumps.pool, "fan.backyard_solar_pump");
   // A relay (switch) called "Spa Light" is not a light: the spa picture stays unlit.
   hass.states["switch.backyard_deck_lights"].attributes.friendly_name = "Backyard Spa Light";
   delete hass.entities["light.backyard_spa_light"];
   delete hass.states["light.backyard_spa_light"];
-  cards = pictures(buildSections(hass));
+  cards = pictures(buildSections(hass, FEATURES));
   assert.equal(cards.find((c) => c.scene === "spa").light, undefined);
+  assert.equal(pictures(buildSections(hass))[0].lights.spa, undefined);
   // Without a pool pump there is no mode sensor to spill from.
   delete hass.entities["fan.backyard_filter_pump"];
   delete hass.entities["fan.backyard_solar_pump"];
-  cards = pictures(buildSections(hass));
+  cards = pictures(buildSections(hass, FEATURES));
   assert.equal(cards.find((c) => c.scene === "pool"), undefined);
   assert.equal(cards.find((c) => c.scene === "spa").spillover, undefined);
+  const [overview] = pictures(buildSections(hass));
+  assert.equal(overview.pumps.pool, undefined);
+  assert.equal("spillover" in overview, false);
 });
 
 test("pictureCards honours device_id and a hidden pump", () => {
@@ -411,17 +459,21 @@ test("pictureCards honours device_id and a hidden pump", () => {
     { entry: hass.entities["sensor.backyard_filter_pump_current_mode"], role: "mode" },
   ];
   assert.equal(pictureCards(hass, items).length, 1);
+  assert.equal(pictureCards(hass, items, FEATURES).length, 1);
   // Lights of another panel are not borrowed.
-  assert.equal(pictureCards(hass, items, { device_id: "some-other-panel" })[0].light, undefined);
+  assert.equal("lights" in pictureCards(hass, items, { device_id: "some-other-panel" })[0], false);
+  assert.equal(pictureCards(hass, items, { ...FEATURES, device_id: "some-other-panel" })[0].light, undefined);
   hass.entities["fan.backyard_filter_pump"].hidden = true;
   assert.equal(pictures(buildSections(hass)).some((c) => c.scene === "pool"), false);
+  assert.equal(pictures(buildSections(hass))[0].pumps.pool, undefined);
 });
 
 test("pictures: false on the dashboard, view and section strategies", async () => {
   const hass = fixture("full-pool");
   assert.equal(pictures(buildDashboard(hass, { pictures: false }).views[0].sections).length, 0);
   assert.equal(pictures(buildView(hass, { pictures: false }).sections).length, 0);
-  assert.equal(pictures(buildView(hass).sections).length, 3);
+  assert.equal(pictures(buildView(hass).sections).length, 1);
+  assert.equal(pictures(buildView(hass, FEATURES).sections).length, 3);
   const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", pictures: false }, hass);
   assert.equal(pictures(view.sections).length, 0);
   const off = await ControlFreakSectionStrategy.generate(
@@ -430,10 +482,19 @@ test("pictures: false on the dashboard, view and section strategies", async () =
   );
   assert.equal(pictures([off]).length, 0);
   const on = await ControlFreakSectionStrategy.generate({ type: "custom:controlfreak", equipment: "pumps" }, hass);
-  assert.equal(pictures([on]).length, 3);
-  // Anything but an explicit false keeps them.
-  assert.equal(pictures(buildSections(hass, { pictures: true })).length, 3);
-  assert.equal(pictures(buildSections(hass, { pictures: undefined })).length, 3);
+  assert.equal(pictures([on]).length, 1);
+  const features = await ControlFreakSectionStrategy.generate(
+    { type: "custom:controlfreak", equipment: "pumps", ...FEATURES },
+    hass
+  );
+  assert.equal(pictures([features]).length, 3);
+  // true and unset mean the overview.
+  assert.equal(pictures(buildSections(hass, { pictures: true })).length, 1);
+  assert.equal(pictures(buildSections(hass, { pictures: undefined })).length, 1);
+  // Anything else is a typo, not a silent default.
+  for (const bad of ["feature", "overview", 1, "true", null]) {
+    assert.throws(() => buildSections(hass, { pictures: bad }), /"pictures" is true, false or "features"/, String(bad));
+  }
 });
 
 test("section strategy: one block with an optional title", async () => {
@@ -494,13 +555,22 @@ test("every type has a default title", () => {
 
 /* ----- Picture styles --------------------------------------------------- */
 
-test("no picture_style: the output is 0.3.0's byte for byte (cards carry no style key)", () => {
+test("pictures: features reproduces the 0.3.0 output byte for byte (cards carry no style key)", () => {
   for (const name of SHAPES) {
-    const out = JSON.stringify(buildDashboard(fixture(name)), null, 2) + "\n";
+    const out = JSON.stringify(buildDashboard(fixture(name), FEATURES), null, 2) + "\n";
     assert.equal(out, snapshot(name, "v0.3.0"), name);
-    assert.equal(JSON.stringify(buildDashboard(fixture(name), { picture_style: undefined }), null, 2) + "\n", out);
+    assert.equal(
+      JSON.stringify(buildDashboard(fixture(name), { ...FEATURES, picture_style: undefined, picture_shape: undefined }), null, 2) + "\n",
+      out
+    );
   }
-  for (const c of pictures(buildSections(fixture("full-pool")))) assert.equal("style" in c, false);
+  for (const c of pictures(buildSections(fixture("full-pool"), FEATURES))) assert.equal("style" in c, false);
+  // The default dashboard differs from 0.3.0 in exactly one way: one overview card where the three were.
+  const dash = buildDashboard(fixture("full-pool"));
+  const pumps = dash.views[0].sections.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
+  const [overview] = pictures([pumps]);
+  pumps.cards.splice(pumps.cards.indexOf(overview), 1, ...pictures(buildSections(fixture("full-pool"), FEATURES)));
+  assert.equal(JSON.stringify(dash, null, 2) + "\n", snapshot("full-pool", "v0.3.0"));
 });
 
 test("picture_style reaches every picture card from the dashboard, view and section strategies", async () => {
@@ -508,8 +578,11 @@ test("picture_style reaches every picture card from the dashboard, view and sect
   assert.deepEqual(PICTURE_STYLES, ["caustic", "blueprint", "depth", "neon", "poster"]);
   for (const style of PICTURE_STYLES) {
     const dash = pictures(buildDashboard(hass, { picture_style: style }).views[0].sections);
-    assert.equal(dash.length, 3, style);
+    assert.equal(dash.length, 1, style);
     for (const c of dash) assert.equal(c.style, style);
+    const tiles = pictures(buildDashboard(hass, { ...FEATURES, picture_style: style }).views[0].sections);
+    assert.equal(tiles.length, 3, style);
+    for (const c of tiles) assert.equal(c.style, style);
     for (const c of pictures(buildView(hass, { picture_style: style }).sections)) assert.equal(c.style, style);
     const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", picture_style: style }, hass);
     for (const c of pictures(view.sections)) assert.equal(c.style, style);
@@ -517,13 +590,14 @@ test("picture_style reaches every picture card from the dashboard, view and sect
       { type: "custom:controlfreak", equipment: "pumps", picture_style: style },
       hass
     );
-    assert.equal(pictures([section]).length, 3);
+    assert.equal(pictures([section]).length, 1);
     for (const c of pictures([section])) assert.equal(c.style, style);
   }
   // Only the picture cards change: strip the style and the dashboard is the default one.
-  const styled = buildDashboard(hass, { picture_style: "neon" });
+  const styled = buildDashboard(hass, { ...FEATURES, picture_style: "neon" });
   for (const c of pictures(styled.views[0].sections)) delete c.style;
   assert.equal(JSON.stringify(styled, null, 2) + "\n", snapshot("full-pool", "v0.3.0"));
+  assert.throws(() => buildSections(hass, { picture_style: "sepia" }), /picture_style/);
   // Tiles never carry a style.
   const tiles = buildSections(hass, { picture_style: "neon" }).flatMap((s) => s.cards).filter((c) => c.entity);
   for (const c of tiles) assert.equal("style" in c, false);
@@ -537,4 +611,42 @@ test("an unknown picture_style is rejected; pictures: false ignores it", () => {
   assert.equal(out, snapshot("full-pool"));
   // Lighting-only panels have no picture, so a style changes nothing there either.
   assert.equal(JSON.stringify(buildDashboard(fixture("lighting-only"), { picture_style: "poster" }), null, 2) + "\n", snapshot("lighting-only", "v0.3.0"));
+});
+
+test("picture_shape reaches the overview from the dashboard, view and section strategies", async () => {
+  const hass = fixture("full-pool");
+  assert.deepEqual(PICTURE_SHAPES, ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"]);
+  for (const shape of PICTURE_SHAPES) {
+    const dash = pictures(buildDashboard(hass, { picture_shape: shape }).views[0].sections);
+    assert.deepEqual(dash.map((c) => c.shape), [shape]);
+    for (const c of pictures(buildView(hass, { picture_shape: shape }).sections)) assert.equal(c.shape, shape);
+    const view = await ControlFreakViewStrategy.generate({ type: "custom:controlfreak", picture_shape: shape }, hass);
+    for (const c of pictures(view.sections)) assert.equal(c.shape, shape);
+    const section = await ControlFreakSectionStrategy.generate(
+      { type: "custom:controlfreak", equipment: "pumps", picture_shape: shape, picture_style: "poster" },
+      hass
+    );
+    assert.deepEqual(pictures([section]).map((c) => [c.shape, c.style]), [[shape, "poster"]]);
+    // The per-feature pictures have no outline: the shape never reaches them.
+    for (const c of pictures(buildSections(hass, { ...FEATURES, picture_shape: shape }))) assert.equal("shape" in c, false);
+  }
+  // Only the overview card changes: strip the shape and the dashboard is the default one.
+  const shaped = buildDashboard(hass, { picture_shape: "kidney" });
+  for (const c of pictures(shaped.views[0].sections)) delete c.shape;
+  assert.equal(JSON.stringify(shaped), JSON.stringify(buildDashboard(hass)));
+  assert.throws(() => buildSections(hass, { picture_shape: "oval" }), /picture_shape/);
+  assert.throws(() => buildSections(hass, { picture_shape: "" }), /picture_shape/);
+});
+
+test("the overview shows the parts the panel runs: a pool-only panel gets just the pool", () => {
+  const hass = structuredClone(fixture("full-pool"));
+  for (const id of ["fan.backyard_spa_jets", "fan.backyard_waterfall", "light.backyard_spa_light"]) {
+    delete hass.entities[id];
+    delete hass.states[id];
+  }
+  const [card] = pictures(buildSections(hass));
+  assert.deepEqual(card.pumps, { pool: "fan.backyard_filter_pump" });
+  assert.deepEqual(card.lights, { pool: "light.backyard_pool_light" });
+  assert.equal("spillover" in card, false, "no spa, nothing to spill");
+  assert.equal("show" in card, false, "the strategy never guesses at unpowered parts");
 });

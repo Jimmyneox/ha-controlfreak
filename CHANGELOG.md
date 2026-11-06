@@ -2,7 +2,14 @@
 
 ## 0.3.0 — unreleased
 
-- **Animated pictures on the dashboard.** The pumps section opens with a canvas picture per
+- **The pool from above.** The pumps section opens with one animated overview of the whole
+  pool: the water inside one of six outlines (`picture_shape`: rectangle, roman, kidney,
+  freeform, lagoon, figure8), deck and coping around it, and the parts the controller runs
+  in their places (attached spa with spillover, steps, tanning ledge with bubblers,
+  waterfall over rocks, deck jets, lights), each following its own pump and light.
+  `pictures: features` gives the per-feature pictures below instead. Shapes live in
+  `controlfreak-pool-shapes.js`, imported by the card and served beside it.
+- **Animated pictures per water feature** (`pictures: features`): a canvas picture per
   water feature the controller runs: pool, spa, waterfall, deck jets, bubblers. The water
   moves with the pump's speed (still when it is off), takes the colour of the matching
   light's effect (colour shows cycle), darkens with the Home Assistant dark theme, and the
@@ -10,7 +17,8 @@
   the pump's name; cleaner, booster and solar pumps and unrecognised names get none.
   `pictures: false` on the dashboard, view or section strategy restores the 0.2.1 output
   exactly. Reduced motion gives a still frame; off-screen and hidden-tab pictures pause.
-- New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`),
+- New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`;
+  scene `overview` takes `shape`, `pumps`, `lights`, `spillover`, `show`),
   served by the integration next to the strategy with the same version cache-buster, listed in
   the card picker. No dependencies, no dashboard resource to add.
 - **Five picture styles.** `style` on the picture card and `picture_style` on the dashboard,

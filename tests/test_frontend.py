@@ -26,7 +26,13 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
-from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL, PICTURE_URL, STYLES_URL
+from custom_components.controlfreak.const import (
+    DOMAIN,
+    FRONTEND_URL,
+    PICTURE_URL,
+    SHAPES_URL,
+    STYLES_URL,
+)
 from custom_components.controlfreak.mapping import DEFAULT_EFFECTS, EFFECT_COLORS
 
 from .conftest import FakeMqtt, load_fixture, mock_rest
@@ -86,6 +92,22 @@ async def test_picture_styles_are_served(
     assert 'export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];' in body
     mime = resp.headers["Content-Type"].split(";")[0]
     assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_pool_shapes_are_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The shapes module (the overview's outlines) is served where the card imports it."""
+    assert 'from "./controlfreak-pool-shapes.js"' in PICTURE.read_text()
+    assert PICTURE_URL.rsplit("/", 1)[0] + "/controlfreak-pool-shapes.js" == SHAPES_URL
+    client = await hass_client()
+    resp = await client.get(SHAPES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert (
+        'export const SHAPES = ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"];'
+        in body
+    )
 
 
 def js_effect_colors() -> dict[str, str]:
