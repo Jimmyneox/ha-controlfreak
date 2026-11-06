@@ -297,7 +297,7 @@ async def test_fan_state_reads_the_pumps_own_speed(
     )
     await hass.async_block_till_done()
     state = hass.states.get(eid(hass, config_entry, "fan", PUMP))
-    assert state.attributes["icon"] == "mdi:pump", "a pump looks like a pump, not a fan"
+    assert state.attributes["icon"] == "cf:pump", "a pump looks like a pump, not a fan"
     assert state.attributes["percentage"] == 40, "the floor reads as the floor, not as 1 %"
     assert state.attributes["percentage_step"] == 1
     assert (state.attributes["speed_min"], state.attributes["speed_max"]) == (40, 100)
@@ -417,7 +417,7 @@ async def test_relay_switch_lv_string_state(
     sw = eid(hass, config_entry, "switch", "heater")
     state = hass.states.get(sw)
     assert state.state == STATE_OFF
-    assert state.attributes["icon"] == "mdi:fire"
+    assert state.attributes["icon"] == "cf:heater"
     await _call(hass, "switch", "turn_on", {"entity_id": sw})
     setup_integration.async_publish.assert_awaited_with(
         "controller/lv_relay1/state", {"state": "active", "mode": "not-syncing", "sender": "user"}

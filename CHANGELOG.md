@@ -14,11 +14,13 @@
   40 at its floor where it used to read 1. The range is published as `speed_min` and
   `speed_max` attributes. A dashboard or automation that set `percentage: 1` to mean the
   floor still gets the floor; one that mapped the old 1–100 scale should send speeds now.
-- **Icons for what a tile controls.** Pumps, lights, relays and sensors carry icons from
-  the integration itself, chosen from the names in the panel: pump, hot tub, waterfall,
-  fountain, bubbles, robot vacuum, solar for the pumps; an underwater flood light or an
-  outdoor lamp for the lights; speedometer, mode, freeze, chip, water and air thermometers
-  for the sensors. Every dashboard gets them, not only the generated one.
+- **Control Freak's own icons.** A `cf:` icon set drawn for pool equipment, served and
+  registered by the integration (`controlfreak-icons.js`): pump, spa jets, waterfall, deck
+  jets, bubbler, cleaner, solar, pool and spa lights, outdoor lamp, heater, heat pump,
+  chiller, valve, water and air thermometers, flow, controller, freeze, firmware, cpu, mode,
+  speed, switch. Every entity picks its icon from its name in the panel, so every
+  dashboard shows what a tile controls. The glyphs fill the icon box edge to edge, so they
+  read larger than Material icons in the same tile.
 - **Deck finishes.** The surround is a light concrete grey by default (the earlier deck
   was too dark); `picture_deck` on the strategy and `deck` on the picture card pick
   `pavers`, `travertine`, `wood` or `stone` instead. Every style draws the finish its own

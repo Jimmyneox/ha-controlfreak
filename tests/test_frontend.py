@@ -30,6 +30,7 @@ from custom_components.controlfreak.const import (
     DOMAIN,
     FEATURES_URL,
     FRONTEND_URL,
+    ICONS_URL,
     PICTURE_URL,
     SHAPES_URL,
     STYLES_URL,
@@ -57,6 +58,7 @@ async def test_strategy_is_served(
         call(hass, f"{FRONTEND_URL}?v={version}"),
         call(hass, f"{PICTURE_URL}?v={version}"),
         call(hass, f"{FEATURES_URL}?v={version}"),
+        call(hass, f"{ICONS_URL}?v={version}"),
     ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
@@ -109,6 +111,31 @@ async def test_features_are_served_and_loaded(
     assert "customCardFeatures" in body
     mime = resp.headers["Content-Type"].split(";")[0]
     assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_icon_set_is_served_and_every_entity_icon_exists(
+    hass: HomeAssistant, hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The cf: icon module is served, and every cf: icon an entity reports is drawn in it."""
+    client = await hass_client()
+    resp = await client.get(ICONS_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert "window.customIcons.cf" in body
+    drawn = set(re.findall(r'^  "?([a-z-]+)"?\(\) \{', body, flags=re.M))
+    assert {"pump", "spa-jets", "heater", "valve", "flow", "controller"} <= drawn
+    used = {
+        st.attributes["icon"]
+        for st in hass.states.async_all()
+        if str(st.attributes.get("icon", "")).startswith("cf:")
+    }
+    assert used, "the entities carry cf: icons"
+    missing = {icon for icon in used if icon.removeprefix("cf:") not in drawn}
+    assert not missing, f"icons the entities use but the set does not draw: {sorted(missing)}"
+    # Every icon the integration can emit, drawn or not in this fixture.
+    src = (ROOT / "custom_components" / DOMAIN).glob("*.py")
+    emitted = {m for p in src for m in re.findall(r'"cf:([a-z-]+)"', p.read_text())}
+    assert emitted <= drawn, sorted(emitted - drawn)
 
 
 async def test_pool_shapes_are_served(

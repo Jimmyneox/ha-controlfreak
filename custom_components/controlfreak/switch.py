@@ -18,9 +18,9 @@ from .mapping import EntitySpec, light_icon, relay_is_on, relay_role
 PARALLEL_UPDATES = 1
 
 CONNECTION_ICONS = {
-    "Gas Heater": "mdi:fire",
-    "Heat Pump": "mdi:heat-pump",
-    "Chiller": "mdi:snowflake",
+    "Gas Heater": "cf:heater",
+    "Heat Pump": "cf:heat-pump",
+    "Chiller": "cf:chiller",
 }
 
 
@@ -58,7 +58,7 @@ class ControlFreakRelay(ControlFreakEntity, SwitchEntity):
         # A relay named for lights is a light switch; anything else a plain relay.
         if re.search(r"light|lamp|led", (s.name or "").lower()):
             return light_icon(s.name)
-        return "mdi:electric-switch"
+        return "cf:switch"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -86,7 +86,7 @@ class ControlFreakValve(ControlFreakEntity, SwitchEntity):
     """READ-ONLY in v1: the valve command shape has never been captured."""
 
     _attr_translation_key = "valve"
-    _attr_icon = "mdi:valve"
+    _attr_icon = "cf:valve"
 
     @property
     def is_on(self) -> bool | None:

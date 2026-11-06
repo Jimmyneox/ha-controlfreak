@@ -53,7 +53,9 @@ class ControlFreakTemperature(ControlFreakEntity, SensorEntity):
     def icon(self) -> str:
         s = self.setting
         name = (s.name if s else "").lower()
-        return "mdi:thermometer" if "air" in name or "ambient" in name else "mdi:thermometer-water"
+        return (
+            "cf:thermometer-air" if "air" in name or "ambient" in name else "cf:thermometer-water"
+        )
 
     _expire_after = THERMISTOR_EXPIRE
     _attr_device_class = SensorDeviceClass.TEMPERATURE
@@ -76,7 +78,7 @@ class ControlFreakTemperature(ControlFreakEntity, SensorEntity):
 
 class ControlFreakPumpSpeed(ControlFreakEntity, SensorEntity):
     _attr_translation_key = "pump_speed"
-    _attr_icon = "mdi:speedometer"
+    _attr_icon = "cf:speed"
     _attr_native_unit_of_measurement = PERCENTAGE
     _attr_state_class = SensorStateClass.MEASUREMENT
 
@@ -87,7 +89,7 @@ class ControlFreakPumpSpeed(ControlFreakEntity, SensorEntity):
 
 class ControlFreakPumpMode(ControlFreakEntity, SensorEntity):
     _attr_translation_key = "pump_mode"
-    _attr_icon = "mdi:swap-horizontal-variant"
+    _attr_icon = "cf:mode"
 
     @property
     def native_value(self) -> str | None:
@@ -100,7 +102,7 @@ class ControlFreakCpuTemperature(ControlFreakEntity, SensorEntity):
 
     _expire_after = CONTROLLER_EXPIRE
     _attr_translation_key = "cpu_temperature"
-    _attr_icon = "mdi:memory"
+    _attr_icon = "cf:cpu"
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.FAHRENHEIT
@@ -116,7 +118,7 @@ class ControlFreakFreezeProtection(ControlFreakEntity, SensorEntity):
     """controller/freeze-protection/status -> status (e.g. "nominal")."""
 
     _attr_translation_key = "freeze_protection"
-    _attr_icon = "mdi:snowflake-alert"
+    _attr_icon = "cf:freeze"
 
     @property
     def native_value(self) -> str | None:
@@ -128,7 +130,7 @@ class ControlFreakFirmware(ControlFreakEntity, SensorEntity):
     """API version from GET /health (REST, not MQTT)."""
 
     _attr_translation_key = "firmware"
-    _attr_icon = "mdi:chip"
+    _attr_icon = "cf:firmware"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     @property

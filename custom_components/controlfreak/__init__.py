@@ -12,7 +12,15 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN, FEATURES_URL, FRONTEND_URL, PICTURE_URL, SHAPES_URL, STYLES_URL
+from .const import (
+    DOMAIN,
+    FEATURES_URL,
+    FRONTEND_URL,
+    ICONS_URL,
+    PICTURE_URL,
+    SHAPES_URL,
+    STYLES_URL,
+)
 from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
 from .mapping import PANEL_KEYS, setting_uuid_of
 
@@ -35,6 +43,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         FRONTEND_URL: frontend / "controlfreak-strategy.js",  # custom:controlfreak
         PICTURE_URL: frontend / "controlfreak-picture.js",  # custom:controlfreak-picture
         FEATURES_URL: frontend / "controlfreak-features.js",  # custom:controlfreak-* tile features
+        ICONS_URL: frontend / "controlfreak-icons.js",  # the cf: icon set the entities use
     }
     # The styles and shapes modules are imported by the picture card: served, not loaded here.
     served = {

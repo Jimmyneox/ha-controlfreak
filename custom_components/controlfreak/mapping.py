@@ -164,18 +164,20 @@ def relay_role(setting: DeviceSetting) -> str:
 # Icons by the panel's own name for the device, so every dashboard shows what a
 # tile controls instead of a generic fan or bulb. First match wins; mirrors the
 # strategy's SCENE_RULES.
+# The icons are Control Freak's own set (frontend/controlfreak-icons.js, prefix
+# "cf:"), served and registered by the integration on every page.
 PUMP_ICONS: tuple[tuple[str, str], ...] = (
-    ("cleaner|vacuum|sweep", "mdi:robot-vacuum"),
-    ("solar", "mdi:solar-power-variant"),
-    ("booster", "mdi:pump"),
-    ("bubbler|bubble", "mdi:chart-bubble"),
-    ("deck|laminar", "mdi:fountain"),
-    ("waterfall|falls|sheer|cascade|fountain|scupper|curtain", "mdi:waterfall"),
-    ("jet|spa|hot tub", "mdi:hot-tub"),
+    ("cleaner|vacuum|sweep", "cf:cleaner"),
+    ("solar", "cf:solar"),
+    ("booster", "cf:pump"),
+    ("bubbler|bubble", "cf:bubbler"),
+    ("deck|laminar", "cf:deck-jets"),
+    ("waterfall|falls|sheer|cascade|fountain|scupper|curtain", "cf:waterfall"),
+    ("jet|spa|hot tub", "cf:spa-jets"),
 )
 LIGHT_ICONS: tuple[tuple[str, str], ...] = (
-    ("deck|landscape|garden|path|yard|patio|porch|step", "mdi:outdoor-lamp"),
-    ("spa|hot tub", "mdi:hot-tub"),
+    ("deck|landscape|garden|path|yard|patio|porch|step", "cf:outdoor-lamp"),
+    ("spa|hot tub", "cf:spa-light"),
 )
 
 
@@ -189,12 +191,12 @@ def _icon_for(rules: tuple[tuple[str, str], ...], name: str | None, default: str
 
 def pump_icon(name: str | None) -> str:
     """A pump's icon from its name: filter and pool pumps are the pump, the rest what they feed."""
-    return _icon_for(PUMP_ICONS, name, "mdi:pump")
+    return _icon_for(PUMP_ICONS, name, "cf:pump")
 
 
 def light_icon(name: str | None) -> str:
     """A light's icon from its name: outdoor lamps on the deck, a flood light under water."""
-    return _icon_for(LIGHT_ICONS, name, "mdi:light-flood-down")
+    return _icon_for(LIGHT_ICONS, name, "cf:pool-light")
 
 
 def light_effects(setting: DeviceSetting) -> tuple[str, ...]:

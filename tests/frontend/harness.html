@@ -66,6 +66,10 @@
   .sheet.decks { grid-template-columns: 110px repeat(5, 1fr); }
   .sheet.decks .picture { height: 170px; --controlfreak-picture-height: 170px; }
   .feature-host { --feature-height: 42px; --feature-border-radius: 12px; --feature-button-spacing: 12px; --primary-color: #03a9f4; margin-top: 8px; }
+  .icons { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+  .iconcell { background: var(--card); border-radius: 12px; padding: 14px; display: grid; gap: 10px; justify-items: center; }
+  .iconcell .big { color: #1f2a33; }
+  .iconcell .small { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
   .sheet .rowlabel { font-weight: 600; font-size: 15px; }
   .sheet .rowlabel small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
   .sheet .collabel { text-align: center; font-size: 12px; color: var(--muted); }
@@ -90,6 +94,7 @@
   import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
   import { DECKS, DECK_LABELS, STYLES, STYLE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-picture-styles.js";
   import "../../custom_components/controlfreak/frontend/controlfreak-features.js";
+  import { ICON_NAMES, ICON_VIEW_BOX, iconPath } from "../../custom_components/controlfreak/frontend/controlfreak-icons.js";
   import { SHAPES, SHAPE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-pool-shapes.js";
 
   const params = new URLSearchParams(location.search);
@@ -99,7 +104,8 @@
   const sheet = shape === "styles-day" ? "day" : shape === "styles-night" ? "night" : null;
   const shapesSheet = shape === "shapes-day" ? "day" : shape === "shapes-night" ? "night" : null;
   const decksSheet = shape === "decks-day" ? "day" : shape === "decks-night" ? "night" : null;
-  const fixtureName = shape === "pictures" || sheet || shapesSheet || decksSheet ? "full-pool" : shape;
+  const iconsSheet = shape === "icons";
+  const fixtureName = shape === "pictures" || sheet || shapesSheet || decksSheet || iconsSheet ? "full-pool" : shape;
   const hass = await (await fetch(`./fixtures/${fixtureName}.json`)).json();
   const dashboard = buildDashboard(hass, options);
   const view = dashboard.views[0];
@@ -143,6 +149,27 @@
     }
   }
 
+  // An icon as ha-state-icon would draw it: cf: from the Control Freak set, mdi: from the font.
+  function iconEl(name, size = 24) {
+    if (name.startsWith("cf:")) {
+      const d = iconPath(name.slice(3));
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", ICON_VIEW_BOX);
+      svg.setAttribute("width", size);
+      svg.setAttribute("height", size);
+      svg.style.display = "block";
+      const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p.setAttribute("d", d ?? "");
+      p.setAttribute("fill", "currentColor");
+      svg.append(p);
+      if (!d) svg.style.outline = "2px solid red";
+      return svg;
+    }
+    const i = el("i", `mdi ${name.replace("mdi:", "mdi-")}`);
+    i.style.fontSize = `${size}px`;
+    return i;
+  }
+
   function pictureEl(card, hassFor) {
     const wrap = el("div", "picture");
     const pic = document.createElement("controlfreak-picture");
@@ -169,7 +196,7 @@
     const DOMAIN_ICONS = { fan: "mdi:fan", light: "mdi:lightbulb", switch: "mdi:toggle-switch", sensor: "mdi:eye", binary_sensor: "mdi:radiobox-blank" };
     const iconName = st.attributes?.icon ?? (st.attributes?.device_class === "temperature" ? "mdi:thermometer" : st.attributes?.device_class === "connectivity" ? "mdi:lan-connect" : DOMAIN_ICONS[domain] ?? "mdi:help");
     const ic = el("div", `icon${on ? " on" : ""}`);
-    ic.append(el("i", `mdi ${iconName.replace("mdi:", "mdi-")}`));
+    ic.append(iconEl(iconName));
     ic.title = iconName;
     row.append(ic);
     const label = el("div");
@@ -192,7 +219,22 @@
   document.getElementById("meta").textContent =
     `shape: ${shape} · ${view.sections.length} section(s) · ${nTiles} tile(s)`;
   const main = document.getElementById("view");
-  if (!sheet && !shapesSheet && !decksSheet) {
+  if (iconsSheet) {
+    // The icon set, each glyph at tile size and large, for review.
+    const g = el("div", "icons");
+    for (const name of ICON_NAMES) {
+      const cell = el("div", "iconcell");
+      const big = el("div", "big"); big.append(iconEl(`cf:${name}`, 72));
+      const disc = el("div", "icon on"); disc.append(iconEl(`cf:${name}`));
+      const row = el("div", "small"); row.append(disc, el("span", "", `cf:${name}`));
+      cell.append(big, row);
+      g.append(cell);
+    }
+    main.append(g);
+    document.getElementById("meta").textContent = `shape: icons · ${ICON_NAMES.length} icons`;
+  }
+
+  if (!sheet && !shapesSheet && !decksSheet && !iconsSheet) {
     for (const section of view.sections) {
       const s = el("div", "section");
       for (const card of section.cards) s.append(cardEl(card));

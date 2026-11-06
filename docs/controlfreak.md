@@ -297,6 +297,18 @@ style: neon
 
 Leaving the option out keeps the default style. An unknown style is reported as a card error.
 
+### Icons
+
+Every entity carries one of Control Freak's own icons (`cf:pump`, `cf:spa-jets`,
+`cf:waterfall`, `cf:deck-jets`, `cf:bubbler`, `cf:cleaner`, `cf:solar`, `cf:pool-light`,
+`cf:spa-light`, `cf:outdoor-lamp`, `cf:heater`, `cf:heat-pump`, `cf:chiller`, `cf:valve`,
+`cf:thermometer-water`, `cf:thermometer-air`, `cf:flow`, `cf:controller`, `cf:freeze`,
+`cf:firmware`, `cf:cpu`, `cf:mode`, `cf:speed`, `cf:switch`), chosen from the device's name
+in the panel. The set is served and registered by the integration, so the names work on any
+card (`icon: cf:waterfall`) and in the entity settings dialog.
+
+![The Control Freak icon set](images/icons.png)
+
 ### Deck finishes
 
 The deck around the water is concrete by default, a light grey, since that is what most
