@@ -209,8 +209,7 @@ makes a splash.
 
 ![Animated pictures of the pool, spa and waterfall, by day and by night](images/dashboard-pictures.png)
 
-Pick the outline that looks most like your pool with `picture_shape`: `rectangle`, `roman`,
-`kidney`, `freeform` (the default), `lagoon` or `figure8`.
+Pick the outline that looks most like your pool with `picture_shape` (see *Pool shape* below).
 
 ![Every pool shape in every style](images/dashboard-shapes.png)
 
@@ -233,12 +232,62 @@ picture per water feature instead of the overview, set `pictures: features`. If 
 browser or operating system asks for reduced motion, each picture is a still image. Pictures
 pause while they are off screen or the tab is hidden.
 
-You can also add a picture by hand to any dashboard. The overview:
+#### Pool shape
+
+The pool is drawn in the outline of your pool. To pick the one that matches, open the
+dashboard, choose the pencil (**Edit dashboard**), and the strategy's settings dialog shows
+every shape as a small picture: tap one, pick a style, a deck finish and the picture height,
+and **Save**.
+The same dialog switches the pictures off or to one per feature, and sets the dashboard
+title. In YAML the choice is `picture_shape`, with the pictures' height in `picture_rows`:
+
+```yaml
+strategy:
+  type: custom:controlfreak
+  picture_shape: kidney   # see the table
+  picture_rows: 6         # optional, picture height in grid rows (2..12, default 4)
+```
+
+| `picture_shape` | Outline |
+|---|---|
+| `rectangle` | Straight sides, softened corners. The default. |
+| `roman` | A rectangle with half-round ends. |
+| `grecian` | A rectangle with the corners cut at 45°. |
+| `oval` | An ellipse that fills the picture. |
+| `round` | A circle, centred. |
+| `kidney` | The classic bean. |
+| `figure8` | Two round lobes with a waist. |
+| `lazy-l` | An L whose deep leg meets the wide shallow end at an angle. |
+| `true-l` | An L with a square inner corner. |
+| `mountain-lake` | An oblong with gently curved sides. |
+| `freeform` | A lagoon with no straight edge. |
+| `lagoon` | A wider, rounder freeform. |
+
+![Every pool shape](images/pool-shapes.png)
+
+Every pool is drawn from above on a paver deck with its coping: Roman entry steps at the
+shallow end, the water deepening towards the main drain, and a band of waterline tile. The
+spa, waterfall, deck jets and bubblers sit against the outline in their own places.
+
+#### Picture size
+
+Pictures are full width and four rows high by default. In a **sections** view you can resize
+each one by hand: open the dashboard editor, choose the picture card, then **Layout**, and
+drag it taller or shorter (two to twelve rows) or narrower. On a dashboard the strategy
+generates, use **Take control** first, or set `picture_rows` as above, which sets every
+picture's starting height. A card you add by hand (below) also takes `rows`, a fixed
+`height`, or an `aspect_ratio` for views without a grid.
+
+![The shape chooser in the editor](images/shape-chooser.png)
+
+You can also add a picture by hand to any dashboard, or pick **Control Freak picture** in the
+card picker and fill in the editor. The overview:
 
 ```yaml
 type: custom:controlfreak-picture
 scene: overview
-shape: kidney                      # rectangle, roman, kidney, freeform, lagoon or figure8
+shape: kidney                      # see the table above
+style: depth                       # optional, see Picture styles
 pumps:
   pool: fan.filter_pump            # the water moves with this pump
   spa: fan.spa_jets                # each part follows its own pump
@@ -248,6 +297,7 @@ lights:
   spa: light.spa_light
 spillover: sensor.filter_pump_current_mode  # optional
 show: [steps, ledge]               # optional: parts to draw without a pump or light
+rows: 5                            # optional, starting height in a sections view (2..12)
 ```
 
 A part is drawn when it has a pump or a light, or is listed under `show` (`spa`, `falls`,
@@ -255,15 +305,20 @@ A part is drawn when it has a pump or a light, or is listed under `show` (`spa`,
 
 ```yaml
 type: custom:controlfreak-picture
-scene: spa          # pool, spa, falls, deck or bub
-pump: fan.spa_jets  # optional, the water moves with this pump's speed
-light: light.spa_light  # optional, the water takes this light's effect colour
+scene: pool         # pool, spa, falls, deck or bub
+shape: lazy-l       # pool only, see the table above
+pump: fan.filter_pump   # optional, the water moves with this pump's speed
+light: light.pool_light  # optional, the water takes this light's effect colour
 spillover: sensor.filter_pump_current_mode  # optional (spa only)
+rows: 5             # optional, starting height in a sections view (2..12)
+height: 260px       # optional, a fixed height instead (outside a sections view)
+aspect_ratio: "16:9"  # optional, height from the width instead
 ```
 
 Only `scene` is required. Without a pump the water is still; without a light it keeps its
-natural colour. Add `style:` to pick one of the picture styles below. The card is full width in a sections view; its height follows the section's
-rows and is at least 200 pixels. To tune the water colours, set the CSS variables
+natural colour. Add `style:` to pick one of the picture styles below. The card is full width
+in a sections view; its height follows the card's rows and is at least 200 pixels unless
+`height` or `aspect_ratio` says otherwise. To tune the water colours, set the CSS variables
 `--controlfreak-water-a`, `--controlfreak-water-b` and `--controlfreak-water-hi` in your theme
 (hex colours).
 
@@ -344,6 +399,80 @@ The pump and light tiles carry Control Freak's own features, built for a pool pa
   shows the running show with its chip cycling. Arrow keys move, Enter picks, Escape
   closes, and a tap outside dismisses. Shows with names the table does not know
   get a neutral chip. Replaces the core `light-effect` dropdown.
+
+The settings dialog (**Edit dashboard**) offers the same choice as **Tile controls**.
+
+### Create the dashboard
+
+```yaml
+strategy:
+  type: custom:controlfreak
+  title: DASHBOARD_TITLE
+  pictures: false
+  picture_shape: rectangle
+  picture_style: caustic
+  picture_deck: concrete
+  picture_rows: 4
+  controls: controlfreak
+  hide:
+    - controller
+  order:
+    - sensors
+    - pumps
+  titles:
+    pumps: PUMPS_SECTION_TITLE
+```
+
+| Option | Description |
+|---|---|
+| `title` | The dashboard title. The default is `Pool`. |
+| `pictures` | `false` leaves out the animated picture above the pumps; `features` shows one picture per water feature instead of the overview. The default is `true`. |
+| `picture_shape` | The pool's outline, one of the twelve in *Pool shape*. The default is `rectangle`. |
+| `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
+| `picture_deck` | The surround, one of the finishes in *Deck finishes*: `concrete` (default), `pavers`, `travertine`, `wood` or `stone`. |
+| `picture_rows` | The pictures' starting height in grid rows, 2 to 12. The default is 4. |
+| `controls` | `controlfreak` (default) puts Control Freak's own features on the tiles (see *Pool controls*); `core` keeps Home Assistant's `fan-speed` and `light-effect` and the 0.2.1 layout. |
+| `hide` | A list of equipment types to leave out. |
+| `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
+| `titles` | A heading per equipment type, for example `pumps: Circulation`. |
+| `device_id` | Only show the equipment of this controller, if you have more than one. |
+
+The equipment types are:
+
+| Type | Default heading | Cards |
+|---|---|---|
+| `pumps` | Pumps | The animated pool overview, then a tile per pump with a speed control, followed by its current mode. |
+| `heating` | Heating and cooling | A tile per relay configured as a heater or chiller, with a toggle. |
+| `lights` | Lights and relays | A tile per light with its effects, and a tile per relay with a toggle. |
+| `valves` | Valves | A tile per valve. |
+| `sensors` | Temperature and flow | A tile per temperature with a trend graph, and a tile per flow sensor. |
+| `controller` | Controller health | Connectivity, freeze protection, CPU temperature and firmware version. |
+| `other` | Other equipment | A tile per entity the strategy doesn't recognize. |
+
+### Add a single section to an existing dashboard
+
+To add one block, such as the pumps, to a dashboard you already have, use the section
+strategy in a sections view. Edit the dashboard, open the raw configuration editor, and add a
+section to the view:
+
+```yaml
+views:
+  - title: VIEW_TITLE
+    type: sections
+    sections:
+      - strategy:
+          type: custom:controlfreak
+          equipment: pumps
+          title: SECTION_TITLE
+```
+
+`equipment` is required and takes one of the equipment types above. `title`, `pictures`
+and `device_id` are optional. The section's edit dialog offers the same settings (equipment,
+pictures, style, pool shape, deck finish, picture height, tile controls) as the dashboard's.
+
+## Data updates
+
+The integration works locally and doesn't use the cloud.
 
   ![The light show menu with a colour chip per show](images/light-shows.png)
 - **Live values** are pushed by the controller over MQTT on WebSockets. The

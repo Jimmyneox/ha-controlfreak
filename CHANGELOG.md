@@ -1,16 +1,8 @@
 # Changelog
 
-## 0.3.0 — unreleased
+## 0.3.0 — 2026-11-06
 
-### Changed
-- The light show feature is a menu with a colour chip per show, the colours each Pentair show performs (SAm white/magenta/blue/green, American red/white/blue, California Sunset orange/red/magenta, ...). The running show's chip cycles.
-
-### Fixed
-- Enter or Space inside a tile feature no longer opens the entity's more-info dialog: the controls keep the keys they use.
-- The frontend modules load from a content-stamped path, `/controlfreak/v/<version>.<hash>/`, served immutably: a same-version reinstall is picked up, the modules' relative imports resolve inside the same stamp (one instance of each), and a stale app shell still gets the current files. The bare `/controlfreak/` paths stay for hand-listed resources.
-- Tile features no longer rebuild on every tile render: the tile card passes a fresh context object each time, which tore the controls down under the finger and closed the open show menu.
-- Tile features render again on a real dashboard: the tile card assigns `stateObj` on the feature element and the base class only had a getter, so every Control Freak feature threw and showed blank. The harness now assigns the element's properties the way `hui-card-feature` does.
-
+### Added
 - **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,
   a slider over the pump's real range (40–100 on a typical variable-speed pump) with an Off
   button; the pool's own pump sits first in the section, full width, right under the
@@ -38,8 +30,8 @@
   way, by day and by night.
 
 - **The pool from above.** The pumps section opens with one animated overview of the whole
-  pool: the water inside one of six outlines (`picture_shape`: rectangle, roman, kidney,
-  freeform, lagoon, figure8), deck and coping around it, and the parts the controller runs
+  pool: the water inside one of twelve outlines (`picture_shape`, see below), deck and
+  coping around it, and the parts the controller runs
   in their places (attached spa with spillover, steps, tanning ledge with bubblers,
   waterfall over rocks, deck jets, lights), each following its own pump and light.
   `pictures: features` gives the per-feature pictures below instead. Shapes live in
@@ -54,21 +46,46 @@
   exactly. Reduced motion gives a still frame; off-screen and hidden-tab pictures pause.
 - New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`;
   scene `overview` takes `shape`, `pumps`, `lights`, `spillover`, `show`),
-  served by the integration next to the strategy with the same version cache-buster, listed in
-  the card picker. No dependencies, no dashboard resource to add.
+  served by the integration from the same content-stamped path as the strategy, listed in
+  the card picker with a visual editor (scene, style, shape, deck finish, entities, height). No dependencies, no dashboard resource to add.
+- **Twelve pool shapes.** `picture_shape` on the strategy and `shape` on a hand-placed card
+  draw the water in the outline of your pool: `rectangle` (default), `roman`, `grecian`,
+  `oval`, `round`, `kidney`, `figure8`, `lazy-l`, `true-l`, `mountain-lake`, `freeform` or
+  `lagoon`. The pool sits on a paver deck with coping, Roman entry steps at the shallow end, a
+  shallow-to-deep gradient, the main drain and a waterline tile band. The shapes live in
+  `controlfreak-pool-shapes.js`, imported by the card and served beside it.
 - **Five picture styles.** `style` on the picture card and `picture_style` on the dashboard,
   view and section strategies pick the look: `caustic` (the default, unchanged), `blueprint`
   (flat plan view, ink lines, drifting rings), `depth` (refracted tile floor, glints, shadowed
   edges), `neon` (dark mirror lit only by the lights; day dims the glow) and `poster`
-  (mid-century postcard, flat colours, paper grain). Every style draws all five scenes by day
-  and by night from the same pump and light state. Left out, the output is unchanged. The
-  styles live in `controlfreak-picture-styles.js`, imported by the card and served beside it.
+  (mid-century postcard, flat colours, paper grain). Every style draws all scenes and shapes
+  by day and by night from the same pump and light state. Left out, the output is unchanged.
+  The styles live in `controlfreak-picture-styles.js`, imported by the card and served beside it.
+- **Settings dialog.** The dashboard, view and section strategies now have an editor in
+  Home Assistant's edit dialog: title (or equipment), the pictures mode (whole pool, one per
+  feature, none), the style, a shape chooser that shows every outline as a small picture,
+  the deck finish, the picture height and which tile controls the tiles carry. No YAML needed.
+- **Resizable pictures.** In a sections view each picture can be dragged taller or shorter
+  (2 to 12 rows) in the layout editor; `picture_rows: 6` on the strategy sets the starting
+  height of every picture, and a hand-placed card takes `rows`, `height` or `aspect_ratio`.
+- The bare `/controlfreak/<module>` paths are served with `Cache-Control: no-cache`, so a
+  dashboard that lists a module as a resource by hand revalidates it after an upgrade.
 - The effect-to-colour table lives once in `mapping.py` (`EFFECT_COLORS`; `DEFAULT_EFFECTS`
   derives from it) and is mirrored in the card; a test keeps the two identical.
 - Tests: `node --test` for the card's pure helpers and the strategy's picture placement,
   including a byte-for-byte comparison with 0.2.1 dashboards; the Playwright render check
-  draws every scene by day and by night and fails on any script error; `styles-day` and
-  `styles-night` contact sheets (styles down, scenes across) are kept as workflow artifacts.
+  draws every scene, shape and style by day and by night and fails on any script error;
+  `styles-day`/`styles-night` (styles down, scenes across) and `shapes-day`/`shapes-night`
+  (styles down, shapes across) contact sheets are kept as workflow artifacts.
+
+### Changed
+- The light show feature is a menu with a colour chip per show, the colours each Pentair show performs (SAm white/magenta/blue/green, American red/white/blue, California Sunset orange/red/magenta, ...). The running show's chip cycles.
+
+### Fixed
+- Enter or Space inside a tile feature no longer opens the entity's more-info dialog: the controls keep the keys they use.
+- The frontend modules load from a content-stamped path, `/controlfreak/v/<version>.<hash>/`, served immutably: a same-version reinstall is picked up, the modules' relative imports resolve inside the same stamp (one instance of each), and a stale app shell still gets the current files. The bare `/controlfreak/` paths stay for hand-listed resources.
+- Tile features no longer rebuild on every tile render: the tile card passes a fresh context object each time, which tore the controls down under the finger and closed the open show menu.
+- Tile features render again on a real dashboard: the tile card assigns `stateObj` on the feature element and the base class only had a getter, so every Control Freak feature threw and showed blank. The harness now assigns the element's properties the way `hui-card-feature` does.
 
 ## 0.2.1 — 2026-10-24
 

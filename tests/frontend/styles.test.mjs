@@ -196,8 +196,21 @@ function overviewModel({ shape = DEFAULT_SHAPE, on = true, lit = true, dark = fa
 }
 
 test("every style draws every shape by day and by night and paints something", () => {
-  assert.deepEqual(SHAPES, ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"]);
-  assert.equal(DEFAULT_SHAPE, "freeform");
+  assert.deepEqual(SHAPES, [
+    "rectangle",
+    "roman",
+    "grecian",
+    "oval",
+    "round",
+    "kidney",
+    "figure8",
+    "lazy-l",
+    "true-l",
+    "mountain-lake",
+    "freeform",
+    "lagoon",
+  ]);
+  assert.equal(DEFAULT_SHAPE, "rectangle");
   for (const shape of SHAPES) assert.equal(typeof SHAPE_LABELS[shape], "string", shape);
   let cases = 0;
   for (const style of STYLES) {
@@ -211,7 +224,7 @@ test("every style draws every shape by day and by night and paints something", (
       }
     }
   }
-  assert.equal(cases, 60);
+  assert.equal(cases, STYLES.length * SHAPES.length * 2);
   // The caustic style has no separate renderer for the overview: it goes through the engine too.
   const { s } = drawOnce("caustic", OVERVIEW, overviewModel());
   assert.equal(s.frames, 1);
@@ -260,7 +273,7 @@ test("overview geometry: every part lands inside the picture, the spa on the rim
     // Nothing falls when nothing runs.
     assert.deepEqual(overviewLandings(W, H, overviewModel({ shape, on: false, spilling: false })), []);
   }
-  assert.throws(() => overviewGeo(W, H, overviewModel({ shape: "oval" })), /set "shape" to one of/);
+  assert.throws(() => overviewGeo(W, H, overviewModel({ shape: "octagon" })), /set "shape" to one of/);
 });
 
 /* ----- Pool shapes (pure) ------------------------------------------------ */
@@ -306,7 +319,9 @@ test("layoutShape: pixels with padding, inward normals, and a refusal for unknow
   assert.deepEqual(L.at(-0.75), L.at(0.25), "t wraps backwards");
   // A tiny canvas never produces a zero-size box.
   assert.ok(layoutShape("kidney", 10, 10, 40).box.w >= 1);
-  assert.throws(() => layoutShape("oval", 800, 400, 40), /set "shape" to one of rectangle, roman, kidney, freeform, lagoon, figure8/);
+  assert.throws(() => layoutShape("octagon", 800, 400, 40), /set "shape" to one of rectangle, roman, grecian, oval, round, kidney, figure8, lazy-l, true-l, mountain-lake, freeform, lagoon/);
+  // A round pool keeps a square box, centred.
+  assert.deepEqual(layoutShape("round", 400, 200, 20).box, { x: 120, y: 20, w: 160, h: 160 });
   assert.throws(() => layoutShape(undefined, 800, 400, 40), /set "shape"/);
 });
 

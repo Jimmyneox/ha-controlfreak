@@ -10,23 +10,29 @@
  *
  *   type: custom:controlfreak-picture
  *   scene: pool            # pool | spa | falls | deck | bub
+ *   shape: kidney          # pool only: the outline (see controlfreak-pool-shapes.js)
  *   pump: fan.filter_pump  # optional: water speed = the fan's percentage
  *   light: light.pool_light  # optional: water colour = the light's effect
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
  *   style: caustic         # optional: caustic | blueprint | depth | neon | poster
+ *   rows: 4                # optional: height in a sections view (2..12)
+ *   height: 260px          # optional: fixed height outside a sections view
+ *   aspect_ratio: "16:9"   # optional: height from the width instead
  *
  * Or the whole pool from above (see controlfreak-pool-shapes.js for the shapes):
  *
  *   type: custom:controlfreak-picture
  *   scene: overview
- *   shape: freeform        # rectangle | roman | kidney | freeform | lagoon | figure8
+ *   shape: kidney          # one of the shapes in controlfreak-pool-shapes.js
  *   pumps: { pool: fan.filter_pump, spa: fan.spa_jets, falls: fan.waterfall }
  *   lights: { pool: light.pool_light, spa: light.spa_light }
  *   spillover: sensor.filter_pump_current_mode
  *   show: [steps, ledge]   # optional: parts to draw without a pump or light
  *
  * The styles other than caustic live in controlfreak-picture-styles.js, served
- * beside this file and imported from here.
+ * beside this file and imported from here. In a sections view the card is
+ * resizable in Home Assistant's layout editor, and a visual editor picks the
+ * scene, style, shape and entities.
  *
  * No framework, no bundler, no dependencies: a plain HTMLElement and a 2D
  * canvas. Everything above the custom element (the effect table, speed to flow,
@@ -34,8 +40,10 @@
  * Display only: nothing here ever writes to pool equipment.
  */
 
-import { DECKS, DEFAULT_DECK, DEFAULT_STYLE, STYLES, makeStyledScene } from "./controlfreak-picture-styles.js";
-import { DEFAULT_SHAPE, PARTS, partsOf, SHAPES } from "./controlfreak-pool-shapes.js";
+import { DECK_LABELS, DECKS, DEFAULT_DECK, DEFAULT_STYLE, makeStyledScene, setCore, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
+import { DEFAULT_SHAPE, layoutShape, PARTS, partsOf, SHAPE_LABELS, SHAPES } from "./controlfreak-pool-shapes.js";
+
+export { DECK_LABELS, DECKS, DEFAULT_DECK, DEFAULT_SHAPE, SHAPE_LABELS, SHAPES };
 
 /* ----- Shared tables ----------------------------------------------------- */
 
@@ -70,6 +78,53 @@ export const PALETTE = {
   day: { a: "#4cc3d6", b: "#1d8fb0", hi: "#ffffff" },
   night: { a: "#0d4a66", b: "#062a40", hi: "#9ff0ff" },
 };
+
+/** The shapes a card may name (the shared table in controlfreak-pool-shapes.js). */
+export const SHAPE_NAMES = SHAPES;
+
+/** The pool outline a card config asks for; throws on an unknown shape. */
+export function poolOutline(config = {}) {
+  const shape = config.shape ?? DEFAULT_SHAPE;
+  if (!SHAPES.includes(shape)) {
+    throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPES.join(", ")}`);
+  }
+  return { shape };
+}
+
+export const ROWS_MIN = 2;
+export const ROWS_MAX = 12;
+export const DEFAULT_ROWS = 4;
+
+/**
+ * Grid placement in a sections view: full width and 4 rows by default,
+ * resizable in the layout editor between 2 and 12 rows. `rows` and `columns`
+ * in the config set the starting size.
+ */
+export function gridOptions(config = {}) {
+  const rows = Number(config.rows);
+  const options = {
+    columns: "full",
+    rows: Number.isFinite(rows) ? Math.min(ROWS_MAX, Math.max(ROWS_MIN, Math.round(rows))) : DEFAULT_ROWS,
+    min_rows: ROWS_MIN,
+    max_rows: ROWS_MAX,
+    min_columns: 3,
+  };
+  const cols = config.columns;
+  if (cols === "full" || (Number.isFinite(Number(cols)) && Number(cols) >= 1)) {
+    options.columns = cols === "full" ? "full" : Math.min(12, Math.round(Number(cols)));
+  }
+  return options;
+}
+
+/** Inline style for the card frame from `height` / `aspect_ratio`, else "" (grid-driven). */
+export function frameStyle(config = {}) {
+  const ratio = String(config.aspect_ratio ?? "").match(/^\s*(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)\s*$/);
+  if (ratio && Number(ratio[2]) > 0) return `aspect-ratio: ${Number(ratio[1])} / ${Number(ratio[2])}; height: auto; min-height: 0;`;
+  const h = config.height;
+  if (h == null || h === "") return "";
+  const px = typeof h === "number" ? h : Number(String(h).replace(/px$/i, ""));
+  return Number.isFinite(px) && px > 0 ? `height: ${Math.round(px)}px; min-height: 0;` : "";
+}
 
 // Effects a panel lists on its own (not the captured Pentair set) are matched
 // on their wording: a show cycles, a named colour tints, anything else is white.
@@ -206,6 +261,7 @@ export function modelOf(hass, config) {
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
     deck: config.deck ?? DEFAULT_DECK,
+    shape: config.shape ?? DEFAULT_SHAPE,
   };
 }
 
@@ -302,7 +358,7 @@ export function bubGeo(W, H) {
 
 /** Where each scene's light fixtures sit, as fractions of the picture. */
 export function fixtures(kind, W, H, sp) {
-  if (kind === "pool") return [{ x: 0, y: 0.56 }, { x: 1, y: 0.74 }];
+  if (kind === "pool") return [{ x: 0.08, y: 0.56 }, { x: 0.92, y: 0.74 }];
   if (kind === "spa") {
     const g = spaGeo(W, H);
     return [{ x: g.x / W, y: g.y / H }];
@@ -476,23 +532,26 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
     return strength;
   }
 
-  // Travertine deck with paver joints.
+  // Travertine deck: running-bond pavers, each a slightly different tone,
+  // with sand joints. The tone comes from the paver's position, so it is the
+  // same every frame.
   function deck(dark, x, y, w, h) {
-    ctx.fillStyle = dark ? "#2e2b26" : "#e9e1d2";
+    ctx.fillStyle = dark ? "#262320" : "#d9cfbc";
     ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = dark ? "rgba(255,255,255,0.05)" : "rgba(120,100,70,0.16)";
-    ctx.lineWidth = 1;
-    const sz = 34;
-    ctx.beginPath();
-    for (let gx = x - (x % sz); gx < x + w; gx += sz) {
-      ctx.moveTo(gx + 0.5, y);
-      ctx.lineTo(gx + 0.5, y + h);
+    const pw = 46;
+    const ph = 23;
+    const joint = 1.5;
+    let row = 0;
+    for (let gy = y - (y % ph) - ph; gy < y + h; gy += ph, row++) {
+      const shift = row % 2 ? pw / 2 : 0;
+      for (let gx = x - (x % pw) - pw + shift; gx < x + w; gx += pw) {
+        const n = Math.sin(gx * 12.9898 + gy * 78.233) * 43758.5453;
+        const t = n - Math.floor(n); // 0..1, fixed per paver
+        const l = dark ? 17 + t * 5 : 86 + t * 7;
+        ctx.fillStyle = `hsl(${36 + t * 8} ${dark ? 10 : 30}% ${l}%)`;
+        ctx.fillRect(gx + joint, gy + joint, pw - 2 * joint, ph - 2 * joint);
+      }
     }
-    for (let gy = y - (y % sz); gy < y + h; gy += sz) {
-      ctx.moveTo(x, gy + 0.5);
-      ctx.lineTo(x + w, gy + 0.5);
-    }
-    ctx.stroke();
   }
   function coping(dark, x0, y0, x1, y1) {
     ctx.lineCap = "butt";
@@ -513,7 +572,98 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
     ctx.fill();
   }
 
+  // The pool outline in canvas pixels: the unit-square path scaled into the
+  // picture inside a deck margin ("round" keeps a 1:1 aspect, centred).
+  // The pool outline laid into the picture by the shared shape module, with
+  // the entry steps at the shape's steps anchor and the deep end opposite.
+  function poolLayout() {
+    const shape = getModel().shape ?? DEFAULT_SHAPE;
+    const pad = Math.max(10, Math.min(W, H) * 0.07);
+    const L = layoutShape(SHAPES.includes(shape) ? shape : DEFAULT_SHAPE, W, H, pad);
+    // Traced straight into the context (the tests run on a recording context without Path2D).
+    const path = (c) => {
+      c.beginPath();
+      L.points.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+      c.closePath();
+    };
+    const steps = L.at(L.def.steps.t);
+    const deep = L.at(L.def.steps.t + 0.5);
+    const inset = Math.min(L.box.w, L.box.h) * 0.08;
+    return {
+      path,
+      sx: steps.x,
+      sy: steps.y,
+      dx: deep.x + deep.nx * inset,
+      dy: deep.y + deep.ny * inset,
+    };
+  }
+
+  // The pool from above: pavers all round, the coping's shadow and lip, then
+  // inside the outline the lit water, a shallow-to-deep gradient, Roman entry
+  // steps at the shallow end, the main drain at the deep end, the waterline
+  // tile band and the wall's shadow.
   function drawPool(dark) {
+    const { path, sx, sy, dx, dy } = poolLayout();
+    const unit = Math.min(W, H);
+    deck(dark, 0, 0, W, H);
+    // Coping: a soft shadow on the pavers, the stone lip, a hairline at its edge.
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 22;
+    ctx.strokeStyle = dark ? "rgba(0,0,0,0.35)" : "rgba(80,60,30,0.16)";
+    path(ctx);
+    ctx.stroke();
+    ctx.lineWidth = 13;
+    ctx.strokeStyle = dark ? "#57524a" : "#f3eee4";
+    path(ctx);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = dark ? "rgba(255,255,255,0.10)" : "rgba(120,100,70,0.35)";
+    path(ctx);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    path(ctx);
+    ctx.clip();
+    const strength = water(dark, true);
+    // Depth: the shallow end is brighter and greener, the deep end darker.
+    const depth = ctx.createLinearGradient(sx, sy, dx, dy);
+    if (dark) {
+      depth.addColorStop(0, "rgba(90,160,170,0.18)");
+      depth.addColorStop(0.45, "rgba(0,0,0,0)");
+      depth.addColorStop(1, "rgba(0,4,24,0.5)");
+    } else {
+      depth.addColorStop(0, "rgba(170,240,230,0.34)");
+      depth.addColorStop(0.45, "rgba(0,0,0,0)");
+      depth.addColorStop(1, "rgba(2,28,80,0.42)");
+    }
+    ctx.fillStyle = depth;
+    ctx.fillRect(0, 0, W, H);
+    // Roman steps: three treads fanning out from the shallow wall.
+    for (let i = 3; i >= 1; i--) {
+      const r = unit * (0.08 + i * 0.065);
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.fillStyle = dark ? "rgba(140,200,215,0.12)" : "rgba(220,250,250,0.22)";
+      ctx.fill();
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = dark ? "rgba(180,230,240,0.22)" : "rgba(255,255,255,0.45)";
+      ctx.stroke();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = dark ? "rgba(0,10,30,0.25)" : "rgba(10,60,90,0.14)";
+      ctx.beginPath();
+      ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // Main drain at the deep end.
+    ctx.beginPath();
+    ctx.ellipse(dx, dy, unit * 0.03, unit * 0.022, 0, 0, Math.PI * 2);
+    ctx.fillStyle = dark ? "rgba(0,8,24,0.55)" : "rgba(6,36,70,0.42)";
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = dark ? "rgba(180,220,235,0.22)" : "rgba(255,255,255,0.4)";
+    ctx.stroke();
     if (on()) {
       const n = 6;
       const sp = speed();
@@ -521,7 +671,7 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
       ctx.lineWidth = 2;
       for (let i = 0; i < n; i++) {
         const ph = (sim.t * (0.25 + sp * 0.9) + i / n) % 1;
-        const x0 = 18 + ph * (W * 0.55);
+        const x0 = W * 0.08 + ph * (W * 0.6);
         const y0 = H * 0.3 + Math.sin(i * 1.3) * 8 + i * (H * 0.09);
         ctx.strokeStyle = `rgba(255,255,255,${0.35 * Math.sin(ph * Math.PI)})`;
         ctx.beginPath();
@@ -530,9 +680,28 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
         ctx.stroke();
       }
     }
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = dark ? "rgba(190,225,235,0.12)" : "rgba(255,255,255,0.55)";
-    ctx.strokeRect(4, 4, W - 8, H - 8);
+    // Waterline: a band of glass tile just below the coping, then the wall's
+    // shadow into the water (half of each stroke falls inside the clip).
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = dark ? "rgba(10,30,60,0.75)" : "rgba(16,58,110,0.62)";
+    path(ctx);
+    ctx.stroke();
+    ctx.lineWidth = 7;
+    ctx.setLineDash([5, 1.5]);
+    ctx.strokeStyle = dark ? "rgba(70,130,170,0.35)" : "rgba(120,190,230,0.5)";
+    path(ctx);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineWidth = 30;
+    const shade = ctx.createLinearGradient(0, 0, 0, H);
+    shade.addColorStop(0, dark ? "rgba(0,0,0,0.45)" : "rgba(8,40,70,0.30)");
+    shade.addColorStop(1, dark ? "rgba(0,0,0,0.2)" : "rgba(8,40,70,0.12)");
+    ctx.strokeStyle = shade;
+    path(ctx);
+    ctx.stroke();
+    ctx.restore();
+    return strength;
   }
 
   function drawSpa(dark) {
@@ -885,7 +1054,7 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
   function draw() {
     if (!img) return;
     const dark = getModel().dark;
-    const strength = kind === "spa" ? 0 : water(dark, true);
+    const strength = kind === "spa" || kind === "pool" ? 0 : water(dark, true);
     if (kind === "pool") drawPool(dark);
     else if (kind === "spa") drawSpa(dark);
     else if (kind === "falls") drawFalls(dark, strength);
@@ -935,6 +1104,9 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
   return { resize, start, stop, kick, splash, draw, get running() { return running; }, get frames() { return frames; } };
 }
 
+// The styles module draws with these; it cannot import them (see setCore there).
+setCore({ addRipple, advance, bubGeo, createSim, deckGeo, fallGeo, fixtures, landings, makeScene, renderWater, spaGeo, stepLights });
+
 /* ----- The custom element (browser only) --------------------------------- */
 
 const Base = globalThis.HTMLElement ?? class {};
@@ -953,7 +1125,11 @@ const STYLE = `
 
 export class ControlFreakPictureCard extends Base {
   static getStubConfig() {
-    return { scene: "pool" };
+    return { scene: OVERVIEW, shape: DEFAULT_SHAPE };
+  }
+
+  static getConfigElement() {
+    return document.createElement("controlfreak-picture-editor");
   }
 
   constructor() {
@@ -973,10 +1149,11 @@ export class ControlFreakPictureCard extends Base {
       throw new Error(`controlfreak-picture: set "scene" to one of ${[...SCENES, OVERVIEW].join(", ")}`);
     }
     for (const key of ["pump", "light", "spillover"]) {
-      if (config[key] != null && typeof config[key] !== "string") {
+      if (config[key] != null && config[key] !== "" && typeof config[key] !== "string") {
         throw new Error(`controlfreak-picture: "${key}" must be an entity id`);
       }
     }
+    poolOutline(config); // throws on an unknown shape
     if (config.scene === OVERVIEW) {
       if (config.shape != null && !SHAPES.includes(config.shape)) {
         throw new Error(`controlfreak-picture: set "shape" to one of ${SHAPES.join(", ")}`);
@@ -1016,7 +1193,7 @@ export class ControlFreakPictureCard extends Base {
     this._model = next;
     const changed =
       !prev ||
-      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "deck"].some((k) => prev[k] !== next[k]) ||
+      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "deck", "shape"].some((k) => prev[k] !== next[k]) ||
       (next.parts && JSON.stringify(prev.parts) !== JSON.stringify(next.parts));
     if (changed) {
       this._label();
@@ -1038,7 +1215,7 @@ export class ControlFreakPictureCard extends Base {
   }
 
   getGridOptions() {
-    return { columns: "full", rows: 4, min_rows: 2 };
+    return gridOptions(this._config ?? {});
   }
 
   connectedCallback() {
@@ -1072,7 +1249,7 @@ export class ControlFreakPictureCard extends Base {
   _rebuild() {
     if (!this.isConnected || !this._config || this._scene) return;
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>${STYLE}</style><ha-card><canvas role="img"></canvas></ha-card>`;
+    root.innerHTML = `<style>${STYLE}</style><ha-card style="${frameStyle(this._config)}"><canvas role="img"></canvas></ha-card>`;
     const canvas = root.querySelector("canvas");
     this._canvas = canvas;
     const style = this._config.style ?? DEFAULT_STYLE;
@@ -1142,9 +1319,305 @@ export class ControlFreakPictureCard extends Base {
   }
 }
 
+/* ----- Visual editor: scene, shape, entities and size via ha-form ---------- */
+
+const PART_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers" };
+const EDITOR_LABELS = {
+  scene: "Scene",
+  style: "Picture style",
+  shape: "Pool shape",
+  deck: "Deck finish",
+  pump: "Pump (water speed)",
+  light: "Light (water colour)",
+  spillover: "Pump mode sensor (spillover into the pool)",
+  rows: "Height (rows in a sections view)",
+};
+for (const part of OVERVIEW_PARTS) {
+  EDITOR_LABELS[`pump_${part}`] = `${PART_LABELS[part]} pump`;
+  EDITOR_LABELS[`light_${part}`] = `${PART_LABELS[part]} light`;
+}
+
+/** Flat form data for the editor: an overview's pumps/lights maps become pump_<part> / light_<part>. */
+export function editorData(config = {}) {
+  const data = { scene: OVERVIEW, style: DEFAULT_STYLE, shape: DEFAULT_SHAPE, deck: DEFAULT_DECK, rows: DEFAULT_ROWS };
+  for (const [k, v] of Object.entries(config)) if (!["pumps", "lights", "type"].includes(k)) data[k] = v;
+  for (const part of OVERVIEW_PARTS) {
+    if (config.pumps?.[part]) data[`pump_${part}`] = config.pumps[part];
+    if (config.lights?.[part]) data[`light_${part}`] = config.lights[part];
+  }
+  return data;
+}
+
+/** The card config for the editor's flat data; defaults and empty fields are left out. */
+export function configFromEditor(data = {}, config = {}) {
+  const scene = data.scene ?? OVERVIEW;
+  const out = { ...config, scene };
+  const drop = (k) => delete out[k];
+  for (const k of Object.keys(data)) {
+    if (k.startsWith("pump_") || k.startsWith("light_")) continue;
+    if (data[k] === "" || data[k] == null) drop(k);
+    else out[k] = data[k];
+  }
+  if (out.style === DEFAULT_STYLE) drop("style");
+  if (out.deck === DEFAULT_DECK) drop("deck");
+  if (scene === OVERVIEW || scene === "pool") {
+    if (out.shape === DEFAULT_SHAPE) drop("shape");
+  } else drop("shape");
+  if (Number(out.rows) === DEFAULT_ROWS) drop("rows");
+  if (scene === OVERVIEW) {
+    drop("pump");
+    drop("light");
+    const pumps = {};
+    const lights = {};
+    for (const part of OVERVIEW_PARTS) {
+      if (data[`pump_${part}`]) pumps[part] = data[`pump_${part}`];
+      if (data[`light_${part}`]) lights[part] = data[`light_${part}`];
+    }
+    if (Object.keys(pumps).length) out.pumps = pumps;
+    else drop("pumps");
+    if (Object.keys(lights).length) out.lights = lights;
+    else drop("lights");
+    if (!pumps.spa) drop("spillover");
+  } else {
+    drop("pumps");
+    drop("lights");
+    drop("show");
+    if (scene !== "spa") drop("spillover");
+  }
+  return out;
+}
+
+/** The ha-form schema for a config; each field appears only where it applies. */
+export function editorSchema(config = {}) {
+  const scene = config.scene ?? OVERVIEW;
+  const schema = [
+    {
+      name: "scene",
+      required: true,
+      selector: {
+        select: { mode: "dropdown", options: [OVERVIEW, ...SCENES].map((s) => ({ value: s, label: SCENE_LABELS[s] })) },
+      },
+    },
+    {
+      name: "style",
+      selector: { select: { mode: "dropdown", options: STYLES.map((s) => ({ value: s, label: STYLE_LABELS[s] })) } },
+    },
+  ];
+  if (scene === OVERVIEW || scene === "pool") {
+    schema.push({
+      name: "shape",
+      selector: { select: { mode: "dropdown", options: SHAPES.map((s) => ({ value: s, label: SHAPE_LABELS[s] })) } },
+    });
+  }
+  schema.push({
+    name: "deck",
+    selector: { select: { mode: "dropdown", options: DECKS.map((d) => ({ value: d, label: DECK_LABELS[d] })) } },
+  });
+  if (scene === OVERVIEW) {
+    for (const part of OVERVIEW_PARTS) {
+      schema.push(
+        { name: `pump_${part}`, selector: { entity: { domain: "fan" } } },
+        { name: `light_${part}`, selector: { entity: { domain: "light" } } }
+      );
+    }
+    schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  } else {
+    schema.push(
+      { name: "pump", selector: { entity: { domain: "fan" } } },
+      { name: "light", selector: { entity: { domain: "light" } } }
+    );
+    if (scene === "spa") schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  }
+  schema.push({ name: "rows", selector: { number: { min: ROWS_MIN, max: ROWS_MAX, mode: "slider" } } });
+  return schema;
+}
+
+/* ----- Shape picker: a tile per pool outline, drawn by the scene itself ---- */
+
+const PICKER_STYLE = `
+  :host { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+  button {
+    display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px;
+    border: 2px solid var(--divider-color, #ccc); border-radius: 10px; cursor: pointer;
+    background: var(--card-background-color, #fff); color: var(--primary-text-color, #222);
+    font: inherit; font-size: 12px; text-align: center;
+  }
+  button:hover { border-color: var(--secondary-text-color, #888); }
+  button[aria-pressed="true"] { border-color: var(--primary-color, #03a9f4); box-shadow: 0 0 0 1px var(--primary-color, #03a9f4) inset; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 6px; }
+  .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+`;
+
+/**
+ * A grid of pool outlines to choose from; fires "value-changed" with
+ * { value: shapeName }. Set `value` to highlight one and `hass` for the theme.
+ * Each tile is a still frame of the real pool scene in that outline.
+ */
+export class ControlFreakShapePicker extends Base {
+  constructor() {
+    super();
+    this._value = DEFAULT_SHAPE;
+    this._scenes = [];
+  }
+
+  get value() {
+    return this._value;
+  }
+
+  set value(v) {
+    this._value = SHAPES.includes(v) ? v : DEFAULT_SHAPE;
+    this._highlight();
+  }
+
+  set hass(hass) {
+    const dark = isDarkMode(hass, globalThis.matchMedia);
+    if (dark !== this._dark) {
+      this._dark = dark;
+      this._redraw();
+    }
+  }
+
+  /** The picture style the tiles are drawn in (default caustic). Not `style`: that is the element's CSS. */
+  set pictureStyle(style) {
+    const next = STYLES.includes(style) ? style : DEFAULT_STYLE;
+    if (next === this._style) return;
+    this._style = next;
+    if (this._built) this._rebuildTiles();
+  }
+
+  connectedCallback() {
+    if (this._built) {
+      this._redraw();
+      return;
+    }
+    this._built = true;
+    const root = this.attachShadow({ mode: "open" });
+    root.innerHTML = `<style>${PICKER_STYLE}</style><div class="grid" role="radiogroup"></div>`;
+    const grid = root.querySelector(".grid");
+    for (const shape of SHAPES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.shape = shape;
+      b.setAttribute("role", "radio");
+      b.title = SHAPE_LABELS[shape];
+      const cv = document.createElement("canvas");
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = SHAPE_LABELS[shape];
+      b.append(cv, label);
+      b.addEventListener("click", () => {
+        this._value = shape;
+        this._highlight();
+        this.dispatchEvent(new CustomEvent("value-changed", { detail: { value: shape }, bubbles: true, composed: true }));
+      });
+      grid.append(b);
+    }
+    this._rebuildTiles();
+    this._highlight();
+    if (globalThis.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this._redraw());
+      this._ro.observe(this);
+    } else {
+      this._redraw();
+    }
+  }
+
+  disconnectedCallback() {
+    this._ro?.disconnect();
+    this._ro = null;
+  }
+
+  // Each tile is a still frame of the overview in that shape: pool water,
+  // steps, deck and coping, in the picker's style.
+  _rebuildTiles() {
+    for (const scene of this._scenes) scene.stop();
+    this._scenes = [];
+    for (const b of this.shadowRoot?.querySelectorAll("button") ?? []) {
+      const shape = b.dataset.shape;
+      const cv = b.querySelector("canvas");
+      const model = () => ({ ...overviewModelOf(null, { scene: OVERVIEW, shape }), dark: this._dark === true });
+      const colors = () => {
+        const base = this._dark ? PALETTE.night : PALETTE.day;
+        return { a: hexToRgb(base.a), b: hexToRgb(base.b), hi: hexToRgb(base.hi) };
+      };
+      this._scenes.push(makeStyledScene(cv, OVERVIEW, this._style ?? DEFAULT_STYLE, model, colors, () => 0.5));
+    }
+    this._redraw();
+  }
+
+  _redraw() {
+    for (const scene of this._scenes) scene.resize();
+  }
+
+  _highlight() {
+    for (const b of this.shadowRoot?.querySelectorAll("button") ?? []) {
+      b.setAttribute("aria-pressed", String(b.dataset.shape === this._value));
+      b.setAttribute("aria-checked", String(b.dataset.shape === this._value));
+    }
+  }
+}
+
+export class ControlFreakPictureEditor extends Base {
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+    if (this._picker) this._picker.hass = hass;
+  }
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _apply(data) {
+    this._config = configFromEditor(data, this._config);
+    this._render();
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+  }
+
+  _render() {
+    if (!this.isConnected || !this._config) return;
+    if (!this._form) {
+      this._picker = document.createElement("controlfreak-shape-picker");
+      this._picker.style.marginBottom = "16px";
+      this._picker.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...this._form.data, shape: ev.detail.value });
+      });
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (field) => EDITOR_LABELS[field.name] ?? field.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...ev.detail.value });
+      });
+      this.append(this._picker, this._form);
+    }
+    const scene = this._config.scene ?? OVERVIEW;
+    const shaped = scene === OVERVIEW || scene === "pool";
+    this._picker.hidden = !shaped;
+    this._picker.hass = this._hass;
+    this._picker.pictureStyle = this._config.style ?? DEFAULT_STYLE;
+    this._picker.value = this._config.shape ?? DEFAULT_SHAPE;
+    this._form.hass = this._hass;
+    this._form.schema = editorSchema(this._config);
+    this._form.data = editorData(this._config);
+  }
+}
+
 if (globalThis.customElements) {
   if (!customElements.get("controlfreak-picture")) {
     customElements.define("controlfreak-picture", ControlFreakPictureCard);
+  }
+  if (!customElements.get("controlfreak-picture-editor")) {
+    customElements.define("controlfreak-picture-editor", ControlFreakPictureEditor);
+  }
+  if (!customElements.get("controlfreak-shape-picker")) {
+    customElements.define("controlfreak-shape-picker", ControlFreakShapePicker);
   }
   globalThis.customCards = globalThis.customCards || [];
   if (!globalThis.customCards.some((c) => c.type === "controlfreak-picture")) {
@@ -1158,3 +1631,21 @@ if (globalThis.customElements) {
     });
   }
 }
+
+// What the strategy's settings editor needs from this module. The strategy is
+// its own module (loaded with its own cache-buster), so it reads this at run
+// time instead of importing the file.
+globalThis.controlfreakPicture = {
+  SHAPE_NAMES: SHAPES,
+  SHAPE_LABELS,
+  DEFAULT_SHAPE,
+  STYLES,
+  STYLE_LABELS,
+  DEFAULT_STYLE,
+  DECKS,
+  DECK_LABELS,
+  DEFAULT_DECK,
+  ROWS_MIN,
+  ROWS_MAX,
+  DEFAULT_ROWS,
+};

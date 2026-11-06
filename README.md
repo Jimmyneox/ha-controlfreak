@@ -13,16 +13,27 @@ WebSockets for live values. No cloud, and your own MQTT setup is unaffected.
 - **Equipment-driven entities:** pumps (fan with speed, current mode), heaters and chillers,
   color lights with effects, relays, valves (read-only), temperatures, flow and controller
   health, all under the names you gave them in the Control Freak app. Add or remove
-  equipment in the Control Freak app and Home Assistant follows without a restart.
+  equipment in the Control Freak app and Home Assistant follows without a restart. The
+  fan percentage is the pump's own speed (40–100 on a typical variable-speed pump), and
+  every entity carries one of Control Freak's own `cf:` icons.
 - **A dashboard that builds itself:** `strategy: { type: custom:controlfreak }` creates a
-  dashboard with a section per equipment type you actually have, using built-in cards.
-  Single sections drop into an existing dashboard.
-- **Animated pictures:** the pool, spa, waterfall, deck jets and bubblers above your pumps,
-  water moving with pump speed and tinted by the light's effect, dark at night.
+  dashboard with a section per equipment type you actually have. A settings dialog in the
+  dashboard editor picks the pictures, style, pool shape, deck finish, picture height and
+  tile controls; single sections drop into an existing dashboard.
+- **Pool controls on the tiles:** a speed slider over the pump's real range with an Off
+  button, a bar of colour swatches per light, and a light show menu with a chip of the
+  colours each Pentair show performs (SAm, Party, Romance, Caribbean, American, California
+  Sunset, Royal). `controls: core` keeps Home Assistant's own tile features.
+- **Animated pictures:** the pool from above with its spa, waterfall, deck jets and bubblers,
+  in the shape of yours (twelve outlines from rectangle to lagoon) on a concrete, paver,
+  travertine, wood or stone deck, in one of five styles, each picture resizable, the water
+  moving with pump speed and tinted by the light's effect, dark at night.
 
-![Generated dashboard](docs/images/dashboard-full-pool.png)
+![Generated dashboard: the pool from above, the pump speed slider, colour bars and show menus](docs/images/dashboard-full-pool.png)
 
-![Animated pool, spa and waterfall pictures](docs/images/dashboard-pictures.png)
+![Animated pool, spa, waterfall, deck jet and bubbler pictures, by day and by night](docs/images/dashboard-pictures.png)
+
+![Every pool shape in every style](docs/images/dashboard-shapes.png)
 
 ## Install
 
@@ -60,7 +71,8 @@ The Python tests run against real, scrubbed responses from a controller
 (`UPDATE_DASHBOARD_FIXTURES=1` regenerates them). To see the render check, serve the
 repository root (`python3 -m http.server`) and open
 `tests/frontend/harness.html?shape=full-pool` (or `?shape=pictures` for every animated
-scene by day and by night).
+scene, shape and the editors; `?shape=shapes-day`, `decks-day` and `styles-day` and their
+`-night` twins for the contact sheets).
 
 ## License
 

@@ -56,11 +56,12 @@
   .picture controlfreak-picture { display: block; height: 100%; }
   .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
   .gallery .heading { grid-column: 1 / -1; }
+  .sized .picture { height: auto; }
   .caption { font-size: 12px; color: var(--muted); padding: 0 4px; }
   .night { background: #0a1a24; color: #e4f2f5; border-radius: 12px; padding: 8px; }
   .night .caption { color: #93abb3; }
   .sheet { grid-column: 1 / -1; display: grid; grid-template-columns: 110px repeat(5, 1fr); gap: 10px; align-items: center; }
-  .sheet.shapes { grid-template-columns: 110px repeat(6, 1fr); }
+  .sheet.shapes { grid-template-columns: 110px repeat(12, 1fr); } /* overridden per page from SHAPES.length */
   .sheet .picture { height: 150px; --controlfreak-picture-height: 150px; }
   .sheet.shapes .picture { height: 170px; --controlfreak-picture-height: 170px; }
   .sheet.decks { grid-template-columns: 110px repeat(5, 1fr); }
@@ -292,6 +293,7 @@
     // The overview contact sheet: styles down, shapes across, every part running.
     const dark = shapesSheet === "night";
     const g = el("div", `sheet shapes${dark ? " night" : ""}`);
+    g.style.gridTemplateColumns = `110px repeat(${SHAPES.length}, 1fr)`;
     g.append(el("div", "collabel", dark ? "night" : "day"));
     for (const sh of SHAPES) g.append(el("div", "collabel", SHAPE_LABELS[sh]));
     for (const style of STYLES) {
@@ -356,6 +358,42 @@
       });
       main.append(g);
     }
+    // Every pool outline as the overview, by day, pump running and light on.
+    const g = el("div", "gallery shapes");
+    g.append(el("div", "heading", "Every pool shape"));
+    for (const shape of SHAPES) {
+      const card = {
+        type: "custom:controlfreak-picture",
+        scene: "overview",
+        shape,
+        pumps: { pool: "fan.demo_pump", spa: "fan.demo_pump" },
+        lights: { pool: "light.demo_blue" },
+      };
+      const cell = el("div");
+      cell.append(pictureEl(card, { ...demo, themes: { darkMode: false } }));
+      cell.append(el("div", "caption", `${SHAPE_LABELS[shape]} · ${shape}`));
+      g.append(cell);
+    }
+    main.append(g);
+    // A short and a tall picture: the height follows the card's rows / height.
+    const sizes = el("div", "gallery sizes");
+    sizes.append(el("div", "heading", "Sizes: height 140px and aspect ratio 21:9"));
+    for (const cfg of [{ height: 140 }, { aspect_ratio: "21:9" }]) {
+      const cell = el("div", "sized");
+      cell.append(pictureEl({ type: "custom:controlfreak-picture", scene: "pool", shape: "roman", ...cfg }, demo));
+      cell.append(el("div", "caption", JSON.stringify(cfg)));
+      sizes.append(cell);
+    }
+    main.append(sizes);
+    // The shape chooser both editors show, with "kidney" selected.
+    const chooser = el("div", "gallery chooser");
+    chooser.append(el("div", "heading", "Shape chooser (editors)"));
+    const picker = document.createElement("controlfreak-shape-picker");
+    picker.style.gridColumn = "1 / -1";
+    picker.value = "kidney";
+    picker.hass = { themes: { darkMode: false } };
+    chooser.append(picker);
+    main.append(chooser);
   }
 
   // Ready once every picture has drawn a frame (ResizeObserver fires after layout).

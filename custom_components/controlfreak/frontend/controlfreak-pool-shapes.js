@@ -8,15 +8,34 @@
  * pure: points in, points out. The painting lives in controlfreak-picture-styles.js.
  */
 
-export const SHAPES = ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"];
-export const DEFAULT_SHAPE = "freeform";
+export const SHAPES = [
+  "rectangle",
+  "roman",
+  "grecian",
+  "oval",
+  "round",
+  "kidney",
+  "figure8",
+  "lazy-l",
+  "true-l",
+  "mountain-lake",
+  "freeform",
+  "lagoon",
+];
+export const DEFAULT_SHAPE = "rectangle";
 export const SHAPE_LABELS = {
   rectangle: "Rectangle",
   roman: "Roman",
+  grecian: "Grecian",
+  oval: "Oval",
+  round: "Round",
   kidney: "Kidney",
+  figure8: "Figure 8",
+  "lazy-l": "Lazy L",
+  "true-l": "True L",
+  "mountain-lake": "Mountain lake",
   freeform: "Freeform",
   lagoon: "Lagoon",
-  figure8: "Figure 8",
 };
 
 /** The parts an overview can show, besides the water. */
@@ -67,6 +86,74 @@ export const SHAPE_DEFS = {
     falls: { t0: 0.09, t1: 0.2 },
     deck: { t0: 0.54, t1: 0.66 },
     lights: [0.02, 0.29],
+  },
+  grecian: {
+    // A rectangle with the corners cut at 45 degrees.
+    tension: 0,
+    points: [
+      [0.1, 0],
+      [0.9, 0],
+      [1, 0.18],
+      [1, 0.82],
+      [0.9, 1],
+      [0.1, 1],
+      [0, 0.82],
+      [0, 0.18],
+    ],
+    spa: { t: 0.62, r: 0.2 },
+    steps: { t: 0.09, r: 0.24 },
+    ledge: { t: 0.33, r: 0.28 },
+    falls: { t0: 0.01, t1: 0.06 },
+    deck: { t0: 0.52, t1: 0.6 },
+    lights: [0.95, 0.2],
+  },
+  oval: {
+    tension: 1,
+    points: [
+      [0.0, 0.5],
+      [0.067, 0.25],
+      [0.25, 0.067],
+      [0.5, 0.0],
+      [0.75, 0.067],
+      [0.933, 0.25],
+      [1.0, 0.5],
+      [0.933, 0.75],
+      [0.75, 0.933],
+      [0.5, 1.0],
+      [0.25, 0.933],
+      [0.067, 0.75],
+    ],
+    spa: { t: 0.85, r: 0.19 },
+    steps: { t: 0.2, r: 0.24 },
+    ledge: { t: 0.55, r: 0.26 },
+    falls: { t0: 0.3, t1: 0.4 },
+    deck: { t0: 0.65, t1: 0.75 },
+    lights: [0.05, 0.45],
+  },
+  round: {
+    // The same points on a square box: layoutShape keeps the aspect 1:1.
+    uniform: true,
+    tension: 1,
+    points: [
+      [0.0, 0.5],
+      [0.067, 0.25],
+      [0.25, 0.067],
+      [0.5, 0.0],
+      [0.75, 0.067],
+      [0.933, 0.25],
+      [1.0, 0.5],
+      [0.933, 0.75],
+      [0.75, 0.933],
+      [0.5, 1.0],
+      [0.25, 0.933],
+      [0.067, 0.75],
+    ],
+    spa: { t: 0.85, r: 0.19 },
+    steps: { t: 0.2, r: 0.24 },
+    ledge: { t: 0.55, r: 0.26 },
+    falls: { t0: 0.3, t1: 0.4 },
+    deck: { t0: 0.65, t1: 0.75 },
+    lights: [0.05, 0.45],
   },
   kidney: {
     tension: 1,
@@ -132,6 +219,65 @@ export const SHAPE_DEFS = {
     deck: { t0: 0.3, t1: 0.42 },
     lights: [0.96, 0.58],
   },
+  "lazy-l": {
+    // A wide shallow end; the deep leg meets it at an angle.
+    tension: 0,
+    points: [
+      [0, 0],
+      [0.6, 0],
+      [0.6, 0.3],
+      [0.76, 0.5],
+      [1, 0.5],
+      [1, 1],
+      [0, 1],
+    ],
+    spa: { t: 0.8, r: 0.18 },
+    steps: { t: 0.07, r: 0.24 },
+    ledge: { t: 0.2, r: 0.24 },
+    falls: { t0: 0.88, t1: 0.97 },
+    deck: { t0: 0.6, t1: 0.68 },
+    lights: [0.95, 0.48],
+  },
+  "true-l": {
+    // An L with a square inner corner.
+    tension: 0,
+    points: [
+      [0, 0],
+      [0.6, 0],
+      [0.6, 0.54],
+      [1, 0.54],
+      [1, 1],
+      [0, 1],
+    ],
+    spa: { t: 0.75, r: 0.18 },
+    steps: { t: 0.08, r: 0.24 },
+    ledge: { t: 0.25, r: 0.22 },
+    falls: { t0: 0.86, t1: 0.95 },
+    deck: { t0: 0.55, t1: 0.63 },
+    lights: [0.97, 0.45],
+  },
+  "mountain-lake": {
+    // An oblong with gently curved sides.
+    tension: 1,
+    points: [
+      [0.08, 0.3],
+      [0.3, 0.08],
+      [0.56, 0.06],
+      [0.82, 0.1],
+      [0.98, 0.34],
+      [0.94, 0.64],
+      [0.78, 0.92],
+      [0.5, 0.94],
+      [0.26, 0.9],
+      [0.06, 0.7],
+    ],
+    spa: { t: 0.84, r: 0.19 },
+    steps: { t: 0.1, r: 0.24 },
+    ledge: { t: 0.46, r: 0.26 },
+    falls: { t0: 0.22, t1: 0.32 },
+    deck: { t0: 0.58, t1: 0.68 },
+    lights: [0.02, 0.4],
+  },
   figure8: {
     tension: 1,
     points: [
@@ -196,6 +342,13 @@ export function layoutShape(name, W, H, pad) {
   if (!def) throw new Error(`controlfreak-picture: set "shape" to one of ${SHAPES.join(", ")}`);
   const pts = outlinePoints(def);
   const box = { x: pad, y: pad, w: Math.max(1, W - pad * 2), h: Math.max(1, H - pad * 2) };
+  if (def.uniform) {
+    // A round pool stays round: a square box centred in the picture.
+    const side = Math.min(box.w, box.h);
+    box.x += (box.w - side) / 2;
+    box.y += (box.h - side) / 2;
+    box.w = box.h = side;
+  }
   const px = pts.map(([x, y]) => [box.x + x * box.w, box.y + y * box.h]);
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;

@@ -12,10 +12,14 @@
  *         type: custom:controlfreak    # one section in an existing view
  *         equipment: pumps
  *         pictures: false              # tiles only, no animated pictures
- *         picture_shape: kidney        # the overview's outline (default freeform)
+ *         picture_shape: kidney        # the pool's outline (default rectangle)
  *         picture_style: depth         # caustic (default), blueprint, depth, neon, poster
  *         picture_deck: pavers         # the surround: concrete (default), pavers, travertine, wood, stone
+ *         picture_rows: 6              # picture height in grid rows (2..12)
  *         controls: core               # Home Assistant's own tile features and the 0.2.1 layout
+ *
+ * The dashboard, view and section strategies also have a settings editor in
+ * Home Assistant's edit dialog (title, pictures, style, shape, deck, height).
  *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
@@ -97,8 +101,6 @@ export const PICTURE_CARD = "custom:controlfreak-picture";
 
 /** Picture styles the card knows (see controlfreak-picture-styles.js). */
 export const PICTURE_STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
-/** Pool shapes the overview knows (see controlfreak-pool-shapes.js). */
-export const PICTURE_SHAPES = ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"];
 /** The surround finishes (controlfreak-picture-styles.js DECKS), in order. */
 export const PICTURE_DECKS = ["concrete", "pavers", "travertine", "wood", "stone"];
 /** Tile features: Control Freak's own (default) or Home Assistant's core ones. */
@@ -107,6 +109,34 @@ export const PUMP_SPEED_FEATURE = "custom:controlfreak-pump-speed";
 export const LIGHT_COLORS_FEATURE = "custom:controlfreak-light-colors";
 export const LIGHT_SHOWS_FEATURE = "custom:controlfreak-light-shows";
 const coreControls = (options) => options.controls === "core";
+/** Pool shapes the card knows (the table in controlfreak-pool-shapes.js; tested equal). */
+export const PICTURE_SHAPES = [
+  "rectangle",
+  "roman",
+  "grecian",
+  "oval",
+  "round",
+  "kidney",
+  "figure8",
+  "lazy-l",
+  "true-l",
+  "mountain-lake",
+  "freeform",
+  "lagoon",
+];
+
+/** The pictures' grid height from `picture_rows` (2..12), or null for the card's default. */
+export function pictureRows(options = {}) {
+  const rows = Number(options.picture_rows);
+  if (!Number.isFinite(rows) || rows <= 0) return null;
+  return Math.min(12, Math.max(2, Math.round(rows)));
+}
+
+/** The grid placement of a picture card: full width, and the strategy's rows if set. */
+function pictureGrid(options) {
+  const rows = pictureRows(options);
+  return rows ? { columns: "full", rows } : { columns: "full" };
+}
 
 /** Picture scenes in display order. */
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
@@ -240,6 +270,7 @@ function pairModes(hass, items) {
  * Exported for tests.
  */
 export function pictureCards(hass, items, options = {}) {
+  if (options.pictures === false) return [];
   const bound = bindPictures(hass, items, options);
   if (options.pictures === "features") return featureCards(bound, options);
   return overviewCard(bound, options);
@@ -272,11 +303,12 @@ function featureCards({ pumpFor, lightFor, spillover }, options) {
     const pump = pumpFor[scene];
     if (!pump) continue;
     const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
+    if (scene === "pool" && options.picture_shape != null) card.shape = options.picture_shape;
     if (options.picture_style != null) card.style = options.picture_style;
     if (options.picture_deck != null) card.deck = options.picture_deck;
     if (lightFor[scene]) card.light = lightFor[scene].entity_id;
     if (scene === "spa" && spillover) card.spillover = spillover;
-    card.grid_options = { columns: "full" };
+    card.grid_options = pictureGrid(options);
     cards.push(card);
   }
   return cards;
@@ -298,7 +330,7 @@ function overviewCard({ pumpFor, lightFor, spillover }, options) {
   card.pumps = pumps;
   if (Object.keys(lights).length) card.lights = lights;
   if (pumps.spa && spillover) card.spillover = spillover;
-  card.grid_options = { columns: "full" };
+  card.grid_options = pictureGrid(options);
   return [card];
 }
 
@@ -465,6 +497,9 @@ export function buildSection(hass, type, options = {}) {
     if (![undefined, true, "features"].includes(options.pictures)) {
       throw new Error(`Control Freak "pictures" is true, false or "features", not "${options.pictures}"`);
     }
+    if (options.picture_rows != null && pictureRows(options) == null) {
+      throw new Error(`Control Freak "picture_rows" is a number of grid rows (2..12), not "${options.picture_rows}"`);
+    }
     cards.unshift(...pictureCards(hass, items, options));
   }
   for (const card of cards) {
@@ -498,6 +533,7 @@ export function buildSections(hass, options = {}) {
     picture_style: options.picture_style,
     picture_shape: options.picture_shape,
     picture_deck: options.picture_deck,
+    picture_rows: options.picture_rows,
     controls: options.controls,
   };
   return sectionOrder(options)
@@ -536,9 +572,205 @@ export function buildDashboard(hass, options = {}) {
   return { title: options.title ?? "Pool", views: [buildView(hass, options)] };
 }
 
+/* ----- Settings editor (the dashboard's edit dialog) ---------------------- */
+
+// Shape names, styles, labels and row limits come from the picture module at run time.
+const PICTURE_FALLBACK = {
+  SHAPE_NAMES: PICTURE_SHAPES,
+  SHAPE_LABELS: {},
+  DEFAULT_SHAPE: "rectangle",
+  STYLES: PICTURE_STYLES,
+  STYLE_LABELS: {},
+  DEFAULT_STYLE: "caustic",
+  DECKS: PICTURE_DECKS,
+  DECK_LABELS: {},
+  DEFAULT_DECK: "concrete",
+  ROWS_MIN: 2,
+  ROWS_MAX: 12,
+  DEFAULT_ROWS: 4,
+};
+const pictureInfo = () => globalThis.controlfreakPicture ?? PICTURE_FALLBACK;
+
+const PICTURE_MODES = [
+  { value: "overview", label: "One picture of the whole pool" },
+  { value: "features", label: "One picture per water feature" },
+  { value: "off", label: "No pictures" },
+];
+const EDITOR_LABELS = {
+  title: "Title",
+  equipment: "Equipment",
+  pictures: "Animated pictures above the pumps",
+  picture_style: "Picture style",
+  picture_shape: "Pool shape",
+  picture_deck: "Deck finish",
+  picture_rows: "Picture height (rows)",
+  controls: "Tile controls",
+};
+const CONTROL_OPTIONS = [
+  { value: "controlfreak", label: "Control Freak's pool controls (speed slider, colour bar, show menu)" },
+  { value: "core", label: "Home Assistant's own tile features" },
+];
+const titleCase = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Flat form data for the editor from a strategy config. */
+export function editorData(config = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const data = {
+    pictures: config.pictures === false ? "off" : config.pictures === "features" ? "features" : "overview",
+    picture_style: PICTURE_STYLES.includes(config.picture_style) ? config.picture_style : info.DEFAULT_STYLE,
+    picture_shape: PICTURE_SHAPES.includes(config.picture_shape) ? config.picture_shape : info.DEFAULT_SHAPE,
+    picture_deck: PICTURE_DECKS.includes(config.picture_deck) ? config.picture_deck : info.DEFAULT_DECK,
+    picture_rows: pictureRows(config) ?? info.DEFAULT_ROWS,
+    controls: CONTROLS.includes(config.controls) ? config.controls : "controlfreak",
+  };
+  if (kind === "dashboard") data.title = config.title ?? "";
+  if (kind === "section") data.equipment = config.equipment ?? "";
+  return data;
+}
+
+/** The strategy config for the editor's form data; other keys (hide, order…) are kept. */
+export function configFromEditor(data, config = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const out = { ...config };
+  if (kind === "dashboard") {
+    if (data.title && data.title !== "Pool") out.title = data.title;
+    else delete out.title;
+  }
+  if (kind === "section") {
+    if (data.equipment) out.equipment = data.equipment;
+    else delete out.equipment;
+  }
+  if (data.pictures === "off") out.pictures = false;
+  else if (data.pictures === "features") out.pictures = "features";
+  else delete out.pictures;
+  if (data.picture_style && data.picture_style !== info.DEFAULT_STYLE) out.picture_style = data.picture_style;
+  else delete out.picture_style;
+  if (data.picture_shape && data.picture_shape !== info.DEFAULT_SHAPE) out.picture_shape = data.picture_shape;
+  else delete out.picture_shape;
+  if (data.picture_deck && data.picture_deck !== info.DEFAULT_DECK) out.picture_deck = data.picture_deck;
+  else delete out.picture_deck;
+  const rows = pictureRows({ picture_rows: data.picture_rows });
+  if (rows && rows !== info.DEFAULT_ROWS) out.picture_rows = rows;
+  else delete out.picture_rows;
+  if (data.controls === "core") out.controls = "core";
+  else delete out.controls;
+  return out;
+}
+
+/** The ha-form schema for the settings editor. */
+export function strategyEditorSchema(data = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const schema = [];
+  if (kind === "dashboard") schema.push({ name: "title", selector: { text: {} } });
+  if (kind === "section") {
+    schema.push({
+      name: "equipment",
+      required: true,
+      selector: { select: { mode: "dropdown", options: EQUIPMENT_TYPES.map((t) => ({ value: t, label: titleFor(t, {}) })) } },
+    });
+  }
+  schema.push({ name: "pictures", selector: { select: { mode: "dropdown", options: PICTURE_MODES } } });
+  if (data.pictures !== "off") {
+    schema.push({
+      name: "picture_style",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: PICTURE_STYLES.map((v) => ({ value: v, label: info.STYLE_LABELS[v] ?? titleCase(v) })),
+        },
+      },
+    });
+    schema.push({
+      name: "picture_deck",
+      selector: {
+        select: {
+          mode: "dropdown",
+          options: PICTURE_DECKS.map((v) => ({ value: v, label: info.DECK_LABELS?.[v] ?? titleCase(v) })),
+        },
+      },
+    });
+    schema.push({ name: "picture_rows", selector: { number: { min: info.ROWS_MIN, max: info.ROWS_MAX, mode: "slider" } } });
+  }
+  schema.push({ name: "controls", selector: { select: { mode: "dropdown", options: CONTROL_OPTIONS } } });
+  return schema;
+}
+
 /* ----- Custom elements (browser only) ------------------------------------ */
 
 const Base = globalThis.HTMLElement ?? class {};
+
+/**
+ * The settings editor Home Assistant opens from a strategy dashboard's edit
+ * dialog (and for the view and section strategies): title, equipment, the
+ * pictures switch, the style, the pool shape chooser, the deck finish, the
+ * picture height and which tile controls the tiles carry.
+ */
+export class ControlFreakStrategyEditor extends Base {
+  static forKind(kind) {
+    const el = document.createElement("controlfreak-strategy-editor");
+    el.kind = kind;
+    return el;
+  }
+
+  constructor() {
+    super();
+    this.kind = "dashboard";
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+    if (this._picker) this._picker.hass = hass;
+  }
+
+  set lovelace(_) {}
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _apply(data) {
+    this._config = configFromEditor(data, this._config, this.kind);
+    this._render();
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+  }
+
+  _render() {
+    if (!this.isConnected || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (field) => EDITOR_LABELS[field.name] ?? field.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...ev.detail.value });
+      });
+      this._heading = document.createElement("div");
+      this._heading.textContent = EDITOR_LABELS.picture_shape;
+      this._heading.style.cssText = "margin: 16px 0 8px; font-weight: 500;";
+      this._picker = document.createElement("controlfreak-shape-picker");
+      this._picker.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...this._form.data, picture_shape: ev.detail.value });
+      });
+      this.append(this._form, this._heading, this._picker);
+    }
+    const data = editorData(this._config, this.kind);
+    const picker = data.pictures !== "off" && globalThis.customElements?.get("controlfreak-shape-picker");
+    this._heading.hidden = !picker;
+    this._picker.hidden = !picker;
+    this._picker.hass = this._hass;
+    this._picker.pictureStyle = data.picture_style;
+    this._picker.value = data.picture_shape;
+    this._form.hass = this._hass;
+    this._form.schema = strategyEditorSchema(data, this.kind);
+    this._form.data = data;
+  }
+}
 // Regenerate only when the entity registry changes (equipment added/removed).
 const DEPENDENCIES = ["entities"];
 
@@ -549,6 +781,10 @@ export class ControlFreakDashboardStrategy extends Base {
     return { title: "Pool", icon: "mdi:pool" };
   }
 
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("dashboard");
+  }
+
   static async generate(config, hass) {
     return buildDashboard(hass, config);
   }
@@ -557,6 +793,10 @@ export class ControlFreakDashboardStrategy extends Base {
 export class ControlFreakViewStrategy extends Base {
   static registryDependencies = DEPENDENCIES;
 
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("view");
+  }
+
   static async generate(config, hass) {
     return buildView(hass, config);
   }
@@ -564,6 +804,10 @@ export class ControlFreakViewStrategy extends Base {
 
 export class ControlFreakSectionStrategy extends Base {
   static registryDependencies = DEPENDENCIES;
+
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("section");
+  }
 
   static async generate(config, hass) {
     if (!config.equipment) {
@@ -590,6 +834,7 @@ if (globalThis.customElements) {
   define("ll-strategy-dashboard-controlfreak", ControlFreakDashboardStrategy);
   define("ll-strategy-view-controlfreak", ControlFreakViewStrategy);
   define("ll-strategy-section-controlfreak", ControlFreakSectionStrategy);
+  define("controlfreak-strategy-editor", ControlFreakStrategyEditor);
 
   globalThis.customStrategies = globalThis.customStrategies || [];
   if (!globalThis.customStrategies.some((s) => s.type === "controlfreak")) {

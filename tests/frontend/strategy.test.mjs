@@ -12,6 +12,8 @@ import {
   buildSection,
   buildSections,
   buildView,
+  configFromEditor,
+  editorData,
   ControlFreakSectionStrategy,
   ControlFreakViewStrategy,
   DEFAULT_TITLES,
@@ -26,12 +28,17 @@ import {
   PICTURE_STYLES,
   PUMP_SPEED_FEATURE,
   pictureCards,
+  pictureRows,
   poolLights,
+  strategyEditorSchema,
   sceneFor,
   sectionOrder,
   shortName,
 } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
 import { FEATURE_TYPES } from "../../custom_components/controlfreak/frontend/controlfreak-features.js";
+// The settings editor reads shape names, styles and row limits the picture module publishes.
+import { DEFAULT_ROWS, SHAPE_NAMES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
+import { SHAPES as POOL_SHAPES } from "../../custom_components/controlfreak/frontend/controlfreak-pool-shapes.js";
 
 const fixture = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
@@ -593,6 +600,128 @@ test("every type has a default title", () => {
   for (const t of EQUIPMENT_TYPES) assert.ok(DEFAULT_TITLES[t]);
 });
 
+test("picture_rows sets every picture's starting height; pictures: false drops them all", () => {
+  assert.equal(pictureRows({}), null);
+  assert.equal(pictureRows({ picture_rows: 6 }), 6);
+  assert.equal(pictureRows({ picture_rows: "5.6" }), 6);
+  assert.equal(pictureRows({ picture_rows: 1 }), 2, "clamped to the card's minimum");
+  assert.equal(pictureRows({ picture_rows: 99 }), 12, "clamped to the card's maximum");
+  assert.equal(pictureRows({ picture_rows: 0 }), null);
+  assert.equal(pictureRows({ picture_rows: "tall" }), null);
+
+  const hass = fixture("full-pool");
+  const [overview] = pictures(buildSections(hass, { picture_rows: 6 }));
+  assert.equal(overview.scene, "overview");
+  assert.deepEqual(overview.grid_options, { columns: "full", rows: 6 });
+  const cards = pictures(buildSections(hass, { ...FEATURES, picture_rows: 6, picture_shape: "kidney" }));
+  assert.equal(cards.length, 3);
+  assert.equal(cards[0].scene, "pool");
+  assert.equal(cards[0].shape, "kidney", "the pool picture takes the strategy's shape");
+  assert.equal("shape" in cards[1], false, "the spa has no shape");
+  assert.equal("shape" in cards[2], false, "the waterfall has no shape");
+  for (const card of cards) assert.deepEqual(card.grid_options, { columns: "full", rows: 6 });
+  // Without rows the cards keep the card's own default height.
+  for (const card of pictures(buildSections(hass, FEATURES))) assert.deepEqual(card.grid_options, { columns: "full" });
+  // Rows reach the view and section strategies too.
+  assert.deepEqual(pictures(buildView(hass, { picture_rows: 3 }).sections)[0].grid_options, { columns: "full", rows: 3 });
+  const section = buildSection(hass, "pumps", { picture_rows: 3 });
+  assert.deepEqual(pictures([section])[0].grid_options, { columns: "full", rows: 3 });
+  // Rows alone change only the picture cards.
+  const tall = buildDashboard(hass, { picture_rows: 8 });
+  for (const c of pictures(tall.views[0].sections)) c.grid_options = { columns: "full" };
+  assert.equal(JSON.stringify(tall), JSON.stringify(buildDashboard(hass)));
+  assert.throws(() => buildSections(hass, { picture_rows: "tall" }), /picture_rows/);
+  assert.equal(
+    JSON.stringify(buildDashboard(hass, { pictures: false, picture_rows: 6, controls: "core" }), null, 2) + "\n",
+    snapshot("full-pool")
+  );
+});
+
+/* ----- Settings editor ---------------------------------------------------- */
+
+test("settings editor: form data round-trips through the strategy config", () => {
+  const cfg = { type: "custom:controlfreak", hide: ["controller"], titles: { pumps: "Circulation" } };
+  const defaults = {
+    pictures: "overview",
+    picture_style: "caustic",
+    picture_shape: "rectangle",
+    picture_deck: "concrete",
+    picture_rows: DEFAULT_ROWS,
+    controls: "controlfreak",
+  };
+  assert.deepEqual(editorData(cfg), { ...defaults, title: "" });
+  // Deck finish and core controls round-trip; the defaults are not written.
+  const pavers = configFromEditor({ ...editorData(cfg), picture_deck: "pavers", controls: "core" }, cfg);
+  assert.deepEqual(pavers, { ...cfg, picture_deck: "pavers", controls: "core" });
+  assert.deepEqual(editorData(pavers), { ...defaults, picture_deck: "pavers", controls: "core", title: "" });
+  assert.equal(editorData({ picture_deck: "grass", controls: "fancy" }).picture_deck, "concrete");
+  assert.equal(editorData({ picture_deck: "grass", controls: "fancy" }).controls, "controlfreak");
+  assert.equal(pictures(buildSections(fixture("full-pool"), pavers))[0].deck, "pavers");
+  // Defaults produce no picture keys and keep every other option.
+  assert.deepEqual(configFromEditor(editorData(cfg), cfg), cfg);
+  // Off, per-feature pictures, a shape, a style, rows.
+  assert.deepEqual(configFromEditor({ ...editorData(cfg), pictures: "off" }, cfg), { ...cfg, pictures: false });
+  assert.deepEqual(configFromEditor({ ...editorData(cfg), pictures: "features" }, cfg), { ...cfg, pictures: "features" });
+  const kidney = configFromEditor({ ...editorData(cfg), picture_shape: "kidney", picture_style: "depth", picture_rows: 6 }, cfg);
+  assert.deepEqual(kidney, { ...cfg, picture_shape: "kidney", picture_style: "depth", picture_rows: 6 });
+  assert.deepEqual(editorData(kidney), { ...defaults, picture_shape: "kidney", picture_style: "depth", picture_rows: 6, title: "" });
+  assert.deepEqual(editorData({ ...cfg, pictures: false }).pictures, "off");
+  assert.deepEqual(editorData({ ...cfg, pictures: "features" }).pictures, "features");
+  // An unknown shape or style in the config shows as the default in the form.
+  assert.equal(editorData({ picture_shape: "octagon", picture_style: "sepia" }).picture_shape, "rectangle");
+  assert.equal(editorData({ picture_shape: "octagon", picture_style: "sepia" }).picture_style, "caustic");
+  // Back from off to on with defaults removes the key again.
+  assert.equal(configFromEditor(editorData({ ...cfg, pictures: false }), { ...cfg, pictures: false }).pictures, false);
+  assert.equal("pictures" in configFromEditor({ ...editorData(cfg), pictures: "overview" }, { ...cfg, pictures: false }), false);
+  // Title: "Pool" is the default and is not written.
+  assert.equal(configFromEditor({ ...editorData(cfg), title: "Pool" }, cfg).title, undefined);
+  assert.equal(configFromEditor({ ...editorData(cfg), title: "Backyard" }, cfg).title, "Backyard");
+  // Section: equipment is kept; view: neither title nor equipment.
+  const section = { type: "custom:controlfreak", equipment: "pumps" };
+  assert.deepEqual(editorData(section, "section"), { ...defaults, equipment: "pumps" });
+  assert.deepEqual(configFromEditor({ ...editorData(section, "section"), equipment: "lights" }, section, "section"), {
+    type: "custom:controlfreak",
+    equipment: "lights",
+  });
+  assert.deepEqual(editorData({ type: "custom:controlfreak" }, "view"), defaults);
+  // What the editor writes, the strategy reads.
+  const [card] = pictures(buildSections(fixture("full-pool"), kidney));
+  assert.equal(card.shape, "kidney");
+  assert.equal(card.style, "depth");
+  assert.deepEqual(card.grid_options, { columns: "full", rows: 6 });
+});
+
+test("settings editor: schema per strategy kind, shapes and styles from the picture module", () => {
+  const names = (data, kind) => strategyEditorSchema(data, kind).map((f) => f.name);
+  const pic = ["pictures", "picture_style", "picture_deck", "picture_rows", "controls"];
+  assert.deepEqual(names({ pictures: "overview" }, "dashboard"), ["title", ...pic]);
+  assert.deepEqual(names({ pictures: "features" }, "dashboard"), ["title", ...pic]);
+  assert.deepEqual(names({ pictures: "off" }, "dashboard"), ["title", "pictures", "controls"]);
+  assert.deepEqual(names({ pictures: "overview" }, "view"), pic);
+  assert.deepEqual(names({ pictures: "overview" }, "section"), ["equipment", ...pic]);
+  const deck = strategyEditorSchema({}, "dashboard").find((f) => f.name === "picture_deck");
+  assert.deepEqual(deck.selector.select.options.map((o) => o.value), PICTURE_DECKS);
+  assert.equal(deck.selector.select.options[1].label, "Pavers", "deck labels come from the picture module");
+  assert.deepEqual(globalThis.controlfreakPicture.DECKS, PICTURE_DECKS);
+  const equipment = strategyEditorSchema({}, "section").find((f) => f.name === "equipment");
+  assert.deepEqual(
+    equipment.selector.select.options.map((o) => o.value),
+    EQUIPMENT_TYPES
+  );
+  assert.equal(equipment.selector.select.options[0].label, "Pumps");
+  const modes = strategyEditorSchema({}, "dashboard").find((f) => f.name === "pictures");
+  assert.deepEqual(modes.selector.select.options.map((o) => o.value), ["overview", "features", "off"]);
+  const style = strategyEditorSchema({}, "dashboard").find((f) => f.name === "picture_style");
+  assert.deepEqual(style.selector.select.options.map((o) => o.value), PICTURE_STYLES);
+  assert.equal(style.selector.select.options[0].label, "Caustic", "labels come from the picture module");
+  // The strategy's own shape list is the card's table, so the editor never offers a shape the card refuses.
+  assert.deepEqual(PICTURE_SHAPES, POOL_SHAPES);
+  assert.deepEqual(SHAPE_NAMES, POOL_SHAPES);
+  assert.ok(SHAPE_NAMES.includes("kidney"), "the picture module publishes the shapes the editor offers");
+  assert.deepEqual(globalThis.controlfreakPicture.SHAPE_NAMES, SHAPE_NAMES);
+  assert.deepEqual(globalThis.controlfreakPicture.STYLES, PICTURE_STYLES);
+});
+
 /* ----- Picture styles --------------------------------------------------- */
 
 test("pictures: features, controls: core reproduces the 0.3.0 output byte for byte (cards carry no style key)", () => {
@@ -655,7 +784,20 @@ test("an unknown picture_style is rejected; pictures: false ignores it", () => {
 
 test("picture_shape reaches the overview from the dashboard, view and section strategies", async () => {
   const hass = fixture("full-pool");
-  assert.deepEqual(PICTURE_SHAPES, ["rectangle", "roman", "kidney", "freeform", "lagoon", "figure8"]);
+  assert.deepEqual(PICTURE_SHAPES, [
+    "rectangle",
+    "roman",
+    "grecian",
+    "oval",
+    "round",
+    "kidney",
+    "figure8",
+    "lazy-l",
+    "true-l",
+    "mountain-lake",
+    "freeform",
+    "lagoon",
+  ]);
   for (const shape of PICTURE_SHAPES) {
     const dash = pictures(buildDashboard(hass, { picture_shape: shape }).views[0].sections);
     assert.deepEqual(dash.map((c) => c.shape), [shape]);
@@ -667,14 +809,15 @@ test("picture_shape reaches the overview from the dashboard, view and section st
       hass
     );
     assert.deepEqual(pictures([section]).map((c) => [c.shape, c.style]), [[shape, "poster"]]);
-    // The per-feature pictures have no outline: the shape never reaches them.
-    for (const c of pictures(buildSections(hass, { ...FEATURES, picture_shape: shape }))) assert.equal("shape" in c, false);
+    // Of the per-feature pictures only the pool has an outline: the shape reaches it alone.
+    const feature = pictures(buildSections(hass, { ...FEATURES, picture_shape: shape }));
+    assert.deepEqual(feature.map((c) => c.shape), [shape, undefined, undefined]);
   }
   // Only the overview card changes: strip the shape and the dashboard is the default one.
   const shaped = buildDashboard(hass, { picture_shape: "kidney" });
   for (const c of pictures(shaped.views[0].sections)) delete c.shape;
   assert.equal(JSON.stringify(shaped), JSON.stringify(buildDashboard(hass)));
-  assert.throws(() => buildSections(hass, { picture_shape: "oval" }), /picture_shape/);
+  assert.throws(() => buildSections(hass, { picture_shape: "octagon" }), /picture_shape/);
   assert.throws(() => buildSections(hass, { picture_shape: "" }), /picture_shape/);
 });
 
