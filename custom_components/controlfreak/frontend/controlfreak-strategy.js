@@ -13,6 +13,13 @@
  *         equipment: pumps
  *         pictures: false              # tiles only, no animated pictures
  *
+ *   strategy:
+ *     type: custom:controlfreak
+ *     pictures:                        # or an object: the pool's outline and size
+ *       shape: kidney                  # rectangle | roman | grecian | oval | round |
+ *                                      #   kidney | lazy-l | freeform | custom (+ path)
+ *       rows: 6                        # picture height in grid rows (2..12)
+ *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
  * the top of the pumps section: one animated picture per water-moving pump
@@ -83,6 +90,25 @@ const KNOWN = {
 const CONTROLLER_ORDER = ["connectivity", "freeze_protection", "cpu_temperature", "firmware"];
 
 export const PICTURE_CARD = "custom:controlfreak-picture";
+
+/**
+ * The `pictures` option: `false` (none), `true`/absent (defaults), or an object
+ * with the pool's `shape` (and `path` for "custom") and the pictures' `rows`.
+ * Returns null for none, else the picture settings to put on the cards. The
+ * card validates the shape and clamps the rows; here we only pass them on.
+ */
+export function pictureOptions(options = {}) {
+  const value = options.pictures;
+  if (value === false) return null;
+  const out = {};
+  if (value && typeof value === "object") {
+    if (typeof value.shape === "string" && value.shape) out.shape = value.shape;
+    if (out.shape === "custom" && typeof value.path === "string") out.path = value.path;
+    const rows = Number(value.rows);
+    if (Number.isFinite(rows) && rows > 0) out.rows = Math.round(rows);
+  }
+  return out;
+}
 
 /** Picture scenes in display order. */
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
@@ -216,6 +242,8 @@ function pairModes(hass, items) {
  * Exported for tests.
  */
 export function pictureCards(hass, items, options = {}) {
+  const settings = pictureOptions(options);
+  if (!settings) return [];
   const { pumps, paired } = pairModes(hass, items);
   const pumpFor = {};
   for (const pump of pumps) {
@@ -235,10 +263,14 @@ export function pictureCards(hass, items, options = {}) {
     const pump = pumpFor[scene];
     if (!pump) continue;
     const card = { type: PICTURE_CARD, scene, pump: pump.entity_id };
+    if (scene === "pool" && settings.shape) {
+      card.shape = settings.shape;
+      if (settings.path) card.path = settings.path;
+    }
     if (lightFor[scene]) card.light = lightFor[scene].entity_id;
     const poolModes = scene === "spa" && pumpFor.pool ? paired.get(pumpFor.pool.entity_id) : [];
     if (poolModes.length) card.spillover = poolModes[0].entity_id;
-    card.grid_options = { columns: "full" };
+    card.grid_options = settings.rows ? { columns: "full", rows: settings.rows } : { columns: "full" };
     cards.push(card);
   }
   return cards;

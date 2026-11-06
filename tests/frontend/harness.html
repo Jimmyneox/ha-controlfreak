@@ -50,6 +50,7 @@
   .picture controlfreak-picture { display: block; height: 100%; }
   .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
   .gallery .heading { grid-column: 1 / -1; }
+  .sized .picture { height: auto; }
   .caption { font-size: 12px; color: var(--muted); padding: 0 4px; }
   .night { background: #0a1a24; color: #e4f2f5; border-radius: 12px; padding: 8px; }
   .night .caption { color: #93abb3; }
@@ -69,7 +70,7 @@
 </script>
 <script type="module">
   import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
-  import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
+  import { SCENES, SHAPE_NAMES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
 
   const params = new URLSearchParams(location.search);
   const shape = params.get("shape") ?? "full-pool";
@@ -189,6 +190,28 @@
       });
       main.append(g);
     }
+    // Every pool outline, by day, pump running and light on; "custom" is a hexagon.
+    const g = el("div", "gallery shapes");
+    g.append(el("div", "heading", "Every pool shape"));
+    for (const shape of SHAPE_NAMES) {
+      const card = { type: "custom:controlfreak-picture", scene: "pool", shape, pump: "fan.demo_pump", light: "light.demo_blue" };
+      if (shape === "custom") card.path = "M0.25 0.04 H0.75 L0.96 0.5 L0.75 0.96 H0.25 L0.04 0.5 Z";
+      const cell = el("div");
+      cell.append(pictureEl(card, { ...demo, themes: { darkMode: false } }));
+      cell.append(el("div", "caption", `pool · ${shape}`));
+      g.append(cell);
+    }
+    main.append(g);
+    // A short and a tall picture: the height follows the card's rows / height.
+    const sizes = el("div", "gallery sizes");
+    sizes.append(el("div", "heading", "Sizes: height 140px and aspect ratio 21:9"));
+    for (const cfg of [{ height: 140 }, { aspect_ratio: "21:9" }]) {
+      const cell = el("div", "sized");
+      cell.append(pictureEl({ type: "custom:controlfreak-picture", scene: "pool", shape: "roman", ...cfg }, demo));
+      cell.append(el("div", "caption", JSON.stringify(cfg)));
+      sizes.append(cell);
+    }
+    main.append(sizes);
   }
 
   // Ready once every picture has drawn a frame (ResizeObserver fires after layout).

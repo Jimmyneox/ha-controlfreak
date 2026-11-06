@@ -10,9 +10,17 @@
  *
  *   type: custom:controlfreak-picture
  *   scene: pool            # pool | spa | falls | deck | bub
+ *   shape: kidney          # pool only: rectangle | roman | grecian | oval | round |
+ *                          #   kidney | lazy-l | freeform | custom (+ path: "M…Z")
  *   pump: fan.filter_pump  # optional: water speed = the fan's percentage
  *   light: light.pool_light  # optional: water colour = the light's effect
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
+ *   rows: 4                # optional: height in a sections view (2..12)
+ *   height: 260px          # optional: fixed height outside a sections view
+ *   aspect_ratio: "16:9"   # optional: height from the width instead
+ *
+ * In a sections view the card is also resizable in Home Assistant's layout
+ * editor, and a visual editor picks the scene, shape and entities.
  *
  * No framework, no bundler, no dependencies: a plain HTMLElement and a 2D
  * canvas. Everything above the custom element (the effect table, speed to flow,
@@ -50,6 +58,80 @@ export const PALETTE = {
   day: { a: "#4cc3d6", b: "#1d8fb0", hi: "#ffffff" },
   night: { a: "#0d4a66", b: "#062a40", hi: "#9ff0ff" },
 };
+
+/**
+ * Pool outlines as SVG path data in a unit square (x right, y down). The card
+ * scales them to the picture; "round" keeps a 1:1 aspect. Add a shape here and
+ * it appears in the editor, the strategy option and the docs table.
+ */
+export const POOL_SHAPES = {
+  rectangle:
+    "M0.1 0.04 H0.9 Q0.96 0.04 0.96 0.1 V0.9 Q0.96 0.96 0.9 0.96 H0.1 Q0.04 0.96 0.04 0.9 V0.1 Q0.04 0.04 0.1 0.04 Z",
+  roman: "M0.2 0.06 H0.8 A0.14 0.44 0 0 1 0.8 0.94 H0.2 A0.14 0.44 0 0 1 0.2 0.06 Z",
+  grecian: "M0.14 0.04 H0.86 L0.96 0.18 V0.82 L0.86 0.96 H0.14 L0.04 0.82 V0.18 Z",
+  oval: "M0.5 0.04 A0.46 0.46 0 1 1 0.5 0.96 A0.46 0.46 0 1 1 0.5 0.04 Z",
+  round: "M0.5 0.04 A0.46 0.46 0 1 1 0.5 0.96 A0.46 0.46 0 1 1 0.5 0.04 Z",
+  kidney:
+    "M0.08 0.42 C0.06 0.18 0.26 0.04 0.46 0.08 C0.58 0.1 0.64 0.2 0.76 0.18 C0.9 0.16 0.98 0.3 0.96 0.46 " +
+    "C0.94 0.66 0.84 0.86 0.64 0.92 C0.5 0.96 0.42 0.84 0.34 0.82 C0.22 0.8 0.1 0.66 0.08 0.42 Z",
+  "lazy-l":
+    "M0.1 0.04 H0.56 Q0.6 0.04 0.6 0.08 V0.44 Q0.6 0.48 0.64 0.48 H0.9 Q0.94 0.48 0.94 0.52 V0.9 " +
+    "Q0.94 0.96 0.9 0.96 H0.1 Q0.06 0.96 0.06 0.92 V0.08 Q0.06 0.04 0.1 0.04 Z",
+  freeform:
+    "M0.14 0.3 C0.16 0.1 0.36 0.02 0.52 0.08 C0.66 0.14 0.72 0.06 0.86 0.14 C0.98 0.22 0.98 0.42 0.9 0.54 " +
+    "C0.84 0.64 0.92 0.76 0.82 0.86 C0.7 0.98 0.52 0.9 0.4 0.92 C0.26 0.94 0.1 0.9 0.06 0.74 C0.02 0.58 0.12 0.48 0.14 0.3 Z",
+};
+export const DEFAULT_SHAPE = "rectangle";
+export const SHAPE_NAMES = [...Object.keys(POOL_SHAPES), "custom"];
+
+/** The pool outline for a card config: a named shape, or "custom" with its own path. */
+export function poolOutline(config = {}) {
+  const shape = config.shape ?? DEFAULT_SHAPE;
+  if (shape === "custom") {
+    if (typeof config.path !== "string" || !/^\s*M/i.test(config.path)) {
+      throw new Error('controlfreak-picture: shape "custom" needs "path", SVG path data in a 0..1 square starting with M');
+    }
+    return { shape, path: config.path.trim(), uniform: false };
+  }
+  const path = POOL_SHAPES[shape];
+  if (!path) throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPE_NAMES.join(", ")}`);
+  return { shape, path, uniform: shape === "round" };
+}
+
+export const ROWS_MIN = 2;
+export const ROWS_MAX = 12;
+export const DEFAULT_ROWS = 4;
+
+/**
+ * Grid placement in a sections view: full width and 4 rows by default,
+ * resizable in the layout editor between 2 and 12 rows. `rows` and `columns`
+ * in the config set the starting size.
+ */
+export function gridOptions(config = {}) {
+  const rows = Number(config.rows);
+  const options = {
+    columns: "full",
+    rows: Number.isFinite(rows) ? Math.min(ROWS_MAX, Math.max(ROWS_MIN, Math.round(rows))) : DEFAULT_ROWS,
+    min_rows: ROWS_MIN,
+    max_rows: ROWS_MAX,
+    min_columns: 3,
+  };
+  const cols = config.columns;
+  if (cols === "full" || (Number.isFinite(Number(cols)) && Number(cols) >= 1)) {
+    options.columns = cols === "full" ? "full" : Math.min(12, Math.round(Number(cols)));
+  }
+  return options;
+}
+
+/** Inline style for the card frame from `height` / `aspect_ratio`, else "" (grid-driven). */
+export function frameStyle(config = {}) {
+  const ratio = String(config.aspect_ratio ?? "").match(/^\s*(\d+(?:\.\d+)?)\s*[:/]\s*(\d+(?:\.\d+)?)\s*$/);
+  if (ratio && Number(ratio[2]) > 0) return `aspect-ratio: ${Number(ratio[1])} / ${Number(ratio[2])}; height: auto; min-height: 0;`;
+  const h = config.height;
+  if (h == null || h === "") return "";
+  const px = typeof h === "number" ? h : Number(String(h).replace(/px$/i, ""));
+  return Number.isFinite(px) && px > 0 ? `height: ${Math.round(px)}px; min-height: 0;` : "";
+}
 
 // Effects a panel lists on its own (not the captured Pentair set) are matched
 // on their wording: a show cycles, a named colour tints, anything else is white.
@@ -243,7 +325,7 @@ export function bubGeo(W, H) {
 
 /** Where each scene's light fixtures sit, as fractions of the picture. */
 export function fixtures(kind, W, H, sp) {
-  if (kind === "pool") return [{ x: 0, y: 0.56 }, { x: 1, y: 0.74 }];
+  if (kind === "pool") return [{ x: 0.08, y: 0.56 }, { x: 0.92, y: 0.74 }];
   if (kind === "spa") {
     const g = spaGeo(W, H);
     return [{ x: g.x / W, y: g.y / H }];
@@ -343,7 +425,7 @@ export function renderWater(data, BW, BH, sim, { kind, dark, colors, fx, strengt
  * One water renderer, five small scenes. `getModel()` returns the current
  * model (see modelOf); `getColors()` the water palette as rgb triples.
  */
-export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
+export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, outline = poolOutline() } = {}) {
   const ctx = cv.getContext("2d");
   const buf = document.createElement("canvas");
   const bctx = buf.getContext("2d");
@@ -454,7 +536,38 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
     ctx.fill();
   }
 
+  // The pool outline in canvas pixels: the unit-square path scaled into the
+  // picture inside a deck margin ("round" keeps a 1:1 aspect, centred).
+  function poolPath() {
+    const m = Math.max(8, Math.min(W, H) * 0.06);
+    let sx = W - 2 * m;
+    let sy = H - 2 * m;
+    let tx = m;
+    let ty = m;
+    if (outline.uniform) {
+      const side = Math.min(sx, sy);
+      tx += (sx - side) / 2;
+      ty += (sy - side) / 2;
+      sx = sy = side;
+    }
+    const path = new Path2D();
+    path.addPath(new Path2D(outline.path), new DOMMatrix([sx, 0, 0, sy, tx, ty]));
+    return path;
+  }
+
+  // The pool: deck all round, coping, then the lit water clipped to the outline.
   function drawPool(dark) {
+    const path = poolPath();
+    deck(dark, 0, 0, W, H);
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = dark ? "#5d5850" : "#f4efe5";
+    ctx.stroke(path);
+    ctx.restore();
+    ctx.save();
+    ctx.clip(path);
+    const strength = water(dark, true);
     if (on()) {
       const n = 6;
       const sp = speed();
@@ -462,7 +575,7 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
       ctx.lineWidth = 2;
       for (let i = 0; i < n; i++) {
         const ph = (sim.t * (0.25 + sp * 0.9) + i / n) % 1;
-        const x0 = 18 + ph * (W * 0.55);
+        const x0 = W * 0.08 + ph * (W * 0.6);
         const y0 = H * 0.3 + Math.sin(i * 1.3) * 8 + i * (H * 0.09);
         ctx.strokeStyle = `rgba(255,255,255,${0.35 * Math.sin(ph * Math.PI)})`;
         ctx.beginPath();
@@ -471,9 +584,17 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
         ctx.stroke();
       }
     }
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = dark ? "rgba(190,225,235,0.12)" : "rgba(255,255,255,0.55)";
-    ctx.strokeRect(4, 4, W - 8, H - 8);
+    // The wall's shadow into the water (half the stroke falls inside the clip).
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 16;
+    ctx.strokeStyle = dark ? "rgba(0,0,0,0.45)" : "rgba(8,50,64,0.26)";
+    ctx.stroke(path);
+    ctx.restore();
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = dark ? "rgba(255,255,255,0.12)" : "rgba(120,100,70,0.3)";
+    ctx.stroke(path);
+    return strength;
   }
 
   function drawSpa(dark) {
@@ -826,7 +947,7 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
   function draw() {
     if (!img) return;
     const dark = getModel().dark;
-    const strength = kind === "spa" ? 0 : water(dark, true);
+    const strength = kind === "spa" || kind === "pool" ? 0 : water(dark, true);
     if (kind === "pool") drawPool(dark);
     else if (kind === "spa") drawSpa(dark);
     else if (kind === "falls") drawFalls(dark, strength);
@@ -894,7 +1015,11 @@ const STYLE = `
 
 export class ControlFreakPictureCard extends Base {
   static getStubConfig() {
-    return { scene: "pool" };
+    return { scene: "pool", shape: DEFAULT_SHAPE };
+  }
+
+  static getConfigElement() {
+    return document.createElement("controlfreak-picture-editor");
   }
 
   constructor() {
@@ -914,10 +1039,11 @@ export class ControlFreakPictureCard extends Base {
       throw new Error(`controlfreak-picture: set "scene" to one of ${SCENES.join(", ")}`);
     }
     for (const key of ["pump", "light", "spillover"]) {
-      if (config[key] != null && typeof config[key] !== "string") {
+      if (config[key] != null && config[key] !== "" && typeof config[key] !== "string") {
         throw new Error(`controlfreak-picture: "${key}" must be an entity id`);
       }
     }
+    this._outline = poolOutline(config); // throws on an unknown shape or a bad custom path
     this._config = config;
     this._model = this._hass ? modelOf(this._hass, config) : null;
     this._rebuild();
@@ -951,7 +1077,7 @@ export class ControlFreakPictureCard extends Base {
   }
 
   getGridOptions() {
-    return { columns: "full", rows: 4, min_rows: 2 };
+    return gridOptions(this._config ?? {});
   }
 
   connectedCallback() {
@@ -985,10 +1111,12 @@ export class ControlFreakPictureCard extends Base {
   _rebuild() {
     if (!this.isConnected || !this._config || this._scene) return;
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
-    root.innerHTML = `<style>${STYLE}</style><ha-card><canvas role="img"></canvas></ha-card>`;
+    root.innerHTML = `<style>${STYLE}</style><ha-card style="${frameStyle(this._config)}"><canvas role="img"></canvas></ha-card>`;
     const canvas = root.querySelector("canvas");
     this._canvas = canvas;
-    this._scene = makeScene(canvas, this._config.scene, () => this._model_(), () => this._colors());
+    this._scene = makeScene(canvas, this._config.scene, () => this._model_(), () => this._colors(), {
+      outline: this._outline,
+    });
     this._label();
     canvas.addEventListener("pointerdown", (e) => {
       const r = canvas.getBoundingClientRect();
@@ -1047,9 +1175,103 @@ export class ControlFreakPictureCard extends Base {
   }
 }
 
+/* ----- Visual editor: scene, shape, entities and size via ha-form ---------- */
+
+const SHAPE_LABELS = {
+  rectangle: "Rectangle",
+  roman: "Roman (rounded ends)",
+  grecian: "Grecian (cut corners)",
+  oval: "Oval",
+  round: "Round",
+  kidney: "Kidney",
+  "lazy-l": "Lazy L",
+  freeform: "Freeform",
+  custom: "Custom path",
+};
+const EDITOR_LABELS = {
+  scene: "Scene",
+  shape: "Pool shape",
+  path: "Custom outline (SVG path in a 0..1 square)",
+  pump: "Pump (water speed)",
+  light: "Light (water colour)",
+  spillover: "Pump mode sensor (spillover into the pool)",
+  rows: "Height (rows in a sections view)",
+};
+
+/** The ha-form schema for a config; shape and path appear only where they apply. */
+export function editorSchema(config = {}) {
+  const schema = [
+    {
+      name: "scene",
+      required: true,
+      selector: { select: { mode: "dropdown", options: SCENES.map((s) => ({ value: s, label: SCENE_LABELS[s] })) } },
+    },
+  ];
+  if ((config.scene ?? "pool") === "pool") {
+    schema.push({
+      name: "shape",
+      selector: { select: { mode: "dropdown", options: SHAPE_NAMES.map((s) => ({ value: s, label: SHAPE_LABELS[s] })) } },
+    });
+    if (config.shape === "custom") schema.push({ name: "path", selector: { text: { multiline: true } } });
+  }
+  schema.push(
+    { name: "pump", selector: { entity: { domain: "fan" } } },
+    { name: "light", selector: { entity: { domain: "light" } } }
+  );
+  if (config.scene === "spa") schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  schema.push({ name: "rows", selector: { number: { min: ROWS_MIN, max: ROWS_MAX, mode: "slider" } } });
+  return schema;
+}
+
+export class ControlFreakPictureEditor extends Base {
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+  }
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _render() {
+    if (!this.isConnected || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (field) => EDITOR_LABELS[field.name] ?? field.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        const value = { ...ev.detail.value };
+        for (const key of Object.keys(value)) if (value[key] === "" || value[key] == null) delete value[key];
+        if (value.scene !== "pool") {
+          delete value.shape;
+          delete value.path;
+        }
+        if (value.shape !== "custom") delete value.path;
+        if (value.scene !== "spa") delete value.spillover;
+        this._config = { ...this._config, ...value };
+        for (const key of ["shape", "path", "spillover"]) if (!(key in value)) delete this._config[key];
+        this._render();
+        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+      });
+      this.append(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = editorSchema(this._config);
+    this._form.data = { scene: "pool", shape: DEFAULT_SHAPE, rows: DEFAULT_ROWS, ...this._config };
+  }
+}
+
 if (globalThis.customElements) {
   if (!customElements.get("controlfreak-picture")) {
     customElements.define("controlfreak-picture", ControlFreakPictureCard);
+  }
+  if (!customElements.get("controlfreak-picture-editor")) {
+    customElements.define("controlfreak-picture-editor", ControlFreakPictureEditor);
   }
   globalThis.customCards = globalThis.customCards || [];
   if (!globalThis.customCards.some((c) => c.type === "controlfreak-picture")) {

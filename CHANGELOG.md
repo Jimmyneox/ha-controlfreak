@@ -12,7 +12,15 @@
   exactly. Reduced motion gives a still frame; off-screen and hidden-tab pictures pause.
 - New card `custom:controlfreak-picture` (`scene`, optional `pump`, `light`, `spillover`),
   served by the integration next to the strategy with the same version cache-buster, listed in
-  the card picker. No dependencies, no dashboard resource to add.
+  the card picker with a visual editor. No dependencies, no dashboard resource to add.
+- **Pool shapes.** The pool picture is drawn in the outline of your pool: `rectangle`
+  (default), `roman`, `grecian`, `oval`, `round`, `kidney`, `lazy-l`, `freeform`, or
+  `custom` with your own SVG `path`. Pick it with `pictures: { shape: kidney }` on the
+  strategy, with `shape` on a hand-placed card, or in the card editor.
+- **Resizable pictures.** In a sections view each picture can be dragged taller or shorter
+  (2 to 12 rows) in the layout editor; `pictures: { rows: 6 }` on the strategy sets the
+  starting height of every picture, and a hand-placed card takes `rows`, `height` or
+  `aspect_ratio`.
 - The effect-to-colour table lives once in `mapping.py` (`EFFECT_COLORS`; `DEFAULT_EFFECTS`
   derives from it) and is mirrored in the card; a test keeps the two identical.
 - Tests: `node --test` for the card's pure helpers and the strategy's picture placement,

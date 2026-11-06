@@ -225,21 +225,65 @@ To leave the pictures out, set `pictures: false` under `strategy` (see below). I
 browser or operating system asks for reduced motion, each picture is a still image. Pictures
 pause while they are off screen or the tab is hidden.
 
-You can also add a picture by hand to any dashboard:
+#### Pool shape
+
+The pool picture is drawn in the outline of your pool. Pick the one that matches under
+`strategy`, together with the height of the pictures:
+
+```yaml
+strategy:
+  type: custom:controlfreak
+  pictures:
+    shape: kidney   # see the table
+    rows: 6         # optional, picture height in grid rows (2..12, default 4)
+```
+
+| `shape` | Outline |
+|---|---|
+| `rectangle` | Straight sides, softened corners. The default. |
+| `roman` | A rectangle with half-round ends. |
+| `grecian` | A rectangle with the corners cut at 45°. |
+| `oval` | An ellipse that fills the picture. |
+| `round` | A circle, centred. |
+| `kidney` | The classic bean. |
+| `lazy-l` | An L with a wide shallow end and a narrow deep end. |
+| `freeform` | A lagoon with no straight edge. |
+| `custom` | Your own outline: add `path`, SVG path data drawn in a 0..1 square (x right, y down), for example `path: "M0.1 0.1 H0.9 V0.9 H0.1 Z"`. |
+
+![Every pool shape](images/pool-shapes.png)
+
+The spa, waterfall, deck jets and bubblers keep their own geometry; the shape applies to the
+pool picture only.
+
+#### Picture size
+
+Pictures are full width and four rows high by default. In a **sections** view you can resize
+each one by hand: open the dashboard editor, choose the picture card, then **Layout**, and
+drag it taller or shorter (two to twelve rows) or narrower. On a dashboard the strategy
+generates, use **Take control** first, or set `rows` under `pictures` as above, which sets
+every picture's starting height. A card you add by hand (below) also takes `rows`, a fixed
+`height`, or an `aspect_ratio` for views without a grid.
+
+You can also add a picture by hand to any dashboard, or pick **Control Freak picture** in the
+card picker and fill in the editor:
 
 ```yaml
 type: custom:controlfreak-picture
-scene: spa          # pool, spa, falls, deck or bub
-pump: fan.spa_jets  # optional, the water moves with this pump's speed
-light: light.spa_light  # optional, the water takes this light's effect colour
+scene: pool         # pool, spa, falls, deck or bub
+shape: lazy-l       # pool only, see the table above (custom needs path)
+pump: fan.filter_pump   # optional, the water moves with this pump's speed
+light: light.pool_light  # optional, the water takes this light's effect colour
 spillover: sensor.filter_pump_current_mode  # optional (spa only)
+rows: 5             # optional, starting height in a sections view (2..12)
+height: 260px       # optional, a fixed height instead (outside a sections view)
+aspect_ratio: "16:9"  # optional, height from the width instead
 ```
 
 Only `scene` is required. Without `pump` the water is still; without `light` it keeps its
-natural colour. The card is full width in a sections view; its height follows the section's
-rows and is at least 200 pixels. To tune the water colours, set the CSS variables
-`--controlfreak-water-a`, `--controlfreak-water-b` and `--controlfreak-water-hi` in your theme
-(hex colours).
+natural colour. The card is full width in a sections view; its height follows the card's rows
+and is at least 200 pixels unless `height` or `aspect_ratio` says otherwise. To tune the water
+colours, set the CSS variables `--controlfreak-water-a`, `--controlfreak-water-b` and
+`--controlfreak-water-hi` in your theme (hex colours).
 
 ### Create the dashboard
 
@@ -278,7 +322,7 @@ strategy:
 | Option | Description |
 |---|---|
 | `title` | The dashboard title. The default is `Pool`. |
-| `pictures` | `false` leaves out the animated pictures above the pumps. The default is `true`. |
+| `pictures` | `false` leaves out the animated pictures above the pumps. An object sets the pool's `shape` (and `path` for `custom`) and the pictures' `rows`; see *Pool shape*. The default is `true`. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
 | `titles` | A heading per equipment type, for example `pumps: Circulation`. |

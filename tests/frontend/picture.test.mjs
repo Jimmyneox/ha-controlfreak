@@ -8,24 +8,34 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  DEFAULT_ROWS,
+  DEFAULT_SHAPE,
   EFFECT_COLORS,
   PALETTE,
+  POOL_SHAPES,
+  ROWS_MAX,
+  ROWS_MIN,
   SCENES,
+  SHAPE_NAMES,
   SHOW,
   WHITE,
   addRipple,
   advance,
   createSim,
   deckGeo,
+  editorSchema,
   effectHex,
   fallGeo,
   fixtures,
   flowOf,
+  frameStyle,
+  gridOptions,
   hexToRgb,
   isDarkMode,
   landings,
   lightOf,
   modelOf,
+  poolOutline,
   renderWater,
   shouldAnimate,
   spillingOf,
@@ -263,4 +273,127 @@ test("geometry: falls and deck jets reach further with speed; ripples land only 
       assert.ok(f.x >= 0 && f.x <= 1 && f.y >= 0 && f.y <= 1, `${kind} fixture inside the picture`);
     }
   }
+});
+
+/* ----- Pool shapes and sizes ---------------------------------------------- */
+
+// Walk SVG path data and collect every coordinate pair (absolute commands only,
+// which is all the shape table uses), to check the outlines stay in the unit square.
+function pathPoints(d) {
+  const nums = d.replace(/[A-Za-z]/g, " $& ").trim().split(/[\s,]+/);
+  const pts = [];
+  let cmd = null;
+  let buf = [];
+  for (const tok of nums) {
+    if (/^[A-Za-z]$/.test(tok)) {
+      cmd = tok;
+      buf = [];
+      continue;
+    }
+    buf.push(Number(tok));
+    if (cmd === "H" || cmd === "V") {
+      pts.push(cmd === "H" ? [buf[0], null] : [null, buf[0]]);
+      buf = [];
+    } else if ((cmd === "M" || cmd === "L") && buf.length === 2) {
+      pts.push(buf);
+      buf = [];
+    } else if (cmd === "Q" && buf.length === 4) {
+      pts.push(buf.slice(0, 2), buf.slice(2));
+      buf = [];
+    } else if (cmd === "C" && buf.length === 6) {
+      pts.push(buf.slice(0, 2), buf.slice(2, 4), buf.slice(4));
+      buf = [];
+    } else if (cmd === "A" && buf.length === 7) {
+      pts.push(buf.slice(5));
+      buf = [];
+    }
+  }
+  return pts;
+}
+
+test("pool shapes: the standard set, each a closed path inside the unit square", () => {
+  assert.deepEqual(SHAPE_NAMES, [
+    "rectangle",
+    "roman",
+    "grecian",
+    "oval",
+    "round",
+    "kidney",
+    "lazy-l",
+    "freeform",
+    "custom",
+  ]);
+  assert.equal(DEFAULT_SHAPE, "rectangle");
+  for (const [name, d] of Object.entries(POOL_SHAPES)) {
+    assert.match(d, /^M/, name);
+    assert.match(d, /Z$/, name);
+    const pts = pathPoints(d);
+    assert.ok(pts.length >= 3, `${name} has points`);
+    for (const [x, y] of pts) {
+      if (x != null) assert.ok(x >= 0 && x <= 1, `${name} x ${x}`);
+      if (y != null) assert.ok(y >= 0 && y <= 1, `${name} y ${y}`);
+    }
+    assert.ok(/[ACQ]/.test(d) || name === "grecian", `${name} is drawn with curves or cut corners`);
+  }
+});
+
+test("poolOutline: a named shape, the default, round keeps 1:1, custom takes a path", () => {
+  assert.deepEqual(poolOutline(), { shape: "rectangle", path: POOL_SHAPES.rectangle, uniform: false });
+  assert.deepEqual(poolOutline({ scene: "pool" }), poolOutline({}));
+  assert.equal(poolOutline({ shape: "kidney" }).path, POOL_SHAPES.kidney);
+  assert.equal(poolOutline({ shape: "round" }).uniform, true);
+  assert.equal(poolOutline({ shape: "oval" }).uniform, false);
+  const custom = poolOutline({ shape: "custom", path: " M0 0 H1 V1 H0 Z " });
+  assert.deepEqual(custom, { shape: "custom", path: "M0 0 H1 V1 H0 Z", uniform: false });
+  assert.throws(() => poolOutline({ shape: "custom" }), /needs "path"/);
+  assert.throws(() => poolOutline({ shape: "custom", path: "H1 V1" }), /starting with M/);
+  assert.throws(() => poolOutline({ shape: "octagon" }), /unknown shape "octagon".*rectangle.*custom/);
+});
+
+test("gridOptions: full width and 4 rows by default, rows clamped, resizable 2..12", () => {
+  assert.deepEqual(gridOptions(), {
+    columns: "full",
+    rows: DEFAULT_ROWS,
+    min_rows: ROWS_MIN,
+    max_rows: ROWS_MAX,
+    min_columns: 3,
+  });
+  assert.equal(DEFAULT_ROWS, 4);
+  assert.equal(gridOptions({ rows: 6 }).rows, 6);
+  assert.equal(gridOptions({ rows: "7.4" }).rows, 7);
+  assert.equal(gridOptions({ rows: 1 }).rows, ROWS_MIN);
+  assert.equal(gridOptions({ rows: 99 }).rows, ROWS_MAX);
+  assert.equal(gridOptions({ rows: "tall" }).rows, DEFAULT_ROWS);
+  assert.equal(gridOptions({ columns: 6 }).columns, 6);
+  assert.equal(gridOptions({ columns: 40 }).columns, 12);
+  assert.equal(gridOptions({ columns: "full" }).columns, "full");
+  assert.equal(gridOptions({ columns: 0 }).columns, "full");
+});
+
+test("frameStyle: grid-driven by default, else a fixed height or an aspect ratio", () => {
+  assert.equal(frameStyle(), "");
+  assert.equal(frameStyle({ rows: 6 }), "");
+  assert.equal(frameStyle({ height: 260 }), "height: 260px; min-height: 0;");
+  assert.equal(frameStyle({ height: "180px" }), "height: 180px; min-height: 0;");
+  assert.equal(frameStyle({ height: "tall" }), "");
+  assert.equal(frameStyle({ height: -5 }), "");
+  assert.equal(frameStyle({ aspect_ratio: "16:9" }), "aspect-ratio: 16 / 9; height: auto; min-height: 0;");
+  assert.equal(frameStyle({ aspect_ratio: "21/9", height: 100 }), "aspect-ratio: 21 / 9; height: auto; min-height: 0;");
+  assert.equal(frameStyle({ aspect_ratio: "16:0" }), "");
+  assert.equal(frameStyle({ aspect_ratio: "wide" }), "");
+});
+
+test("editor schema: shape only for the pool, path only for custom, spillover only for the spa", () => {
+  const names = (cfg) => editorSchema(cfg).map((f) => f.name);
+  assert.deepEqual(names({}), ["scene", "shape", "pump", "light", "rows"]);
+  assert.deepEqual(names({ scene: "pool", shape: "custom" }), ["scene", "shape", "path", "pump", "light", "rows"]);
+  assert.deepEqual(names({ scene: "spa" }), ["scene", "pump", "light", "spillover", "rows"]);
+  assert.deepEqual(names({ scene: "falls" }), ["scene", "pump", "light", "rows"]);
+  const shape = editorSchema({}).find((f) => f.name === "shape");
+  assert.deepEqual(
+    shape.selector.select.options.map((o) => o.value),
+    SHAPE_NAMES
+  );
+  const rows = editorSchema({}).find((f) => f.name === "rows");
+  assert.deepEqual(rows.selector.number, { min: ROWS_MIN, max: ROWS_MAX, mode: "slider" });
 });

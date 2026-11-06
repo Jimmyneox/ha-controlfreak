@@ -19,6 +19,7 @@ import {
   EMPTY_SECTION,
   PICTURE_CARD,
   pictureCards,
+  pictureOptions,
   sceneFor,
   sectionOrder,
   shortName,
@@ -489,4 +490,36 @@ test("short name honours a user-renamed device and leaves other names alone", ()
 
 test("every type has a default title", () => {
   for (const t of EQUIPMENT_TYPES) assert.ok(DEFAULT_TITLES[t]);
+});
+
+test("pictures as an object: the pool's shape and every picture's rows", () => {
+  assert.equal(pictureOptions({ pictures: false }), null);
+  assert.deepEqual(pictureOptions({}), {});
+  assert.deepEqual(pictureOptions({ pictures: true }), {});
+  assert.deepEqual(pictureOptions({ pictures: { shape: "kidney", rows: 6 } }), { shape: "kidney", rows: 6 });
+  assert.deepEqual(pictureOptions({ pictures: { shape: "custom", path: "M0 0 Z" } }), { shape: "custom", path: "M0 0 Z" });
+  assert.deepEqual(pictureOptions({ pictures: { shape: "oval", path: "M0 0 Z" } }), { shape: "oval" }, "path only with custom");
+  assert.deepEqual(pictureOptions({ pictures: { rows: "5.6" } }), { rows: 6 });
+  assert.deepEqual(pictureOptions({ pictures: { rows: 0, shape: "" } }), {});
+
+  const hass = fixture("full-pool");
+  const cards = pictures(buildSections(hass, { pictures: { shape: "kidney", rows: 6 } }));
+  assert.equal(cards.length, 3);
+  assert.equal(cards[0].scene, "pool");
+  assert.equal(cards[0].shape, "kidney");
+  assert.equal("shape" in cards[1], false, "the spa has no shape");
+  assert.equal("shape" in cards[2], false, "the waterfall has no shape");
+  for (const card of cards) assert.deepEqual(card.grid_options, { columns: "full", rows: 6 });
+
+  const custom = pictures(buildSections(hass, { pictures: { shape: "custom", path: "M0 0 H1 V1 Z" } }))[0];
+  assert.equal(custom.shape, "custom");
+  assert.equal(custom.path, "M0 0 H1 V1 Z");
+  assert.deepEqual(custom.grid_options, { columns: "full" });
+
+  // An object without shape or rows is the default output.
+  assert.deepEqual(buildSections(hass, { pictures: {} }), buildSections(hass));
+  // The object reaches the view and section strategies too.
+  assert.equal(pictures(buildView(hass, { pictures: { shape: "roman" } }).sections)[0].shape, "roman");
+  const section = buildSection(hass, "pumps", { pictures: { rows: 3 } });
+  assert.deepEqual(pictures([section])[0].grid_options, { columns: "full", rows: 3 });
 });

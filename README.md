@@ -18,6 +18,8 @@ WebSockets for live values. No cloud, and your own MQTT setup is unaffected.
   dashboard with a section per equipment type you actually have, using built-in cards.
   Single sections drop into an existing dashboard.
 - **Animated pictures:** the pool, spa, waterfall, deck jets and bubblers above your pumps,
+  the pool in the shape of yours (rectangle, roman, grecian, oval, round, kidney, lazy L,
+  freeform or your own outline) and each picture resizable,
   water moving with pump speed and tinted by the light's effect, dark at night.
 
 ![Generated dashboard](docs/images/dashboard-full-pool.png)
