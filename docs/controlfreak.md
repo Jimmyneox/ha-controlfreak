@@ -302,7 +302,8 @@ Leaving the option out keeps the default style. An unknown style is reported as 
 The deck around the water is concrete by default, a light grey, since that is what most
 pools sit in. `picture_deck` on the strategy (or `deck` on a picture card) picks another
 finish: `pavers` (running bond), `travertine` (large square tiles), `wood` (boards) or
-`stone` (flagstone). Every style draws the finish its own way, by day and by night.
+`stone` (flagstone). Every style draws the finish its own way; by night it is the same
+colour, only a little darker.
 
 ![The five deck finishes in every style](images/dashboard-decks.png)
 

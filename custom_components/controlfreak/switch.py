@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -12,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import DOMAIN
 from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
 from .entity import ControlFreakEntity, async_setup_dynamic, by_kind
-from .mapping import EntitySpec, relay_is_on, relay_role
+from .mapping import EntitySpec, light_icon, relay_is_on, relay_role
 
 PARALLEL_UPDATES = 1
 
@@ -50,7 +51,14 @@ class ControlFreakRelay(ControlFreakEntity, SwitchEntity):
     @property
     def icon(self) -> str | None:
         s = self.setting
-        return CONNECTION_ICONS.get(s.connection_type or "") if s else None
+        if s is None:
+            return None
+        if icon := CONNECTION_ICONS.get(s.connection_type or ""):
+            return icon
+        # A relay named for lights is a light switch; anything else a plain relay.
+        if re.search(r"light|lamp|led", (s.name or "").lower()):
+            return light_icon(s.name)
+        return "mdi:electric-switch"
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

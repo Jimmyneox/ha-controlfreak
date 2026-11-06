@@ -297,6 +297,7 @@ async def test_fan_state_reads_the_pumps_own_speed(
     )
     await hass.async_block_till_done()
     state = hass.states.get(eid(hass, config_entry, "fan", PUMP))
+    assert state.attributes["icon"] == "mdi:pump", "a pump looks like a pump, not a fan"
     assert state.attributes["percentage"] == 40, "the floor reads as the floor, not as 1 %"
     assert state.attributes["percentage_step"] == 1
     assert (state.attributes["speed_min"], state.attributes["speed_max"]) == (40, 100)

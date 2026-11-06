@@ -18,6 +18,7 @@
   for the overview: styles down, pool shapes across, every part running. body[data-rendered] becomes "true" once every picture
   has drawn a frame, "error" on any script error or console.error.
 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <style>
   :root { --bg: #f4f5f7; --card: #fff; --text: #1c1c1e; --muted: #6b6f76; --line: #e2e4e8;
           --on: #ff9800; --accent: #03a9f4; --chip: #eef1f5; }
@@ -36,6 +37,8 @@
   .heading .mdi { color: var(--muted); font-size: 12px; font-weight: 400; }
   .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
   .row { display: flex; gap: 10px; align-items: center; }
+  .icon .mdi { font-size: 22px; line-height: 1; }
+  .heading .mdi.mdi-icon { font-size: 18px; vertical-align: -3px; margin-left: 6px; }
   .icon { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
           background: var(--chip); color: var(--muted); font-weight: 700; flex: none; }
   .icon.on { background: #fff3e0; color: var(--on); }
@@ -153,7 +156,7 @@
     if (card.type === "custom:controlfreak-picture") return pictureEl(card, hass);
     if (card.type === "heading") {
       const h = el("div", "heading", card.heading);
-      if (card.icon) h.append(el("span", "mdi", card.icon));
+      if (card.icon) h.append(el("span", `mdi mdi-icon ${card.icon.replace("mdi:", "mdi-")}`));
       return h;
     }
     if (card.type === "markdown") return el("div", "markdown", card.content.replace(/\*\*/g, ""));
@@ -162,7 +165,13 @@
     const row = el("div", "row");
     const on = ["on", "open"].includes(st.state);
     const domain = card.entity.split(".")[0];
-    row.append(el("div", `icon${on ? " on" : ""}`, domain[0].toUpperCase()));
+    // The entity's own icon, as the tile card shows it; a domain default when it has none.
+    const DOMAIN_ICONS = { fan: "mdi:fan", light: "mdi:lightbulb", switch: "mdi:toggle-switch", sensor: "mdi:eye", binary_sensor: "mdi:radiobox-blank" };
+    const iconName = st.attributes?.icon ?? (st.attributes?.device_class === "temperature" ? "mdi:thermometer" : st.attributes?.device_class === "connectivity" ? "mdi:lan-connect" : DOMAIN_ICONS[domain] ?? "mdi:help");
+    const ic = el("div", `icon${on ? " on" : ""}`);
+    ic.append(el("i", `mdi ${iconName.replace("mdi:", "mdi-")}`));
+    ic.title = iconName;
+    row.append(ic);
     const label = el("div");
     const unit = st.attributes?.unit_of_measurement ? ` ${st.attributes.unit_of_measurement}` : "";
     label.append(

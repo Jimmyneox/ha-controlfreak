@@ -394,19 +394,25 @@ export const DECK_LABELS = {
   wood: "Wood deck",
   stone: "Flagstone",
 };
-// Two tones for a soft gradient by day and by night, and the colour of the joints.
+// Two tones for a soft gradient, and the colour of the joints. Night is the
+// same colour, only darker (NIGHT_DIM): a grey deck stays grey after dark.
 const DECK_TONES = {
-  concrete: { day: [[218, 219, 215], [203, 205, 200]], night: [[86, 90, 94], [68, 72, 76]], line: [70, 76, 82] },
-  pavers: { day: [[198, 188, 174], [176, 164, 150]], night: [[88, 80, 72], [66, 60, 54]], line: [80, 66, 54] },
-  travertine: { day: [[239, 231, 216], [220, 210, 191]], night: [[70, 65, 57], [52, 48, 43]], line: [120, 100, 70] },
-  wood: { day: [[206, 162, 114], [184, 138, 94]], night: [[88, 66, 48], [66, 50, 36]], line: [96, 62, 34] },
-  stone: { day: [[190, 194, 190], [166, 172, 169]], night: [[76, 82, 82], [60, 65, 65]], line: [52, 62, 66] },
+  concrete: { day: [[218, 219, 215], [203, 205, 200]], line: [70, 76, 82] },
+  pavers: { day: [[198, 188, 174], [176, 164, 150]], line: [80, 66, 54] },
+  travertine: { day: [[239, 231, 216], [220, 210, 191]], line: [120, 100, 70] },
+  wood: { day: [[206, 162, 114], [184, 138, 94]], line: [96, 62, 34] },
+  stone: { day: [[190, 194, 190], [166, 172, 169]], line: [52, 62, 66] },
+};
+export const NIGHT_DIM = 0.78;
+const dim = (c) => c.map((v) => Math.round(v * NIGHT_DIM));
+const deckTones = (finish, dark) => {
+  const t = DECK_TONES[finish] ?? DECK_TONES.concrete;
+  return dark ? t.day.map(dim) : t.day;
 };
 
 /** The finish's base tone, for painters that mix their own palette. */
 export function deckTone(finish, dark) {
-  const t = DECK_TONES[finish] ?? DECK_TONES.concrete;
-  return (dark ? t.night : t.day)[0];
+  return deckTones(finish, dark)[0];
 }
 
 /** The joints of a finish, stroked in `color` over x,y,w,h. Deterministic. */
@@ -509,13 +515,13 @@ export function deckPattern(ctx, x, y, w, h, finish, color, scale = 1) {
 /** A finished deck: its gradient and its joints. Used by the picture styles. */
 export function deckBase(ctx, x, y, w, h, finish, dark) {
   const t = DECK_TONES[finish] ?? DECK_TONES.concrete;
-  const [a, b] = dark ? t.night : t.day;
+  const [a, b] = deckTones(finish, dark);
   const gr = ctx.createLinearGradient(x, y, x + w, y + h);
   gr.addColorStop(0, rgb(a));
   gr.addColorStop(1, rgb(b));
   ctx.fillStyle = gr;
   ctx.fillRect(x, y, w, h);
-  deckPattern(ctx, x, y, w, h, finish, rgb(t.line, dark ? 0.16 : 0.22));
+  deckPattern(ctx, x, y, w, h, finish, rgb(t.line, dark ? 0.2 : 0.22));
 }
 
 /** The waterfall's ledge outline and rocks, as paths for a theme to fill. */

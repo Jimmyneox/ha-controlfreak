@@ -14,6 +14,11 @@
   40 at its floor where it used to read 1. The range is published as `speed_min` and
   `speed_max` attributes. A dashboard or automation that set `percentage: 1` to mean the
   floor still gets the floor; one that mapped the old 1–100 scale should send speeds now.
+- **Icons for what a tile controls.** Pumps, lights, relays and sensors carry icons from
+  the integration itself, chosen from the names in the panel: pump, hot tub, waterfall,
+  fountain, bubbles, robot vacuum, solar for the pumps; an underwater flood light or an
+  outdoor lamp for the lights; speedometer, mode, freeze, chip, water and air thermometers
+  for the sensors. Every dashboard gets them, not only the generated one.
 - **Deck finishes.** The surround is a light concrete grey by default (the earlier deck
   was too dark); `picture_deck` on the strategy and `deck` on the picture card pick
   `pavers`, `travertine`, `wood` or `stone` instead. Every style draws the finish its own

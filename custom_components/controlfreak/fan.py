@@ -10,7 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import ControlFreakConfigEntry
 from .entity import ControlFreakEntity, async_setup_dynamic
-from .mapping import percentage_to_speed, pump_speed, speed_to_percentage
+from .mapping import percentage_to_speed, pump_icon, pump_speed, speed_to_percentage
 
 PARALLEL_UPDATES = 1
 
@@ -42,6 +42,11 @@ class ControlFreakPump(ControlFreakEntity, FanEntity):
     def _range(self) -> tuple[int, int]:
         s = self.setting
         return (s.speed_min, s.speed_max) if s else (1, 100)
+
+    @property
+    def icon(self) -> str:
+        s = self.setting
+        return pump_icon(s.name if s else None)
 
     @property
     def speed_count(self) -> int:

@@ -109,6 +109,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard CPU temperature",
+        "icon": "mdi:memory",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -117,14 +118,16 @@
     },
     "sensor.backyard_firmware_version": {
       "attributes": {
-        "friendly_name": "Backyard Firmware version"
+        "friendly_name": "Backyard Firmware version",
+        "icon": "mdi:chip"
       },
       "entity_id": "sensor.backyard_firmware_version",
       "state": "1.0.13"
     },
     "sensor.backyard_freeze_protection": {
       "attributes": {
-        "friendly_name": "Backyard Freeze protection"
+        "friendly_name": "Backyard Freeze protection",
+        "icon": "mdi:snowflake-alert"
       },
       "entity_id": "sensor.backyard_freeze_protection",
       "state": "nominal"

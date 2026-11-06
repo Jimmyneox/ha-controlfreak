@@ -25,6 +25,7 @@ import {
   DEFAULT_DECK,
   DEFAULT_STYLE,
   flatWater,
+  NIGHT_DIM,
   makeStyledScene,
   overviewGeo,
   overviewLandings,
@@ -391,8 +392,13 @@ test("every style draws every deck finish by day and by night, and the finish ch
 test("deck helpers: a light day tone for concrete, a pattern per finish, and an unknown finish falls back to concrete", () => {
   const [r, g, b] = deckTone("concrete", false);
   assert.ok(r > 200 && g > 200 && b > 200, "concrete by day is light grey");
-  const night = deckTone("concrete", true);
-  assert.ok(night[0] < 120 && night[0] > 50, "concrete by night is a mid grey, not black");
+  // Night is the day colour, only a little darker: same hue, every channel scaled alike.
+  assert.ok(NIGHT_DIM >= 0.7 && NIGHT_DIM <= 0.85, "slightly darker, not a different deck");
+  for (const d of DECKS) {
+    const day = deckTone(d, false);
+    const night = deckTone(d, true);
+    for (let i = 0; i < 3; i++) assert.equal(night[i], Math.round(day[i] * NIGHT_DIM), `${d} channel ${i}`);
+  }
   assert.deepEqual(deckTone("lawn", false), deckTone("concrete", false));
   const patterns = new Set();
   for (const d of DECKS) {

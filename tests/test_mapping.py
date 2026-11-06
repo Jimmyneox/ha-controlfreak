@@ -11,8 +11,10 @@ from custom_components.controlfreak.mapping import (
     DEFAULT_EFFECTS,
     PANEL_KEYS,
     build_specs,
+    light_icon,
     parse_settings,
     percentage_to_speed,
+    pump_icon,
     relay_is_on,
     relay_role,
     setting_uuid_of,
@@ -179,3 +181,19 @@ def test_relay_role_comes_from_connection_type_not_port(
             {"name": connection, "connection_type_properties": []} if connection else None
         )
         assert relay_role(parse_settings([relay])["r"]) == role
+
+
+def test_icons_follow_the_panel_names() -> None:
+    """Pumps and lights get an icon for what they are, from the name typed in the panel."""
+    assert pump_icon("Filter Pump") == "mdi:pump"
+    assert pump_icon("Spa Jets") == "mdi:hot-tub"
+    assert pump_icon("Waterfall") == "mdi:waterfall"
+    assert pump_icon("Deck Jets") == "mdi:fountain"
+    assert pump_icon("Bubbler") == "mdi:chart-bubble"
+    assert pump_icon("Cleaner Booster") == "mdi:robot-vacuum", "the cleaner wins over the booster"
+    assert pump_icon("Solar Pump") == "mdi:solar-power-variant"
+    assert pump_icon(None) == "mdi:pump"
+    assert light_icon("Pool Light") == "mdi:light-flood-down"
+    assert light_icon("Spa Light") == "mdi:hot-tub"
+    assert light_icon("Landscape Lights") == "mdi:outdoor-lamp"
+    assert light_icon("Deck Lights") == "mdi:outdoor-lamp"

@@ -276,6 +276,7 @@
     "fan.backyard_cleaner_booster": {
       "attributes": {
         "friendly_name": "Backyard Cleaner Booster",
+        "icon": "mdi:robot-vacuum",
         "percentage": 80,
         "percentage_step": 1.0,
         "preset_mode": null,
@@ -291,6 +292,7 @@
     "fan.backyard_filter_pump": {
       "attributes": {
         "friendly_name": "Backyard Filter Pump",
+        "icon": "mdi:pump",
         "percentage": 50,
         "percentage_step": 1.0,
         "preset_mode": null,
@@ -306,6 +308,7 @@
     "fan.backyard_solar_pump": {
       "attributes": {
         "friendly_name": "Backyard Solar Pump",
+        "icon": "mdi:solar-power-variant",
         "percentage": 90,
         "percentage_step": 1.0,
         "preset_mode": null,
@@ -321,6 +324,7 @@
     "fan.backyard_spa_jets": {
       "attributes": {
         "friendly_name": "Backyard Spa Jets",
+        "icon": "mdi:hot-tub",
         "percentage": 60,
         "percentage_step": 1.0,
         "preset_mode": null,
@@ -336,6 +340,7 @@
     "fan.backyard_waterfall": {
       "attributes": {
         "friendly_name": "Backyard Waterfall",
+        "icon": "mdi:waterfall",
         "percentage": 70,
         "percentage_step": 1.0,
         "preset_mode": null,
@@ -367,6 +372,7 @@
           "Magenta"
         ],
         "friendly_name": "Backyard Pool Light",
+        "icon": "mdi:light-flood-down",
         "supported_color_modes": [
           "onoff"
         ],
@@ -394,6 +400,7 @@
           "Magenta"
         ],
         "friendly_name": "Backyard Spa Light",
+        "icon": "mdi:hot-tub",
         "supported_color_modes": [
           "onoff"
         ],
@@ -406,6 +413,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard Air",
+        "icon": "mdi:thermometer",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -414,7 +422,8 @@
     },
     "sensor.backyard_cleaner_booster_current_mode": {
       "attributes": {
-        "friendly_name": "Backyard Cleaner Booster current mode"
+        "friendly_name": "Backyard Cleaner Booster current mode",
+        "icon": "mdi:swap-horizontal-variant"
       },
       "entity_id": "sensor.backyard_cleaner_booster_current_mode",
       "state": "pool"
@@ -422,6 +431,7 @@
     "sensor.backyard_cleaner_booster_speed": {
       "attributes": {
         "friendly_name": "Backyard Cleaner Booster speed",
+        "icon": "mdi:speedometer",
         "state_class": "measurement",
         "unit_of_measurement": "%"
       },
@@ -432,6 +442,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard CPU temperature",
+        "icon": "mdi:memory",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -440,7 +451,8 @@
     },
     "sensor.backyard_filter_pump_current_mode": {
       "attributes": {
-        "friendly_name": "Backyard Filter Pump current mode"
+        "friendly_name": "Backyard Filter Pump current mode",
+        "icon": "mdi:swap-horizontal-variant"
       },
       "entity_id": "sensor.backyard_filter_pump_current_mode",
       "state": "pool"
@@ -448,6 +460,7 @@
     "sensor.backyard_filter_pump_speed": {
       "attributes": {
         "friendly_name": "Backyard Filter Pump speed",
+        "icon": "mdi:speedometer",
         "state_class": "measurement",
         "unit_of_measurement": "%"
       },
@@ -456,14 +469,16 @@
     },
     "sensor.backyard_firmware_version": {
       "attributes": {
-        "friendly_name": "Backyard Firmware version"
+        "friendly_name": "Backyard Firmware version",
+        "icon": "mdi:chip"
       },
       "entity_id": "sensor.backyard_firmware_version",
       "state": "1.0.13"
     },
     "sensor.backyard_freeze_protection": {
       "attributes": {
-        "friendly_name": "Backyard Freeze protection"
+        "friendly_name": "Backyard Freeze protection",
+        "icon": "mdi:snowflake-alert"
       },
       "entity_id": "sensor.backyard_freeze_protection",
       "state": "nominal"
@@ -472,6 +487,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard Pool Water",
+        "icon": "mdi:thermometer-water",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -480,7 +496,8 @@
     },
     "sensor.backyard_solar_pump_current_mode": {
       "attributes": {
-        "friendly_name": "Backyard Solar Pump current mode"
+        "friendly_name": "Backyard Solar Pump current mode",
+        "icon": "mdi:swap-horizontal-variant"
       },
       "entity_id": "sensor.backyard_solar_pump_current_mode",
       "state": "pool"
@@ -488,6 +505,7 @@
     "sensor.backyard_solar_pump_speed": {
       "attributes": {
         "friendly_name": "Backyard Solar Pump speed",
+        "icon": "mdi:speedometer",
         "state_class": "measurement",
         "unit_of_measurement": "%"
       },
@@ -496,7 +514,8 @@
     },
     "sensor.backyard_spa_jets_current_mode": {
       "attributes": {
-        "friendly_name": "Backyard Spa Jets current mode"
+        "friendly_name": "Backyard Spa Jets current mode",
+        "icon": "mdi:swap-horizontal-variant"
       },
       "entity_id": "sensor.backyard_spa_jets_current_mode",
       "state": "pool"
@@ -504,6 +523,7 @@
     "sensor.backyard_spa_jets_speed": {
       "attributes": {
         "friendly_name": "Backyard Spa Jets speed",
+        "icon": "mdi:speedometer",
         "state_class": "measurement",
         "unit_of_measurement": "%"
       },
@@ -514,6 +534,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard Spa Water",
+        "icon": "mdi:thermometer-water",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -522,7 +543,8 @@
     },
     "sensor.backyard_waterfall_current_mode": {
       "attributes": {
-        "friendly_name": "Backyard Waterfall current mode"
+        "friendly_name": "Backyard Waterfall current mode",
+        "icon": "mdi:swap-horizontal-variant"
       },
       "entity_id": "sensor.backyard_waterfall_current_mode",
       "state": "pool"
@@ -530,6 +552,7 @@
     "sensor.backyard_waterfall_speed": {
       "attributes": {
         "friendly_name": "Backyard Waterfall speed",
+        "icon": "mdi:speedometer",
         "state_class": "measurement",
         "unit_of_measurement": "%"
       },
@@ -544,7 +567,8 @@
     "switch.backyard_deck_lights": {
       "attributes": {
         "connection_type": "General",
-        "friendly_name": "Backyard Deck Lights"
+        "friendly_name": "Backyard Deck Lights",
+        "icon": "mdi:outdoor-lamp"
       },
       "entity_id": "switch.backyard_deck_lights",
       "state": "off"
@@ -552,7 +576,8 @@
     "switch.backyard_landscape_lights": {
       "attributes": {
         "connection_type": "General",
-        "friendly_name": "Backyard Landscape Lights"
+        "friendly_name": "Backyard Landscape Lights",
+        "icon": "mdi:outdoor-lamp"
       },
       "entity_id": "switch.backyard_landscape_lights",
       "state": "off"

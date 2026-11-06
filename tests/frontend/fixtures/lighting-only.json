@@ -115,6 +115,7 @@
           "Magenta"
         ],
         "friendly_name": "Backyard Bubbler Light",
+        "icon": "mdi:light-flood-down",
         "supported_color_modes": [
           "onoff"
         ],
@@ -142,6 +143,7 @@
           "Magenta"
         ],
         "friendly_name": "Backyard Pool Light",
+        "icon": "mdi:light-flood-down",
         "supported_color_modes": [
           "onoff"
         ],
@@ -169,6 +171,7 @@
           "Magenta"
         ],
         "friendly_name": "Backyard Spa Light",
+        "icon": "mdi:hot-tub",
         "supported_color_modes": [
           "onoff"
         ],
@@ -181,6 +184,7 @@
       "attributes": {
         "device_class": "temperature",
         "friendly_name": "Backyard CPU temperature",
+        "icon": "mdi:memory",
         "state_class": "measurement",
         "unit_of_measurement": "\u00b0F"
       },
@@ -189,14 +193,16 @@
     },
     "sensor.backyard_firmware_version": {
       "attributes": {
-        "friendly_name": "Backyard Firmware version"
+        "friendly_name": "Backyard Firmware version",
+        "icon": "mdi:chip"
       },
       "entity_id": "sensor.backyard_firmware_version",
       "state": "1.0.13"
     },
     "sensor.backyard_freeze_protection": {
       "attributes": {
-        "friendly_name": "Backyard Freeze protection"
+        "friendly_name": "Backyard Freeze protection",
+        "icon": "mdi:snowflake-alert"
       },
       "entity_id": "sensor.backyard_freeze_protection",
       "state": "nominal"
@@ -209,7 +215,8 @@
     "switch.backyard_landscape_lights": {
       "attributes": {
         "connection_type": "General",
-        "friendly_name": "Backyard Landscape Lights"
+        "friendly_name": "Backyard Landscape Lights",
+        "icon": "mdi:outdoor-lamp"
       },
       "entity_id": "switch.backyard_landscape_lights",
       "state": "off"
@@ -217,7 +224,8 @@
     "switch.backyard_path_lights": {
       "attributes": {
         "connection_type": "General",
-        "friendly_name": "Backyard Path Lights"
+        "friendly_name": "Backyard Path Lights",
+        "icon": "mdi:outdoor-lamp"
       },
       "entity_id": "switch.backyard_path_lights",
       "state": "off"
