@@ -2,9 +2,13 @@
 
 ## 0.3.0 — unreleased
 
+### Changed
+- The light show feature is a menu with a colour chip per show, the colours each Pentair show performs (SAm white/magenta/blue/green, American red/white/blue, California Sunset orange/red/magenta, ...). The running show's chip cycles.
+
 ### Fixed
 - Enter or Space inside a tile feature no longer opens the entity's more-info dialog: the controls keep the keys they use.
-- The frontend module URLs carry a content hash after the version, so a same-version reinstall is picked up without a hard reload.
+- The frontend modules load from a content-stamped path, `/controlfreak/v/<version>.<hash>/`, served immutably: a same-version reinstall is picked up, the modules' relative imports resolve inside the same stamp (one instance of each), and a stale app shell still gets the current files. The bare `/controlfreak/` paths stay for hand-listed resources.
+- Tile features no longer rebuild on every tile render: the tile card passes a fresh context object each time, which tore the controls down under the finger and closed the open show menu.
 - Tile features render again on a real dashboard: the tile card assigns `stateObj` on the feature element and the base class only had a getter, so every Control Freak feature threw and showed blank. The harness now assigns the element's properties the way `hui-card-feature` does.
 
 - **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,

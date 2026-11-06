@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -26,7 +26,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
-from custom_components.controlfreak import frontend_stamp
+from custom_components.controlfreak import frontend_stamp, stamped_url
 from custom_components.controlfreak.const import (
     DOMAIN,
     FEATURES_URL,
@@ -55,17 +55,17 @@ async def test_strategy_is_served(
 ) -> None:
     """The JS is registered as a frontend module and actually served over HTTP."""
     version = MANIFEST["version"]
-    # The query carries the version and a content hash of every served module,
-    # so a same-version reinstall still busts the browser cache.
-    stamps = {c.args[1].split("?v=")[1] for c in stub_frontend.call_args_list}
-    assert len(stamps) == 1, stamps
+    # The modules load from /controlfreak/v/<version>.<hash>/<file>: a content
+    # stamp, so a same-version reinstall is picked up and the relative imports
+    # between the modules resolve inside the same stamp.
+    urls = [c.args[1] for c in stub_frontend.call_args_list]
+    stamps = {u.split("/")[3] for u in urls}
+    assert len(stamps) == 1, urls
     stamp = stamps.pop()
     assert re.fullmatch(rf"{re.escape(version)}\.[0-9a-f]{{8}}", stamp), stamp
-    assert stub_frontend.call_args_list == [
-        call(hass, f"{FRONTEND_URL}?v={stamp}"),
-        call(hass, f"{PICTURE_URL}?v={stamp}"),
-        call(hass, f"{FEATURES_URL}?v={stamp}"),
-        call(hass, f"{ICONS_URL}?v={stamp}"),
+    assert urls == [
+        stamped_url(stamp, Path(u).name)
+        for u in (FRONTEND_URL, PICTURE_URL, FEATURES_URL, ICONS_URL)
     ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
@@ -400,3 +400,26 @@ def test_frontend_stamp_changes_with_the_module_bytes(tmp_path) -> None:
     assert frontend_stamp("0.3.0", [b, a]) == before  # order does not matter
     b.write_text("export const y = 2;")
     assert frontend_stamp("0.3.0", [a, b]) != before
+
+
+async def test_stamped_frontend_path_serves_every_module_immutably(
+    hass: HomeAssistant,
+    hass_client: ClientSessionGenerator,
+    setup_integration: FakeMqtt,
+    stub_frontend: MagicMock,
+) -> None:
+    """Any stamp serves the current files with an immutable cache header; other names are 404."""
+    client = await hass_client()
+    stamp = stub_frontend.call_args_list[0].args[1].split("/")[3]
+    for url in (FRONTEND_URL, PICTURE_URL, FEATURES_URL, ICONS_URL, STYLES_URL, SHAPES_URL):
+        resp = await client.get(stamped_url(stamp, Path(url).name))
+        assert resp.status == 200, url
+        assert "immutable" in resp.headers["Cache-Control"]
+        assert (await resp.text()).startswith("/**"), url
+    # A stale app shell with an older stamp still gets the current module.
+    resp = await client.get(stamped_url("0.0.1.deadbeef", "controlfreak-features.js"))
+    assert resp.status == 200
+    assert "SHOW_PALETTES" in await resp.text()
+    for bad in ("manifest.json", "..%2F__init__.py", "nope.js"):
+        resp = await client.get(f"/controlfreak/v/{stamp}/{bad}")
+        assert resp.status in (400, 404), bad  # aiohttp rejects the traversal itself with 400

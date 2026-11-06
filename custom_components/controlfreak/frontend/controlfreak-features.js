@@ -12,7 +12,7 @@
  *   entity: light.pool_light
  *   features:
  *     - type: custom:controlfreak-light-colors # a bar of colour swatches, one per colour effect
- *     - type: custom:controlfreak-light-shows  # a dropdown of the light shows (SAM Mode, Party Mode, ...)
+ *     - type: custom:controlfreak-light-shows  # a menu of the light shows, each with the colours it performs
  *
  * A Control Freak light's colours and shows are both Home Assistant effects.
  * The colours are the ones the picture card knows (EFFECT_COLORS); anything
@@ -56,6 +56,39 @@ const CSS_COLORS = {
   warm: "#ffd9a0",
   cool: "#dfeeff",
 };
+
+/**
+ * The colours each light show performs, from Pentair's IntelliBrite manual:
+ * SAm cycles white, magenta, blue, green; Party changes colour rapidly;
+ * Romance drifts through soft tones; Caribbean is blues and greens;
+ * American is red, white and blue; California Sunset is orange, red and
+ * magenta; Royal is the deeper, richer tones. Matched on the show's name,
+ * so "SAM Mode", "SAm" and "Sam Show" all find the same palette.
+ */
+export const SHOW_PALETTES = [
+  { match: /\bsam\b/i, colors: ["#f4f7ff", "#e04bd6", "#2f7dff", "#34d07b"] },
+  { match: /\bparty\b/i, colors: ["#ff4d4d", "#ffd23f", "#34d07b", "#2f7dff", "#e04bd6"] },
+  { match: /\bromance\b/i, colors: ["#f08ac0", "#c67ae8", "#7f8cf0", "#f2b7d6"] },
+  { match: /\bcar+ib+ean\b/i, colors: ["#1fb6e8", "#1fd0b4", "#34d07b", "#1a6fd8"] },
+  { match: /\bamerican?\b/i, colors: ["#ff4d4d", "#f4f7ff", "#2f7dff"] },
+  { match: /\b(california|sunset)\b/i, colors: ["#ff9a2e", "#ff4d4d", "#e04bd6"] },
+  { match: /\broyal\b/i, colors: ["#4b2a9a", "#1a3ab0", "#a0102a", "#c08a10"] },
+];
+
+/** The palette for a show name: the hex colours it performs, or [] when the show is not known. */
+export function showPalette(name) {
+  const n = String(name ?? "");
+  for (const { match, colors } of SHOW_PALETTES) if (match.test(n)) return colors.slice();
+  return [];
+}
+
+/** A CSS background for a palette chip: equal hard-edged bands, left to right. */
+export function paletteGradient(colors) {
+  if (!colors.length) return "var(--disabled-color, #9e9e9e)";
+  const w = 100 / colors.length;
+  const stops = colors.map((c, i) => `${c} ${(i * w).toFixed(2)}% ${((i + 1) * w).toFixed(2)}%`);
+  return `linear-gradient(90deg, ${stops.join(", ")})`;
+}
 
 /**
  * Colour effects and show effects from a light's effect_list, in its order.
@@ -135,6 +168,8 @@ const COMMON_CSS = `
 /** Keys a control consumes; they must not reach the tile card's action handler. */
 export const KEYS_KEPT = new Set(["Enter", " ", "Spacebar", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End", "PageUp", "PageDown", "Escape"]);
 
+const sameJson = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
 class Feature extends Base {
   constructor() {
     super();
@@ -159,8 +194,8 @@ class Feature extends Base {
 
   setConfig(config) {
     if (!config || typeof config !== "object") throw new Error(`${this.constructor.TYPE}: invalid configuration`);
+    if (!sameJson(config, this._config)) this._key = null;
     this._config = config;
-    this._key = null;
     this._render();
   }
 
@@ -173,9 +208,15 @@ class Feature extends Base {
     return this._hass;
   }
 
+  /**
+   * The tile card passes a fresh `{ entity_id }` object on every one of its
+   * renders (every hass update). Only a different entity is a change; a rebuild
+   * on every assignment would tear the controls down under the finger and
+   * close the open show menu.
+   */
   set context(context) {
+    if (!sameJson(context, this._context)) this._key = null;
     this._context = context;
-    this._key = null;
     this._render();
   }
 
@@ -412,22 +453,47 @@ export class LightColorsFeature extends Feature {
   }
 }
 
-/** A dropdown of the light shows. */
+/**
+ * The light shows as a menu: a button showing the running show and its colours,
+ * opening a popover list with a palette chip per show (SHOW_PALETTES). The list
+ * is a listbox: arrows move, Enter or Space picks, Escape closes, and the
+ * popover light-dismisses on an outside tap.
+ */
 export class LightShowsFeature extends Feature {
   static TYPE = LIGHT_SHOWS;
   static CSS = `
     .wrap { position: relative; height: var(--feature-height, 42px); }
-    select { appearance: none; -webkit-appearance: none; width: 100%; height: 100%; margin: 0; padding: 0 36px 0 14px;
-             font: inherit; color: var(--primary-text-color); cursor: pointer;
-             border: 0; border-radius: var(--feature-border-radius, 12px);
-             background: var(--control-select-background, var(--disabled-color, #9e9e9e)); }
-    .wrap::before { content: ""; position: absolute; inset: 0; border-radius: var(--feature-border-radius, 12px);
-             background: var(--card-background-color, #fff); opacity: 0.8; pointer-events: none; }
-    .wrap::after { content: ""; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
-             border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg);
-             opacity: 0.7; pointer-events: none; }
-    select { position: relative; background: transparent; }
-    select.active { font-weight: 600; }
+    .trigger { position: relative; width: 100%; height: 100%; display: flex; align-items: center; gap: 10px;
+               padding: 0 36px 0 10px; border-radius: var(--feature-border-radius, 12px); color: var(--primary-text-color);
+               background: var(--control-select-background, var(--disabled-color, #9e9e9e)); text-align: left; }
+    .trigger::before { content: ""; position: absolute; inset: 0; border-radius: inherit;
+               background: var(--card-background-color, #fff); opacity: 0.8; pointer-events: none; }
+    .trigger::after { content: ""; position: absolute; right: 14px; top: 50%; width: 8px; height: 8px; margin-top: -6px;
+               border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg);
+               opacity: 0.7; pointer-events: none; transition: transform 120ms ease; }
+    .trigger[aria-expanded="true"]::after { transform: rotate(225deg); margin-top: -2px; }
+    .trigger > * { position: relative; }
+    .trigger .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .trigger.active .name { font-weight: 600; }
+    .chip { flex: 0 0 auto; width: 44px; height: 22px; border-radius: 7px; background: var(--chip);
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); background-size: 200% 100%; }
+    .chip.none { width: 22px; opacity: 0.35; }
+    .trigger.active .chip { animation: cf-show 6s linear infinite; }
+    @media (prefers-reduced-motion: reduce) { .trigger.active .chip { animation: none; } }
+    @keyframes cf-show { from { background-position: 0 0; } to { background-position: -200% 0; } }
+    .menu { position: fixed; inset: auto; margin: 0; padding: 6px; border: 0; box-sizing: border-box;
+            border-radius: var(--feature-border-radius, 12px); background: var(--card-background-color, #fff);
+            color: var(--primary-text-color); box-shadow: 0 6px 24px rgba(0,0,0,0.35), 0 0 0 1px var(--divider-color, rgba(0,0,0,0.12));
+            max-height: 60vh; overflow: auto; }
+    .menu:popover-open { display: flex; flex-direction: column; gap: 2px; }
+    .option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 8px;
+              color: inherit; text-align: left; }
+    .option:hover, .option:focus-visible { background: var(--secondary-background-color, rgba(127,127,127,0.15)); outline: none; }
+    .option[aria-selected="true"] { font-weight: 600; }
+    .option[aria-selected="true"]::after { content: ""; width: 7px; height: 12px; margin-left: auto; margin-right: 4px;
+              border-right: 2px solid var(--feature-color, var(--primary-color)); border-bottom: 2px solid var(--feature-color, var(--primary-color));
+              transform: rotate(45deg); }
+    .option .name { flex: 1; }
   `;
 
   static getStubConfig() {
@@ -449,33 +515,126 @@ export class LightShowsFeature extends Feature {
     }
     const { shows } = splitEffects(st.attributes?.effect_list);
     const on = st.state === "on";
-    const current = on ? st.attributes?.effect : null;
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", "Light show");
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = this._config.label ?? "Light show";
-    placeholder.disabled = true;
-    select.append(placeholder);
-    let active = false;
-    for (const name of shows) {
-      const o = document.createElement("option");
-      o.value = name;
-      o.textContent = name.replace(/\s+Mode$/i, "");
-      if (name === current) {
-        o.selected = true;
-        active = true;
-      }
-      select.append(o);
+    const current = on && shows.includes(st.attributes?.effect) ? st.attributes.effect : null;
+    const label = this._config.label ?? "Light show";
+    const short = (name) => name.replace(/\s+Mode$/i, "");
+
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = `trigger${current ? " active" : ""}`;
+    trigger.setAttribute("aria-haspopup", "listbox");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.setAttribute("aria-label", current ? `${label}: ${short(current)}` : label);
+    trigger.append(this._chip(current ? showPalette(current) : []));
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = current ? short(current) : label;
+    trigger.append(name);
+
+    const menu = document.createElement("div");
+    menu.className = "menu";
+    menu.id = "shows";
+    menu.setAttribute("popover", "auto");
+    // The trigger is the popover's invoker: the browser toggles it, keeps the
+    // trigger out of light-dismiss, and wires aria-expanded itself.
+    trigger.setAttribute("popovertarget", "shows");
+    menu.setAttribute("role", "listbox");
+    menu.setAttribute("aria-label", label);
+    const options = [];
+    for (const show of shows) {
+      const o = document.createElement("button");
+      o.type = "button";
+      o.className = "option";
+      o.setAttribute("role", "option");
+      o.setAttribute("aria-selected", show === current ? "true" : "false");
+      o.dataset.show = show;
+      o.tabIndex = -1;
+      o.append(this._chip(showPalette(show)));
+      const n = document.createElement("span");
+      n.className = "name";
+      n.textContent = short(show);
+      o.append(n);
+      o.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        this._call("light", "turn_on", { effect: show });
+        this._hide(menu);
+      });
+      options.push(o);
+      menu.append(o);
     }
-    if (!active) placeholder.selected = true;
-    select.classList.toggle("active", active);
-    select.addEventListener("click", (ev) => ev.stopPropagation());
-    select.addEventListener("change", () => {
-      if (select.value) this._call("light", "turn_on", { effect: select.value });
+
+    trigger.addEventListener("click", (ev) => ev.stopPropagation());
+    menu.addEventListener("click", (ev) => ev.stopPropagation());
+    menu.addEventListener("beforetoggle", (ev) => {
+      if (ev.newState === "open") this._place(menu, trigger);
     });
-    wrap.append(select);
+    menu.addEventListener("toggle", (ev) => {
+      const open = ev.newState === "open";
+      trigger.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) (options.find((o) => o.getAttribute("aria-selected") === "true") ?? options[0])?.focus();
+    });
+    menu.addEventListener("keydown", (ev) => {
+      const i = options.indexOf(ev.target);
+      const go = (j) => options[(j + options.length) % options.length]?.focus();
+      if (ev.key === "ArrowDown") go(i + 1);
+      else if (ev.key === "ArrowUp") go(i - 1);
+      else if (ev.key === "Home") go(0);
+      else if (ev.key === "End") go(options.length - 1);
+      else if (ev.key === "Escape") this._hide(menu, trigger);
+      else return;
+      ev.preventDefault();
+    });
+
+    wrap.append(trigger, menu);
     root.append(wrap);
+  }
+
+  _chip(colors) {
+    const chip = document.createElement("span");
+    chip.className = `chip${colors.length ? "" : " none"}`;
+    chip.style.setProperty("--chip", paletteGradient(colors.length ? [...colors, ...colors] : colors));
+    chip.setAttribute("aria-hidden", "true");
+    return chip;
+  }
+
+  _show(menu, trigger) {
+    if (typeof menu.showPopover !== "function") return;
+    this._place(menu, trigger);
+    try {
+      menu.showPopover();
+    } catch {
+      /* already open or not connected */
+    }
+  }
+
+  _hide(menu, trigger) {
+    if (typeof menu.hidePopover !== "function") return;
+    try {
+      menu.hidePopover();
+    } catch {
+      /* already closed */
+    }
+    trigger?.focus();
+  }
+
+  /** Under the trigger, its width; above it when the viewport has no room below. */
+  _place(menu, trigger) {
+    const r = trigger.getBoundingClientRect();
+    const vh = globalThis.innerHeight || 800;
+    const vw = globalThis.innerWidth || 1280;
+    const width = Math.max(r.width, 180);
+    const left = Math.min(Math.max(8, r.left), Math.max(8, vw - width - 8));
+    const below = vh - r.bottom - 8;
+    const need = Math.min(menu.scrollHeight || 320, vh * 0.6);
+    menu.style.width = `${width}px`;
+    menu.style.left = `${left}px`;
+    if (below >= need || below >= r.top) {
+      menu.style.top = `${r.bottom + 6}px`;
+      menu.style.bottom = "auto";
+    } else {
+      menu.style.bottom = `${vh - r.top + 6}px`;
+      menu.style.top = "auto";
+    }
   }
 }
 

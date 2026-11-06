@@ -336,119 +336,16 @@ The pump and light tiles carry Control Freak's own features, built for a pool pa
 - **Light colours** (`custom:controlfreak-light-colors`): a bar of swatches, one per
   colour the light offers (Blue, Green, Red, White, Magenta on a Pentair set); the current
   one is marked.
-- **Light shows** (`custom:controlfreak-light-shows`): a dropdown of the shows (SAM,
-  Party, Romance, Caribbean, American, California Sunset, Royal). The two features split the
-  light's effect list between them by name; a light whose effects are not known yet keeps
-  the core `light-effect` dropdown.
+- **Light shows** (`custom:controlfreak-light-shows`): a menu of the shows (SAM, Party,
+  Romance, Caribbean, American, California Sunset, Royal), each with a chip of the colours
+  it performs, from Pentair's IntelliBrite manual: SAm white, magenta, blue, green; American
+  red, white, blue; California Sunset orange, red, magenta; Caribbean blues and greens;
+  Romance soft pinks and violets; Royal the deeper tones; Party the whole set. The button
+  shows the running show with its chip cycling. Arrow keys move, Enter picks, Escape
+  closes, and a tap outside dismisses. Shows with names the table does not know
+  get a neutral chip. Replaces the core `light-effect` dropdown.
 
-They are plain tile features, so a hand-written tile card can use them too:
-
-```yaml
-type: tile
-entity: fan.backyard_filter_pump
-features:
-  - type: custom:controlfreak-pump-speed
-    off_button: true          # default; false hides the Off button
----
-type: tile
-entity: light.backyard_pool_light
-features:
-  - type: custom:controlfreak-light-colors
-    # effects: [Blue, White]  # optional: only these swatches
-  - type: custom:controlfreak-light-shows
-    label: Light show         # the placeholder when no show is running
-```
-
-`controls: core` on the strategy puts Home Assistant's own `fan-speed` and `light-effect`
-features back.
-
-### Create the dashboard
-
-1. Go to **Settings** > **Dashboards**.
-2. Select **Add dashboard**, then **Control Freak pool**.
-
-   If the option isn't listed, select **New dashboard from scratch**, open it, select the
-   three dots menu, then **Edit dashboard** > **Raw configuration editor**, and replace the
-   content with:
-
-   ```yaml
-   strategy:
-     type: custom:controlfreak
-   ```
-
-The dashboard is regenerated when equipment is added to or removed from the controller.
-
-### Dashboard options
-
-Add options under `strategy`:
-
-```yaml
-strategy:
-  type: custom:controlfreak
-  title: DASHBOARD_TITLE
-  pictures: false
-  picture_shape: freeform
-  picture_style: caustic
-  picture_deck: concrete
-  controls: controlfreak
-  hide:
-    - controller
-  order:
-    - sensors
-    - pumps
-  titles:
-    pumps: PUMPS_SECTION_TITLE
-```
-
-| Option | Description |
-|---|---|
-| `title` | The dashboard title. The default is `Pool`. |
-| `pictures` | `false` leaves out the animated picture above the pumps; `features` shows one picture per water feature instead of the overview. The default is `true`. |
-| `picture_shape` | The overview's outline: `rectangle`, `roman`, `kidney`, `freeform`, `lagoon` or `figure8`. The default is `freeform`. |
-| `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
-| `picture_deck` | The surround around the water: `concrete` (the default, a light grey most pools sit in), `pavers`, `travertine`, `wood` or `stone`. |
-| `controls` | The tile features: `controlfreak` (the default: the pump speed slider, the light colour bar and the light show dropdown below) or `core` for Home Assistant's own `fan-speed` and `light-effect` features. |
-| `hide` | A list of equipment types to leave out. |
-| `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
-| `titles` | A heading per equipment type, for example `pumps: Circulation`. |
-| `device_id` | Only show the equipment of this controller, if you have more than one. |
-
-The equipment types are:
-
-| Type | Default heading | Cards |
-|---|---|---|
-| `pumps` | Pumps | The animated pool overview, then a tile per pump with a speed control, followed by its current mode. |
-| `heating` | Heating and cooling | A tile per relay configured as a heater or chiller, with a toggle. |
-| `lights` | Lights and relays | A tile per light with its effects, and a tile per relay with a toggle. |
-| `valves` | Valves | A tile per valve. |
-| `sensors` | Temperature and flow | A tile per temperature with a trend graph, and a tile per flow sensor. |
-| `controller` | Controller health | Connectivity, freeze protection, CPU temperature and firmware version. |
-| `other` | Other equipment | A tile per entity the strategy doesn't recognize. |
-
-### Add a single section to an existing dashboard
-
-To add one block, such as the pumps, to a dashboard you already have, use the section
-strategy in a sections view. Edit the dashboard, open the raw configuration editor, and add a
-section to the view:
-
-```yaml
-views:
-  - title: VIEW_TITLE
-    type: sections
-    sections:
-      - strategy:
-          type: custom:controlfreak
-          equipment: pumps
-          title: SECTION_TITLE
-```
-
-`equipment` is required and takes one of the equipment types above. `title`, `pictures`
-and `device_id` are optional.
-
-## Data updates
-
-The integration works locally and doesn't use the cloud.
-
+  ![The light show menu with a colour chip per show](images/light-shows.png)
 - **Live values** are pushed by the controller over MQTT on WebSockets. The
   integration subscribes to `controller/#` and updates entities as messages arrive.
   Thermistors publish about every two seconds and the controller status about every

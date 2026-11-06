@@ -16,6 +16,9 @@ import {
   LIGHT_SHOWS,
   PUMP_SPEED,
   PumpSpeedFeature,
+  SHOW_PALETTES,
+  paletteGradient,
+  showPalette,
   speedRange,
   splitEffects,
   supportsLightColors,
@@ -125,4 +128,43 @@ test("keys the controls use never reach the tile card (Enter there opens more-in
   for (const k of ["Enter", " ", "ArrowLeft", "ArrowRight", "Escape"]) assert.equal(host.dispatch("keydown", k), true, k);
   assert.equal(host.dispatch("keydown", "a"), false, "typing is not swallowed");
   assert.equal(host.dispatch("keydown", "Tab"), false, "Tab still moves focus out of the control");
+});
+
+test("each Pentair show carries the colours it performs; American is red, white, blue", () => {
+  const names = (hexes) => hexes.map((h) => ({ "#ff4d4d": "red", "#f4f7ff": "white", "#2f7dff": "blue", "#34d07b": "green", "#e04bd6": "magenta" }[h] ?? h));
+  assert.deepEqual(names(showPalette("American Mode")), ["red", "white", "blue"]);
+  assert.deepEqual(names(showPalette("SAM Mode")), ["white", "magenta", "blue", "green"]);
+  for (const show of PENTAIR.filter((n) => /Mode$/.test(n))) {
+    const pal = showPalette(show);
+    assert.ok(pal.length >= 3, `${show} has a palette`);
+    for (const c of pal) assert.match(c, /^#[0-9a-f]{6}$/i, `${show} ${c}`);
+  }
+  assert.deepEqual(showPalette("Carribbean Mode"), showPalette("Caribbean Mode"), "the panel's spelling and the right one match");
+  assert.deepEqual(showPalette("Disco"), [], "an unknown show has no palette");
+  assert.equal(SHOW_PALETTES.length, 7);
+});
+
+test("a palette chip is equal hard-edged bands; no palette is the neutral colour", () => {
+  assert.equal(paletteGradient(["#ff0000", "#00ff00"]), "linear-gradient(90deg, #ff0000 0.00% 50.00%, #00ff00 50.00% 100.00%)");
+  assert.match(paletteGradient([]), /disabled-color/);
+});
+
+test("an equal context or config does not rebuild the feature; a different entity does", () => {
+  // Live 2026-11-05: the tile card assigns a new { entity_id } object on every
+  // render, so the open show menu vanished a few hundred ms after opening.
+  for (const Cls of [PumpSpeedFeature, LightColorsFeature, LightShowsFeature]) {
+    const fe = new Cls();
+    fe.setConfig({ type: `custom:${Cls.TYPE}` });
+    fe.context = { entity_id: "light.pool" };
+    fe._key = "drawn";
+    fe.context = { entity_id: "light.pool" };
+    assert.equal(fe._key, "drawn", `${Cls.TYPE}: same entity keeps the drawing`);
+    fe.setConfig({ type: `custom:${Cls.TYPE}` });
+    assert.equal(fe._key, "drawn", `${Cls.TYPE}: same config keeps the drawing`);
+    fe.context = { entity_id: "light.spa" };
+    assert.equal(fe._key, null, `${Cls.TYPE}: another entity redraws`);
+    fe._key = "drawn";
+    fe.setConfig({ type: `custom:${Cls.TYPE}`, label: "Show" });
+    assert.equal(fe._key, null, `${Cls.TYPE}: another config redraws`);
+  }
 });

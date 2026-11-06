@@ -100,6 +100,7 @@
   const params = new URLSearchParams(location.search);
   const shape = params.get("shape") ?? "full-pool";
   const options = JSON.parse(params.get("options") ?? "{}");
+  const openMenu = params.get("open");
   // "pictures" is the full pool plus a gallery of every scene, day and night.
   const sheet = shape === "styles-day" ? "day" : shape === "styles-night" ? "night" : null;
   const shapesSheet = shape === "shapes-day" ? "day" : shape === "shapes-night" ? "night" : null;
@@ -370,6 +371,12 @@
     main.append(el("div", "error", window.__harnessErrors.join("\n")));
     document.body.dataset.rendered = "error";
   } else {
+    if (openMenu === "shows") {
+      const fe = document.querySelector("controlfreak-light-shows");
+      const menu = fe?.shadowRoot?.querySelector("[popover]");
+      const trigger = fe?.shadowRoot?.querySelector(".trigger");
+      if (menu && trigger) fe._show(menu, trigger);
+    }
     document.body.dataset.rendered = "true";
   }
 </script>
