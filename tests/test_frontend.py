@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import re
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -26,12 +26,20 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 from pytest_homeassistant_custom_component.typing import ClientSessionGenerator
 
-from custom_components.controlfreak.const import DOMAIN, FRONTEND_URL
+from custom_components.controlfreak.const import (
+    DOMAIN,
+    FRONTEND_URL,
+    PICTURE_URL,
+    SHAPES_URL,
+    STYLES_URL,
+)
+from custom_components.controlfreak.mapping import DEFAULT_EFFECTS, EFFECT_COLORS
 
 from .conftest import FakeMqtt, load_fixture, mock_rest
 
 ROOT = Path(__file__).parent.parent
 STRATEGY = ROOT / "custom_components" / DOMAIN / "frontend" / "controlfreak-strategy.js"
+PICTURE = ROOT / "custom_components" / DOMAIN / "frontend" / "controlfreak-picture.js"
 JS_FIXTURES = Path(__file__).parent / "frontend" / "fixtures"
 MANIFEST = json.loads((ROOT / "custom_components" / DOMAIN / "manifest.json").read_text())
 
@@ -43,13 +51,102 @@ async def test_strategy_is_served(
     stub_frontend: MagicMock,
 ) -> None:
     """The JS is registered as a frontend module and actually served over HTTP."""
-    stub_frontend.assert_called_once_with(hass, f"{FRONTEND_URL}?v={MANIFEST['version']}")
+    version = MANIFEST["version"]
+    assert stub_frontend.call_args_list == [
+        call(hass, f"{FRONTEND_URL}?v={version}"),
+        call(hass, f"{PICTURE_URL}?v={version}"),
+    ]
     client = await hass_client()
     resp = await client.get(FRONTEND_URL)
     assert resp.status == 200
     body = await resp.text()
     for tag in ("dashboard", "view", "section"):
         assert f'"ll-strategy-{tag}-controlfreak"' in body
+
+
+async def test_picture_card_is_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The picture card is served beside the strategy, same cache-buster (checked above)."""
+    client = await hass_client()
+    resp = await client.get(PICTURE_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert 'customElements.define("controlfreak-picture"' in body
+    assert 'type: "controlfreak-picture"' in body  # listed in the card picker
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_picture_styles_are_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The styles module the card imports is served at the path the import resolves to."""
+    picture = PICTURE.read_text()
+    assert 'from "./controlfreak-picture-styles.js"' in picture
+    assert PICTURE_URL.rsplit("/", 1)[0] + "/controlfreak-picture-styles.js" == STYLES_URL
+    client = await hass_client()
+    resp = await client.get(STYLES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert 'export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];' in body
+    mime = resp.headers["Content-Type"].split(";")[0]
+    assert mime in ("application/javascript", "text/javascript")
+
+
+async def test_pool_shapes_are_served(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The shapes module (the overview's outlines) is served where the card imports it."""
+    assert 'from "./controlfreak-pool-shapes.js"' in PICTURE.read_text()
+    assert PICTURE_URL.rsplit("/", 1)[0] + "/controlfreak-pool-shapes.js" == SHAPES_URL
+    client = await hass_client()
+    resp = await client.get(SHAPES_URL)
+    assert resp.status == 200
+    body = await resp.text()
+    assert "export const SHAPES = [" in body
+    for shape in ("rectangle", "kidney", "lazy-l", "mountain-lake", "lagoon"):
+        assert f'"{shape}",' in body
+
+
+async def test_modules_are_revalidated_on_every_load(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The styles and shapes imports carry no version query, so nothing may be cached blindly.
+
+    Every module answers with `Cache-Control: no-cache` and a validator, so the
+    browser asks again after an upgrade (and gets a 304 while nothing changed).
+    Anything else under /controlfreak/ is a 404, not a directory listing.
+    """
+    client = await hass_client()
+    for url in (FRONTEND_URL, PICTURE_URL, STYLES_URL, SHAPES_URL):
+        resp = await client.get(url)
+        assert resp.status == 200, url
+        assert resp.headers["Cache-Control"] == "no-cache", url
+        assert "Last-Modified" in resp.headers or "ETag" in resp.headers, url
+    resp = await client.get(PICTURE_URL.rsplit("/", 1)[0] + "/manifest.json")
+    assert resp.status == 404
+    resp = await client.get(PICTURE_URL.rsplit("/", 1)[0] + "/..%2Fmanifest.json")
+    assert resp.status in (400, 404)
+
+
+def js_effect_colors() -> dict[str, str]:
+    """The EFFECT_COLORS table as written in controlfreak-picture.js, in order."""
+    js = PICTURE.read_text()
+    start = js.index("export const EFFECT_COLORS = {")
+    block = js[start : js.index("};", start)]
+    pairs = re.findall(r'^\s+"?([^"\n:]+?)"?: "([^"]+)",?$', block, re.MULTILINE)
+    assert pairs, "EFFECT_COLORS table not found in the picture card"
+    return dict(pairs)
+
+
+def test_effect_table_matches_mapping() -> None:
+    """One effect table: the card's copy equals mapping.py's, same names, same order."""
+    colors = js_effect_colors()
+    assert colors == EFFECT_COLORS
+    assert list(colors) == list(DEFAULT_EFFECTS)
+    for name, value in colors.items():
+        assert value == "show" or re.fullmatch(r"#[0-9a-f]{6}", value), name
 
 
 def strategy_translation_keys() -> set[str]:

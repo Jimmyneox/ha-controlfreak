@@ -33,21 +33,25 @@ KNOWN_TYPES = frozenset(
 PUMP_MODES = ("pool", "spa", "spillover")
 
 # The Pentair colour set captured from the vendor app; used when the panel's
-# connection type does not list its own properties.
-DEFAULT_EFFECTS: tuple[str, ...] = (
-    "Blue",
-    "Green",
-    "Red",
-    "White",
-    "Magenta",
-    "SAM Mode",
-    "Party Mode",
-    "Romance Mode",
-    "Carribbean Mode",
-    "American Mode",
-    "California Sunset Mode",
-    "Royal Mode",
-)
+# connection type does not list its own properties. The value is the colour the
+# dashboard picture card tints the water with ("show" cycles through hues).
+# frontend/controlfreak-picture.js carries the same table as EFFECT_COLORS;
+# tests/test_frontend.py checks the two never drift apart.
+EFFECT_COLORS: dict[str, str] = {
+    "Blue": "#2f7dff",
+    "Green": "#34d07b",
+    "Red": "#ff4d4d",
+    "White": "#f4f7ff",
+    "Magenta": "#e04bd6",
+    "SAM Mode": "show",
+    "Party Mode": "show",
+    "Romance Mode": "show",
+    "Carribbean Mode": "show",
+    "American Mode": "show",
+    "California Sunset Mode": "show",
+    "Royal Mode": "show",
+}
+DEFAULT_EFFECTS: tuple[str, ...] = tuple(EFFECT_COLORS)
 
 CONTROLLER_BASE = "controller/"
 FREEZE_BASE = "controller/freeze-protection/"

@@ -9,7 +9,14 @@
   and open tests/frontend/harness.html?shape=full-pool. The page runs the REAL
   strategy module against a hass stub fixture and draws the generated config
   with simplified stand-ins for the core cards (heading, tile + features,
-  markdown). It checks structure and layout, not Home Assistant's own styling.
+  markdown) and the REAL picture card (custom:controlfreak-picture) for the
+  animated pictures. It checks structure and layout, not Home Assistant's own
+  styling. ?shape=pictures renders the full pool plus a gallery of every scene
+  by day and by night. ?shape=styles-day and ?shape=styles-night render the
+  contact sheet: every picture style (rows) by every scene (columns), one
+  page per time of day. ?shape=shapes-day and ?shape=shapes-night do the same
+  for the overview: styles down, pool shapes across, every part running. body[data-rendered] becomes "true" once every picture
+  has drawn a frame, "error" on any script error or console.error.
 -->
 <style>
   :root { --bg: #f4f5f7; --card: #fff; --text: #1c1c1e; --muted: #6b6f76; --line: #e2e4e8;
@@ -42,18 +49,51 @@
   .bar i { display: block; height: 100%; background: var(--accent); }
   .tap { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .markdown { background: var(--card); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; white-space: pre-wrap; }
+  .picture { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+  .picture controlfreak-picture { display: block; height: 100%; }
+  .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 16px; }
+  .gallery .heading { grid-column: 1 / -1; }
+  .sized .picture { height: auto; }
+  .caption { font-size: 12px; color: var(--muted); padding: 0 4px; }
+  .night { background: #0a1a24; color: #e4f2f5; border-radius: 12px; padding: 8px; }
+  .night .caption { color: #93abb3; }
+  .sheet { grid-column: 1 / -1; display: grid; grid-template-columns: 110px repeat(5, 1fr); gap: 10px; align-items: center; }
+  .sheet.shapes { grid-template-columns: 110px repeat(12, 1fr); } /* overridden per page from SHAPES.length */
+  .sheet .picture { height: 150px; --controlfreak-picture-height: 150px; }
+  .sheet.shapes .picture { height: 170px; --controlfreak-picture-height: 170px; }
+  .sheet .rowlabel { font-weight: 600; font-size: 15px; }
+  .sheet .rowlabel small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .sheet .collabel { text-align: center; font-size: 12px; color: var(--muted); }
+  .night.sheet { background: #0a1a24; color: #e4f2f5; }
+  .night .rowlabel small, .night .collabel { color: #93abb3; }
+  .error { grid-column: 1 / -1; background: #fde8e8; color: #8a1c1c; padding: 12px; border-radius: 12px; white-space: pre-wrap; }
 </style>
 </head>
 <body>
 <header><h1 id="title"></h1><span id="meta"></span></header>
 <main id="view"></main>
+<script>
+  // Any script error or console.error fails the render check (see the end of the module).
+  window.__harnessErrors = [];
+  addEventListener("error", (e) => window.__harnessErrors.push(e.message));
+  addEventListener("unhandledrejection", (e) => window.__harnessErrors.push(String(e.reason)));
+  const origError = console.error.bind(console);
+  console.error = (...args) => { window.__harnessErrors.push(args.join(" ")); origError(...args); };
+</script>
 <script type="module">
   import { buildDashboard } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
+  import { SCENES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
+  import { STYLES, STYLE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-picture-styles.js";
+  import { SHAPES, SHAPE_LABELS } from "../../custom_components/controlfreak/frontend/controlfreak-pool-shapes.js";
 
   const params = new URLSearchParams(location.search);
   const shape = params.get("shape") ?? "full-pool";
   const options = JSON.parse(params.get("options") ?? "{}");
-  const hass = await (await fetch(`./fixtures/${shape}.json`)).json();
+  // "pictures" is the full pool plus a gallery of every scene, day and night.
+  const sheet = shape === "styles-day" ? "day" : shape === "styles-night" ? "night" : null;
+  const shapesSheet = shape === "shapes-day" ? "day" : shape === "shapes-night" ? "night" : null;
+  const fixtureName = shape === "pictures" || sheet || shapesSheet ? "full-pool" : shape;
+  const hass = await (await fetch(`./fixtures/${fixtureName}.json`)).json();
   const dashboard = buildDashboard(hass, options);
   const view = dashboard.views[0];
 
@@ -86,7 +126,17 @@
     }
   }
 
+  function pictureEl(card, hassFor) {
+    const wrap = el("div", "picture");
+    const pic = document.createElement("controlfreak-picture");
+    pic.setConfig(card);
+    pic.hass = hassFor;
+    wrap.append(pic);
+    return wrap;
+  }
+
   function cardEl(card) {
+    if (card.type === "custom:controlfreak-picture") return pictureEl(card, hass);
     if (card.type === "heading") {
       const h = el("div", "heading", card.heading);
       if (card.icon) h.append(el("span", "mdi", card.icon));
@@ -122,12 +172,150 @@
   document.getElementById("meta").textContent =
     `shape: ${shape} · ${view.sections.length} section(s) · ${nTiles} tile(s)`;
   const main = document.getElementById("view");
-  for (const section of view.sections) {
-    const s = el("div", "section");
-    for (const card of section.cards) s.append(cardEl(card));
-    main.append(s);
+  if (!sheet && !shapesSheet) {
+    for (const section of view.sections) {
+      const s = el("div", "section");
+      for (const card of section.cards) s.append(cardEl(card));
+      main.append(s);
+    }
   }
-  document.body.dataset.rendered = "true";
+
+  // Every scene with its pump running and its light on. Entities are synthetic:
+  // the full-pool fixture has no deck jets or bubbler.
+  const demo = {
+      states: {
+        "fan.demo_pump": { state: "on", attributes: { percentage: 60 } },
+        "sensor.demo_mode": { state: "spillover", attributes: {} },
+        "light.demo_blue": { state: "on", attributes: { effect: "Blue" } },
+        "light.demo_magenta": { state: "on", attributes: { effect: "Magenta" } },
+        "light.demo_white": { state: "on", attributes: { effect: "White" } },
+        "light.demo_green": { state: "on", attributes: { effect: "Green" } },
+        "light.demo_show": { state: "on", attributes: { effect: "Party Mode" } },
+      },
+    };
+  const lights = ["light.demo_blue", "light.demo_magenta", "light.demo_white", "light.demo_green", "light.demo_show"];
+  const STYLE_NOTES = {
+    caustic: "soft caustic water",
+    blueprint: "flat plan view, ink lines",
+    depth: "refracted tiles, glints",
+    neon: "dark mirror, glowing lights",
+    poster: "flat colours, paper grain",
+  };
+  if (sheet) {
+    // The contact sheet: styles down, scenes across, one time of day per page.
+    const dark = sheet === "night";
+    const g = el("div", `sheet${dark ? " night" : ""}`);
+    g.append(el("div", "collabel", dark ? "night" : "day"));
+    SCENES.forEach((scene, i) => g.append(el("div", "collabel", `${scene} · pump 60% · ${demo.states[lights[i]].attributes.effect}`)));
+    for (const style of STYLES) {
+      const label = el("div", "rowlabel", STYLE_LABELS[style]);
+      label.append(el("small", "", STYLE_NOTES[style]));
+      g.append(label);
+      SCENES.forEach((scene, i) => {
+        const card = { type: "custom:controlfreak-picture", scene, style, pump: "fan.demo_pump", light: lights[i] };
+        if (scene === "spa") card.spillover = "sensor.demo_mode";
+        g.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+      });
+    }
+    main.append(g);
+    document.getElementById("meta").textContent = `shape: ${shape} · ${STYLES.length} styles × ${SCENES.length} scenes`;
+  }
+
+  if (shapesSheet) {
+    // The overview contact sheet: styles down, shapes across, every part running.
+    const dark = shapesSheet === "night";
+    const g = el("div", `sheet shapes${dark ? " night" : ""}`);
+    g.style.gridTemplateColumns = `110px repeat(${SHAPES.length}, 1fr)`;
+    g.append(el("div", "collabel", dark ? "night" : "day"));
+    for (const sh of SHAPES) g.append(el("div", "collabel", SHAPE_LABELS[sh]));
+    for (const style of STYLES) {
+      const label = el("div", "rowlabel", STYLE_LABELS[style]);
+      label.append(el("small", "", STYLE_NOTES[style]));
+      g.append(label);
+      for (const sh of SHAPES) {
+        const card = {
+          type: "custom:controlfreak-picture",
+          scene: "overview",
+          shape: sh,
+          style,
+          pumps: { pool: "fan.demo_pump", spa: "fan.demo_pump", falls: "fan.demo_pump", deck: "fan.demo_pump", bub: "fan.demo_pump" },
+          lights: { pool: "light.demo_blue", spa: "light.demo_magenta", falls: "light.demo_white" },
+          spillover: "sensor.demo_mode",
+        };
+        g.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+      }
+    }
+    main.append(g);
+    document.getElementById("meta").textContent = `shape: ${shape} · ${STYLES.length} styles × ${SHAPES.length} shapes`;
+  }
+
+  if (shape === "pictures") {
+    for (const dark of [false, true]) {
+      const g = el("div", `gallery${dark ? " night" : ""}`);
+      g.append(el("div", "heading", dark ? "Every scene at night" : "Every scene by day"));
+      SCENES.forEach((scene, i) => {
+        const card = { type: "custom:controlfreak-picture", scene, pump: "fan.demo_pump", light: lights[i] };
+        if (scene === "spa") card.spillover = "sensor.demo_mode";
+        const cell = el("div");
+        cell.append(pictureEl(card, { ...demo, themes: { darkMode: dark } }));
+        cell.append(el("div", "caption", `${scene} · pump 60% · ${demo.states[lights[i]].attributes.effect}`));
+        g.append(cell);
+      });
+      main.append(g);
+    }
+    // Every pool outline as the overview, by day, pump running and light on.
+    const g = el("div", "gallery shapes");
+    g.append(el("div", "heading", "Every pool shape"));
+    for (const shape of SHAPES) {
+      const card = {
+        type: "custom:controlfreak-picture",
+        scene: "overview",
+        shape,
+        pumps: { pool: "fan.demo_pump", spa: "fan.demo_pump" },
+        lights: { pool: "light.demo_blue" },
+      };
+      const cell = el("div");
+      cell.append(pictureEl(card, { ...demo, themes: { darkMode: false } }));
+      cell.append(el("div", "caption", `${SHAPE_LABELS[shape]} · ${shape}`));
+      g.append(cell);
+    }
+    main.append(g);
+    // A short and a tall picture: the height follows the card's rows / height.
+    const sizes = el("div", "gallery sizes");
+    sizes.append(el("div", "heading", "Sizes: height 140px and aspect ratio 21:9"));
+    for (const cfg of [{ height: 140 }, { aspect_ratio: "21:9" }]) {
+      const cell = el("div", "sized");
+      cell.append(pictureEl({ type: "custom:controlfreak-picture", scene: "pool", shape: "roman", ...cfg }, demo));
+      cell.append(el("div", "caption", JSON.stringify(cfg)));
+      sizes.append(cell);
+    }
+    main.append(sizes);
+    // The shape chooser both editors show, with "kidney" selected.
+    const chooser = el("div", "gallery chooser");
+    chooser.append(el("div", "heading", "Shape chooser (editors)"));
+    const picker = document.createElement("controlfreak-shape-picker");
+    picker.style.gridColumn = "1 / -1";
+    picker.value = "kidney";
+    picker.hass = { themes: { darkMode: false } };
+    chooser.append(picker);
+    main.append(chooser);
+  }
+
+  // Ready once every picture has drawn a frame (ResizeObserver fires after layout).
+  const pics = [...document.querySelectorAll("controlfreak-picture")];
+  const deadline = performance.now() + 8000;
+  while (pics.some((p) => p.frames === 0) && performance.now() < deadline) {
+    await new Promise((r) => requestAnimationFrame(r));
+  }
+  await new Promise((r) => requestAnimationFrame(r));
+  const undrawn = pics.filter((p) => p.frames === 0).length;
+  if (undrawn) window.__harnessErrors.push(`${undrawn} picture card(s) never drew a frame`);
+  if (window.__harnessErrors.length) {
+    main.append(el("div", "error", window.__harnessErrors.join("\n")));
+    document.body.dataset.rendered = "error";
+  } else {
+    document.body.dataset.rendered = "true";
+  }
 </script>
 </body>
 </html>

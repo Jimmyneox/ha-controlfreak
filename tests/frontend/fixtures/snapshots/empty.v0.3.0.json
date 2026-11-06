@@ -1,0 +1,23 @@
+{
+  "title": "Pool",
+  "views": [
+    {
+      "type": "sections",
+      "title": "Pool",
+      "path": "pool",
+      "icon": "mdi:pool",
+      "max_columns": 4,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "markdown",
+              "content": "**No Control Freak equipment found.**\n\nAdd the Control Freak integration under **Settings → Devices & services**, then reload this dashboard."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

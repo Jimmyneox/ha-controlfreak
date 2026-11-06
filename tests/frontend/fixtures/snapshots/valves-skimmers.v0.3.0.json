@@ -1,0 +1,104 @@
+{
+  "title": "Pool",
+  "views": [
+    {
+      "type": "sections",
+      "title": "Pool",
+      "path": "pool",
+      "icon": "mdi:pool",
+      "max_columns": 4,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Valves",
+              "heading_style": "title",
+              "icon": "mdi:valve"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_intake_valve",
+              "icon_tap_action": {
+                "action": "more-info"
+              },
+              "name": "Intake Valve"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_skimmer_1",
+              "icon_tap_action": {
+                "action": "more-info"
+              },
+              "name": "Skimmer 1"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_skimmer_2",
+              "icon_tap_action": {
+                "action": "more-info"
+              },
+              "name": "Skimmer 2"
+            },
+            {
+              "type": "tile",
+              "entity": "switch.backyard_spa_return_valve",
+              "icon_tap_action": {
+                "action": "more-info"
+              },
+              "name": "Spa Return Valve"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Temperature and flow",
+              "heading_style": "title",
+              "icon": "mdi:thermometer-water"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.backyard_skimmer_flow",
+              "name": "Skimmer Flow"
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "Controller health",
+              "heading_style": "title",
+              "icon": "mdi:chip"
+            },
+            {
+              "type": "tile",
+              "entity": "binary_sensor.backyard_controller",
+              "name": "Controller"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_freeze_protection",
+              "name": "Freeze protection"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_cpu_temperature",
+              "name": "CPU temperature"
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.backyard_firmware_version",
+              "name": "Firmware version"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

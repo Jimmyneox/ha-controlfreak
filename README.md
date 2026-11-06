@@ -15,10 +15,16 @@ WebSockets for live values. No cloud, and your own MQTT setup is unaffected.
   health, all under the names you gave them in the Control Freak app. Add or remove
   equipment in the Control Freak app and Home Assistant follows without a restart.
 - **A dashboard that builds itself:** `strategy: { type: custom:controlfreak }` creates a
-  dashboard with a section per equipment type you actually have, using only built-in cards.
+  dashboard with a section per equipment type you actually have, using built-in cards.
   Single sections drop into an existing dashboard.
+- **Animated pictures:** the pool, spa, waterfall, deck jets and bubblers above your pumps,
+  the pool in the shape of yours (rectangle, roman, grecian, oval, round, kidney, figure 8,
+  lazy L, true L, mountain lake, freeform or your own outline) and each picture resizable,
+  water moving with pump speed and tinted by the light's effect, dark at night.
 
 ![Generated dashboard](docs/images/dashboard-full-pool.png)
+
+![Animated pool, spa and waterfall pictures](docs/images/dashboard-pictures.png)
 
 ## Install
 
@@ -55,7 +61,8 @@ The Python tests run against real, scrubbed responses from a controller
 `tests/test_frontend.py` generates from the integration's own entities
 (`UPDATE_DASHBOARD_FIXTURES=1` regenerates them). To see the render check, serve the
 repository root (`python3 -m http.server`) and open
-`tests/frontend/harness.html?shape=full-pool`.
+`tests/frontend/harness.html?shape=full-pool` (or `?shape=pictures` for every animated
+scene by day and by night).
 
 ## License
 
