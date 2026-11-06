@@ -16,6 +16,7 @@ import {
   ROWS_MAX,
   ROWS_MIN,
   SCENES,
+  SHAPE_LABELS,
   SHAPE_NAMES,
   SHOW,
   WHITE,
@@ -327,6 +328,7 @@ test("pool shapes: the standard set, each a closed path inside the unit square",
     "custom",
   ]);
   assert.equal(DEFAULT_SHAPE, "rectangle");
+  for (const name of SHAPE_NAMES) assert.equal(typeof SHAPE_LABELS[name], "string", `${name} has a label`);
   for (const [name, def] of Object.entries(POOL_SHAPES)) {
     const d = def.path;
     assert.match(d, /^M/, name);

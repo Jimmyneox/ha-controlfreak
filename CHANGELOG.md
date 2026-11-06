@@ -20,6 +20,9 @@
   hand-placed card, or in the card editor. The pool sits on a paver deck with coping, Roman
   entry steps at the shallow end, a shallow-to-deep gradient, the main drain and a waterline
   tile band.
+- **Settings dialog.** The dashboard, view and section strategies now have an editor in
+  Home Assistant's edit dialog: title (or equipment), the pictures switch, a shape chooser
+  that shows every outline as a small picture, and the picture height. No YAML needed.
 - **Resizable pictures.** In a sections view each picture can be dragged taller or shorter
   (2 to 12 rows) in the layout editor; `pictures: { rows: 6 }` on the strategy sets the
   starting height of every picture, and a hand-placed card takes `rows`, `height` or

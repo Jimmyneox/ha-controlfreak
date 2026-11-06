@@ -436,9 +436,168 @@ export function buildDashboard(hass, options = {}) {
   return { title: options.title ?? "Pool", views: [buildView(hass, options)] };
 }
 
+/* ----- Settings editor (the dashboard's edit dialog) ---------------------- */
+
+// Shape names, labels and row limits come from the picture module at run time.
+const PICTURE_FALLBACK = {
+  SHAPE_NAMES: ["rectangle", "custom"],
+  SHAPE_LABELS: { rectangle: "Rectangle", custom: "Custom path" },
+  DEFAULT_SHAPE: "rectangle",
+  ROWS_MIN: 2,
+  ROWS_MAX: 12,
+  DEFAULT_ROWS: 4,
+};
+const pictureInfo = () => globalThis.controlfreakPicture ?? PICTURE_FALLBACK;
+
+const EDITOR_LABELS = {
+  title: "Title",
+  equipment: "Equipment",
+  pictures: "Animated pictures above the pumps",
+  shape: "Pool shape",
+  path: "Custom outline (SVG path in a 0..1 square)",
+  rows: "Picture height (rows)",
+};
+
+/** Flat form data for the editor from a strategy config. */
+export function editorData(config = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const pics = config.pictures;
+  const data = {
+    pictures: pics !== false,
+    shape: info.DEFAULT_SHAPE,
+    rows: info.DEFAULT_ROWS,
+  };
+  if (kind === "dashboard") data.title = config.title ?? "";
+  if (kind === "section") data.equipment = config.equipment ?? "";
+  if (pics && typeof pics === "object") {
+    if (typeof pics.shape === "string" && pics.shape) data.shape = pics.shape;
+    if (typeof pics.path === "string") data.path = pics.path;
+    const rows = Number(pics.rows);
+    if (Number.isFinite(rows) && rows > 0) data.rows = Math.round(rows);
+  }
+  return data;
+}
+
+/** The strategy config for the editor's form data; other keys (hide, order…) are kept. */
+export function configFromEditor(data, config = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const out = { ...config };
+  if (kind === "dashboard") {
+    if (data.title && data.title !== "Pool") out.title = data.title;
+    else delete out.title;
+  }
+  if (kind === "section") {
+    if (data.equipment) out.equipment = data.equipment;
+    else delete out.equipment;
+  }
+  if (data.pictures === false) {
+    out.pictures = false;
+    return out;
+  }
+  const pics = {};
+  if (data.shape && data.shape !== info.DEFAULT_SHAPE) pics.shape = data.shape;
+  if (pics.shape === "custom" && typeof data.path === "string" && data.path.trim()) pics.path = data.path.trim();
+  const rows = Number(data.rows);
+  if (Number.isFinite(rows) && rows > 0 && Math.round(rows) !== info.DEFAULT_ROWS) pics.rows = Math.round(rows);
+  if (Object.keys(pics).length) out.pictures = pics;
+  else delete out.pictures;
+  return out;
+}
+
+/** The ha-form schema for the settings editor. */
+export function strategyEditorSchema(data = {}, kind = "dashboard") {
+  const info = pictureInfo();
+  const schema = [];
+  if (kind === "dashboard") schema.push({ name: "title", selector: { text: {} } });
+  if (kind === "section") {
+    schema.push({
+      name: "equipment",
+      required: true,
+      selector: { select: { mode: "dropdown", options: EQUIPMENT_TYPES.map((t) => ({ value: t, label: titleFor(t, {}) })) } },
+    });
+  }
+  schema.push({ name: "pictures", selector: { boolean: {} } });
+  if (data.pictures !== false) {
+    if (data.shape === "custom") schema.push({ name: "path", selector: { text: { multiline: true } } });
+    schema.push({ name: "rows", selector: { number: { min: info.ROWS_MIN, max: info.ROWS_MAX, mode: "slider" } } });
+  }
+  return schema;
+}
+
 /* ----- Custom elements (browser only) ------------------------------------ */
 
 const Base = globalThis.HTMLElement ?? class {};
+
+/**
+ * The settings editor Home Assistant opens from a strategy dashboard's edit
+ * dialog (and for the view and section strategies): title, equipment, the
+ * pictures switch, the pool shape chooser and the picture height.
+ */
+export class ControlFreakStrategyEditor extends Base {
+  static forKind(kind) {
+    const el = document.createElement("controlfreak-strategy-editor");
+    el.kind = kind;
+    return el;
+  }
+
+  constructor() {
+    super();
+    this.kind = "dashboard";
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._form) this._form.hass = hass;
+    if (this._picker) this._picker.hass = hass;
+  }
+
+  set lovelace(_) {}
+
+  connectedCallback() {
+    this._render();
+  }
+
+  _apply(data) {
+    this._config = configFromEditor(data, this._config, this.kind);
+    this._render();
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+  }
+
+  _render() {
+    if (!this.isConnected || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (field) => EDITOR_LABELS[field.name] ?? field.name;
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...ev.detail.value });
+      });
+      this._heading = document.createElement("div");
+      this._heading.textContent = EDITOR_LABELS.shape;
+      this._heading.style.cssText = "margin: 16px 0 8px; font-weight: 500;";
+      this._picker = document.createElement("controlfreak-shape-picker");
+      this._picker.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...this._form.data, shape: ev.detail.value });
+      });
+      this.append(this._form, this._heading, this._picker);
+    }
+    const data = editorData(this._config, this.kind);
+    const picker = data.pictures !== false && globalThis.customElements?.get("controlfreak-shape-picker");
+    this._heading.hidden = !picker;
+    this._picker.hidden = !picker;
+    this._picker.hass = this._hass;
+    this._picker.value = data.shape;
+    this._form.hass = this._hass;
+    this._form.schema = strategyEditorSchema(data, this.kind);
+    this._form.data = data;
+  }
+}
 // Regenerate only when the entity registry changes (equipment added/removed).
 const DEPENDENCIES = ["entities"];
 
@@ -449,6 +608,10 @@ export class ControlFreakDashboardStrategy extends Base {
     return { title: "Pool", icon: "mdi:pool" };
   }
 
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("dashboard");
+  }
+
   static async generate(config, hass) {
     return buildDashboard(hass, config);
   }
@@ -457,6 +620,10 @@ export class ControlFreakDashboardStrategy extends Base {
 export class ControlFreakViewStrategy extends Base {
   static registryDependencies = DEPENDENCIES;
 
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("view");
+  }
+
   static async generate(config, hass) {
     return buildView(hass, config);
   }
@@ -464,6 +631,10 @@ export class ControlFreakViewStrategy extends Base {
 
 export class ControlFreakSectionStrategy extends Base {
   static registryDependencies = DEPENDENCIES;
+
+  static getConfigElement() {
+    return ControlFreakStrategyEditor.forKind("section");
+  }
 
   static async generate(config, hass) {
     if (!config.equipment) {
@@ -490,6 +661,7 @@ if (globalThis.customElements) {
   define("ll-strategy-dashboard-controlfreak", ControlFreakDashboardStrategy);
   define("ll-strategy-view-controlfreak", ControlFreakViewStrategy);
   define("ll-strategy-section-controlfreak", ControlFreakSectionStrategy);
+  define("controlfreak-strategy-editor", ControlFreakStrategyEditor);
 
   globalThis.customStrategies = globalThis.customStrategies || [];
   if (!globalThis.customStrategies.some((s) => s.type === "controlfreak")) {

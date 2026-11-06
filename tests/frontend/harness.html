@@ -216,6 +216,15 @@
       sizes.append(cell);
     }
     main.append(sizes);
+    // The shape chooser both editors show, with "kidney" selected.
+    const chooser = el("div", "gallery chooser");
+    chooser.append(el("div", "heading", "Shape chooser (editors)"));
+    const picker = document.createElement("controlfreak-shape-picker");
+    picker.style.gridColumn = "1 / -1";
+    picker.value = "kidney";
+    picker.hass = { themes: { darkMode: false } };
+    chooser.append(picker);
+    main.append(chooser);
   }
 
   // Ready once every picture has drawn a frame (ResizeObserver fires after layout).

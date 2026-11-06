@@ -227,8 +227,11 @@ pause while they are off screen or the tab is hidden.
 
 #### Pool shape
 
-The pool picture is drawn in the outline of your pool. Pick the one that matches under
-`strategy`, together with the height of the pictures:
+The pool picture is drawn in the outline of your pool. To pick the one that matches, open
+the dashboard, choose the pencil (**Edit dashboard**), and the strategy's settings dialog
+shows every shape as a small picture: tap one, set the picture height, and **Save**. The
+same dialog switches the pictures off and sets the dashboard title. In YAML the choice is
+`shape` under `pictures`, together with the height of the pictures:
 
 ```yaml
 strategy:
@@ -268,6 +271,8 @@ drag it taller or shorter (two to twelve rows) or narrower. On a dashboard the s
 generates, use **Take control** first, or set `rows` under `pictures` as above, which sets
 every picture's starting height. A card you add by hand (below) also takes `rows`, a fixed
 `height`, or an `aspect_ratio` for views without a grid.
+
+![The shape chooser in the editor](images/shape-chooser.png)
 
 You can also add a picture by hand to any dashboard, or pick **Control Freak picture** in the
 card picker and fill in the editor:
@@ -363,7 +368,8 @@ views:
 ```
 
 `equipment` is required and takes one of the equipment types above. `title`, `pictures`
-and `device_id` are optional.
+and `device_id` are optional. The section's edit dialog offers the same settings (equipment,
+pictures, pool shape, picture height) as the dashboard's.
 
 ## Data updates
 

@@ -12,6 +12,8 @@ import {
   buildSection,
   buildSections,
   buildView,
+  configFromEditor,
+  editorData,
   ControlFreakSectionStrategy,
   ControlFreakViewStrategy,
   DEFAULT_TITLES,
@@ -20,10 +22,13 @@ import {
   PICTURE_CARD,
   pictureCards,
   pictureOptions,
+  strategyEditorSchema,
   sceneFor,
   sectionOrder,
   shortName,
 } from "../../custom_components/controlfreak/frontend/controlfreak-strategy.js";
+// The settings editor reads shape names and row limits the picture module publishes.
+import { DEFAULT_ROWS, SHAPE_NAMES } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
 
 const fixture = (name) =>
   JSON.parse(readFileSync(new URL(`./fixtures/${name}.json`, import.meta.url), "utf8"));
@@ -522,4 +527,54 @@ test("pictures as an object: the pool's shape and every picture's rows", () => {
   assert.equal(pictures(buildView(hass, { pictures: { shape: "roman" } }).sections)[0].shape, "roman");
   const section = buildSection(hass, "pumps", { pictures: { rows: 3 } });
   assert.deepEqual(pictures([section])[0].grid_options, { columns: "full", rows: 3 });
+});
+
+/* ----- Settings editor ---------------------------------------------------- */
+
+test("settings editor: form data round-trips through the strategy config", () => {
+  const cfg = { type: "custom:controlfreak", hide: ["controller"], titles: { pumps: "Circulation" } };
+  assert.deepEqual(editorData(cfg), { pictures: true, shape: "rectangle", rows: DEFAULT_ROWS, title: "" });
+  // Defaults produce no `pictures` key and keep every other option.
+  assert.deepEqual(configFromEditor(editorData(cfg), cfg), cfg);
+  // Off, a shape, rows, a custom path.
+  assert.deepEqual(configFromEditor({ ...editorData(cfg), pictures: false }, cfg), { ...cfg, pictures: false });
+  const kidney = configFromEditor({ ...editorData(cfg), shape: "kidney", rows: 6 }, cfg);
+  assert.deepEqual(kidney.pictures, { shape: "kidney", rows: 6 });
+  assert.deepEqual(editorData(kidney), { pictures: true, shape: "kidney", rows: 6, title: "" });
+  const custom = configFromEditor({ ...editorData(cfg), shape: "custom", path: " M0 0 H1 V1 Z " }, cfg);
+  assert.deepEqual(custom.pictures, { shape: "custom", path: "M0 0 H1 V1 Z" });
+  assert.equal(configFromEditor({ ...editorData(cfg), shape: "oval", path: "M0 0 Z" }, cfg).pictures.path, undefined);
+  // Back from off to on with defaults removes the key again.
+  assert.equal(configFromEditor(editorData({ ...cfg, pictures: false }), { ...cfg, pictures: false }).pictures, false);
+  assert.equal("pictures" in configFromEditor({ ...editorData(cfg), pictures: true }, { ...cfg, pictures: false }), false);
+  // Title: "Pool" is the default and is not written.
+  assert.equal(configFromEditor({ ...editorData(cfg), title: "Pool" }, cfg).title, undefined);
+  assert.equal(configFromEditor({ ...editorData(cfg), title: "Backyard" }, cfg).title, "Backyard");
+  // Section: equipment is kept; view: neither title nor equipment.
+  const section = { type: "custom:controlfreak", equipment: "pumps" };
+  assert.deepEqual(editorData(section, "section"), { pictures: true, shape: "rectangle", rows: DEFAULT_ROWS, equipment: "pumps" });
+  assert.deepEqual(configFromEditor({ ...editorData(section, "section"), equipment: "lights" }, section, "section"), {
+    type: "custom:controlfreak",
+    equipment: "lights",
+  });
+  assert.deepEqual(editorData({ type: "custom:controlfreak" }, "view"), { pictures: true, shape: "rectangle", rows: DEFAULT_ROWS });
+  // What the editor writes, the strategy reads.
+  assert.deepEqual(pictureOptions(kidney), { shape: "kidney", rows: 6 });
+  assert.equal(pictures(buildSections(fixture("full-pool"), kidney))[0].shape, "kidney");
+});
+
+test("settings editor: schema per strategy kind, shape list from the picture module", () => {
+  const names = (data, kind) => strategyEditorSchema(data, kind).map((f) => f.name);
+  assert.deepEqual(names({ pictures: true }, "dashboard"), ["title", "pictures", "rows"]);
+  assert.deepEqual(names({ pictures: false }, "dashboard"), ["title", "pictures"]);
+  assert.deepEqual(names({ pictures: true }, "view"), ["pictures", "rows"]);
+  assert.deepEqual(names({ pictures: true, shape: "custom" }, "section"), ["equipment", "pictures", "path", "rows"]);
+  const equipment = strategyEditorSchema({}, "section").find((f) => f.name === "equipment");
+  assert.deepEqual(
+    equipment.selector.select.options.map((o) => o.value),
+    EQUIPMENT_TYPES
+  );
+  assert.equal(equipment.selector.select.options[0].label, "Pumps");
+  assert.ok(SHAPE_NAMES.includes("kidney"), "the picture module publishes the shapes the editor offers");
+  assert.deepEqual(globalThis.controlfreakPicture.SHAPE_NAMES, SHAPE_NAMES);
 });

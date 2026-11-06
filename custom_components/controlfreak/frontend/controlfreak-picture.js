@@ -1324,7 +1324,7 @@ export class ControlFreakPictureCard extends Base {
 
 /* ----- Visual editor: scene, shape, entities and size via ha-form ---------- */
 
-const SHAPE_LABELS = {
+export const SHAPE_LABELS = {
   rectangle: "Rectangle",
   roman: "Roman (rounded ends)",
   grecian: "Grecian (cut corners)",
@@ -1373,6 +1373,118 @@ export function editorSchema(config = {}) {
   return schema;
 }
 
+/* ----- Shape picker: a tile per pool outline, drawn by the scene itself ---- */
+
+const PICKER_STYLE = `
+  :host { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+  button {
+    display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 4px;
+    border: 2px solid var(--divider-color, #ccc); border-radius: 10px; cursor: pointer;
+    background: var(--card-background-color, #fff); color: var(--primary-text-color, #222);
+    font: inherit; font-size: 12px; text-align: center;
+  }
+  button:hover { border-color: var(--secondary-text-color, #888); }
+  button[aria-pressed="true"] { border-color: var(--primary-color, #03a9f4); box-shadow: 0 0 0 1px var(--primary-color, #03a9f4) inset; }
+  canvas { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 6px; }
+  .custom canvas { background: repeating-linear-gradient(45deg, #ddd 0 6px, #eee 6px 12px); }
+  .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+`;
+
+/**
+ * A grid of pool outlines to choose from; fires "value-changed" with
+ * { value: shapeName }. Set `value` to highlight one and `hass` for the theme.
+ * Each tile is a still frame of the real pool scene in that outline.
+ */
+export class ControlFreakShapePicker extends Base {
+  constructor() {
+    super();
+    this._value = DEFAULT_SHAPE;
+    this._scenes = [];
+  }
+
+  get value() {
+    return this._value;
+  }
+
+  set value(v) {
+    this._value = SHAPE_NAMES.includes(v) ? v : DEFAULT_SHAPE;
+    this._highlight();
+  }
+
+  set hass(hass) {
+    const dark = isDarkMode(hass, globalThis.matchMedia);
+    if (dark !== this._dark) {
+      this._dark = dark;
+      this._redraw();
+    }
+  }
+
+  connectedCallback() {
+    if (this._built) {
+      this._redraw();
+      return;
+    }
+    this._built = true;
+    const root = this.attachShadow({ mode: "open" });
+    root.innerHTML = `<style>${PICKER_STYLE}</style><div class="grid" role="radiogroup"></div>`;
+    const grid = root.querySelector(".grid");
+    for (const shape of SHAPE_NAMES) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.shape = shape;
+      b.setAttribute("role", "radio");
+      b.title = SHAPE_LABELS[shape];
+      if (shape === "custom") b.className = "custom";
+      const cv = document.createElement("canvas");
+      const label = document.createElement("span");
+      label.className = "label";
+      label.textContent = SHAPE_LABELS[shape].replace(/ \(.*\)$/, "");
+      b.append(cv, label);
+      b.addEventListener("click", () => {
+        this._value = shape;
+        this._highlight();
+        this.dispatchEvent(new CustomEvent("value-changed", { detail: { value: shape }, bubbles: true, composed: true }));
+      });
+      grid.append(b);
+      if (shape !== "custom") {
+        const outline = poolOutline({ shape });
+        const model = () => ({ ...STILL_MODEL, dark: this._dark === true });
+        const colors = () => {
+          const base = this._dark ? PALETTE.night : PALETTE.day;
+          return { a: hexToRgb(base.a), b: hexToRgb(base.b), hi: hexToRgb(base.hi) };
+        };
+        this._scenes.push(makeScene(cv, "pool", model, colors, { outline, rng: () => 0.5 }));
+      }
+    }
+    this._highlight();
+    if (globalThis.ResizeObserver) {
+      this._ro = new ResizeObserver(() => this._redraw());
+      this._ro.observe(this);
+    } else {
+      this._redraw();
+    }
+  }
+
+  disconnectedCallback() {
+    this._ro?.disconnect();
+    this._ro = null;
+  }
+
+  _redraw() {
+    for (const scene of this._scenes) scene.resize();
+  }
+
+  _highlight() {
+    for (const b of this.shadowRoot?.querySelectorAll("button") ?? []) {
+      b.setAttribute("aria-pressed", String(b.dataset.shape === this._value));
+      b.setAttribute("aria-checked", String(b.dataset.shape === this._value));
+    }
+  }
+}
+
+const STILL_MODEL = { on: false, speed: 0, lightOn: false, effect: null, hex: WHITE, spilling: false, dark: false };
+
 export class ControlFreakPictureEditor extends Base {
   setConfig(config) {
     this._config = { ...config };
@@ -1382,34 +1494,48 @@ export class ControlFreakPictureEditor extends Base {
   set hass(hass) {
     this._hass = hass;
     if (this._form) this._form.hass = hass;
+    if (this._picker) this._picker.hass = hass;
   }
 
   connectedCallback() {
     this._render();
   }
 
+  _apply(value) {
+    for (const key of Object.keys(value)) if (value[key] === "" || value[key] == null) delete value[key];
+    if (value.scene !== "pool") {
+      delete value.shape;
+      delete value.path;
+    }
+    if (value.shape !== "custom") delete value.path;
+    if (value.scene !== "spa") delete value.spillover;
+    this._config = { ...this._config, ...value };
+    for (const key of ["shape", "path", "spillover"]) if (!(key in value)) delete this._config[key];
+    this._render();
+    this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+  }
+
   _render() {
     if (!this.isConnected || !this._config) return;
     if (!this._form) {
+      this._picker = document.createElement("controlfreak-shape-picker");
+      this._picker.style.marginBottom = "16px";
+      this._picker.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this._apply({ ...this._form.data, shape: ev.detail.value });
+      });
       this._form = document.createElement("ha-form");
       this._form.computeLabel = (field) => EDITOR_LABELS[field.name] ?? field.name;
       this._form.addEventListener("value-changed", (ev) => {
         ev.stopPropagation();
-        const value = { ...ev.detail.value };
-        for (const key of Object.keys(value)) if (value[key] === "" || value[key] == null) delete value[key];
-        if (value.scene !== "pool") {
-          delete value.shape;
-          delete value.path;
-        }
-        if (value.shape !== "custom") delete value.path;
-        if (value.scene !== "spa") delete value.spillover;
-        this._config = { ...this._config, ...value };
-        for (const key of ["shape", "path", "spillover"]) if (!(key in value)) delete this._config[key];
-        this._render();
-        this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
+        this._apply({ ...ev.detail.value });
       });
-      this.append(this._form);
+      this.append(this._picker, this._form);
     }
+    const pool = (this._config.scene ?? "pool") === "pool";
+    this._picker.hidden = !pool;
+    this._picker.hass = this._hass;
+    this._picker.value = this._config.shape ?? DEFAULT_SHAPE;
     this._form.hass = this._hass;
     this._form.schema = editorSchema(this._config);
     this._form.data = { scene: "pool", shape: DEFAULT_SHAPE, rows: DEFAULT_ROWS, ...this._config };
@@ -1423,6 +1549,9 @@ if (globalThis.customElements) {
   if (!customElements.get("controlfreak-picture-editor")) {
     customElements.define("controlfreak-picture-editor", ControlFreakPictureEditor);
   }
+  if (!customElements.get("controlfreak-shape-picker")) {
+    customElements.define("controlfreak-shape-picker", ControlFreakShapePicker);
+  }
   globalThis.customCards = globalThis.customCards || [];
   if (!globalThis.customCards.some((c) => c.type === "controlfreak-picture")) {
     globalThis.customCards.push({
@@ -1434,3 +1563,8 @@ if (globalThis.customElements) {
     });
   }
 }
+
+// What the strategy's settings editor needs from this module. The strategy is
+// its own module (loaded with its own cache-buster), so it reads this at run
+// time instead of importing the file.
+globalThis.controlfreakPicture = { SHAPE_NAMES, SHAPE_LABELS, DEFAULT_SHAPE, ROWS_MIN, ROWS_MAX, DEFAULT_ROWS };
