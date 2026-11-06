@@ -5,7 +5,9 @@
 - **Pool controls as tile features.** The pump tiles carry `custom:controlfreak-pump-speed`,
   a slider over the pump's real range (40–100 on a typical variable-speed pump) with an Off
   button; the pool's own pump sits first in the section, full width, right under the
-  picture. Colour lights carry `custom:controlfreak-light-colors` (a bar of swatches) and
+  picture, with the pool's lights (their colour bars) right under it; the water readings
+  are the next section, right of the pool. Colour lights carry
+  `custom:controlfreak-light-colors` (a bar of swatches) and
   `custom:controlfreak-light-shows` (a dropdown of the shows) in place of one long effect
   dropdown. `controls: core` restores Home Assistant's `fan-speed` and `light-effect`.
   The features live in `controlfreak-features.js`, loaded beside the strategy.

@@ -15,6 +15,7 @@ import {
   ControlFreakSectionStrategy,
   ControlFreakViewStrategy,
   DEFAULT_TITLES,
+  DEFAULT_ORDER,
   EQUIPMENT_TYPES,
   EMPTY_SECTION,
   LIGHT_COLORS_FEATURE,
@@ -25,6 +26,7 @@ import {
   PICTURE_STYLES,
   PUMP_SPEED_FEATURE,
   pictureCards,
+  poolLights,
   sceneFor,
   sectionOrder,
   shortName,
@@ -51,9 +53,19 @@ const card = (sections, entity) =>
 const featureTypes = (c) => (c.features ?? []).map((f) => f.type);
 const CORE_CARDS = new Set(["heading", "tile", "markdown"]);
 
-test("full pool: a section per equipment type, in default order", () => {
+test("full pool: a section per equipment type; the water readings right of the pool", () => {
   const sections = buildSections(fixture("full-pool"));
   assert.deepEqual(headings(sections), [
+    "Pumps",
+    "Temperature and flow",
+    "Heating and cooling",
+    "Lights and relays",
+    "Valves",
+    "Controller health",
+  ]);
+  assert.deepEqual(DEFAULT_ORDER, ["pumps", "sensors", "heating", "lights", "valves", "controller", "other"]);
+  // controls: core keeps the 0.2.1 order.
+  assert.deepEqual(headings(buildSections(fixture("full-pool"), { controls: "core" })), [
     "Pumps",
     "Heating and cooling",
     "Lights and relays",
@@ -61,15 +73,19 @@ test("full pool: a section per equipment type, in default order", () => {
     "Temperature and flow",
     "Controller health",
   ]);
+  assert.deepEqual(sectionOrder({ controls: "core" }), EQUIPMENT_TYPES);
 });
 
 test("full pool: five pump tiles with speed control, each read-only mode under its pump", () => {
   const hass = fixture("full-pool");
   const pumps = buildSection(hass, "pumps");
-  // The pool's own pump leads (its speed sits under the picture); the rest keep their name order.
+  // The pool's own pump leads (its speed sits under the picture), then the pool's
+  // lights (their colour bars); the other pumps keep their name order.
   assert.deepEqual(entitiesOf(pumps), [
     "fan.backyard_filter_pump",
     "sensor.backyard_filter_pump_current_mode",
+    "light.backyard_pool_light",
+    "light.backyard_spa_light",
     "fan.backyard_cleaner_booster",
     "sensor.backyard_cleaner_booster_current_mode",
     "fan.backyard_solar_pump",
@@ -137,7 +153,7 @@ test("heaters and chillers are grouped by role, general relays stay relays", () 
   ]);
   // Deck Lights is a general low-voltage relay: same port family as the
   // heater, different role, so it stays with the relays under its own name.
-  assert.deepEqual(entitiesOf(buildSection(hass, "lights")), [
+  assert.deepEqual(entitiesOf(buildSection(hass, "lights", CORE)), [
     "switch.backyard_deck_lights",
     "switch.backyard_landscape_lights",
     "light.backyard_pool_light",
@@ -193,8 +209,8 @@ test("lighting-only panel: no pump, valve or sensor sections", () => {
 
 test("valves and skimmers: valves plus a flow tile", () => {
   const sections = buildSections(fixture("valves-skimmers"));
-  assert.deepEqual(headings(sections), ["Valves", "Temperature and flow", "Controller health"]);
-  assert.deepEqual(entitiesOf(sections[1]), ["binary_sensor.backyard_skimmer_flow"]);
+  assert.deepEqual(headings(sections), ["Temperature and flow", "Valves", "Controller health"]);
+  assert.deepEqual(entitiesOf(sections[0]), ["binary_sensor.backyard_skimmer_flow"]);
 });
 
 test("temperatures get a trend graph", () => {
@@ -274,7 +290,7 @@ test("options: hide, order and per-type titles", () => {
 test("order ignores unknown and duplicate types", () => {
   assert.deepEqual(sectionOrder({ order: ["bogus", "lights", "lights"] }), [
     "lights",
-    ...EQUIPMENT_TYPES.filter((t) => t !== "lights"),
+    ...DEFAULT_ORDER.filter((t) => t !== "lights"),
   ]);
 });
 
@@ -523,7 +539,12 @@ test("section strategy: one block with an optional title", async () => {
     hass
   );
   assert.equal(section.cards[0].heading, "Lighting");
-  assert.equal(entitiesOf(section).length, 4); // two lights, two general relays
+  assert.equal(entitiesOf(section).length, 2); // two general relays; the pool's lights sit under the pool pump
+  const core = await ControlFreakSectionStrategy.generate(
+    { type: "custom:controlfreak", equipment: "lights", title: "Lighting", controls: "core" },
+    hass
+  );
+  assert.equal(entitiesOf(core).length, 4); // two lights, two general relays
 });
 
 test("section strategy: missing equipment, unknown type and nothing found", async () => {
@@ -703,10 +724,14 @@ test("default controls: the pool pump first and full width with the speed slider
   delete pumps.cards[2].grid_options;
   const core = buildSections(hass, { controls: "core" });
   const corePumps = core.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
-  const sortTiles = (cards) => cards.filter((c) => c.type === "tile").sort((a, b) => a.entity.localeCompare(b.entity));
+  const sortTiles = (cards) =>
+    cards.filter((c) => c.type === "tile" && !c.entity.startsWith("light.")).sort((a, b) => a.entity.localeCompare(b.entity));
   assert.deepEqual(sortTiles(pumps.cards), sortTiles(corePumps.cards));
   const lightsHeading = DEFAULT_TITLES.lights;
-  const rest = (secs) => secs.filter((s) => ![DEFAULT_TITLES.pumps, lightsHeading].includes(s.cards[0].heading));
+  const rest = (secs) =>
+    secs
+      .filter((s) => ![DEFAULT_TITLES.pumps, lightsHeading].includes(s.cards[0].heading))
+      .sort((a, b) => a.cards[0].heading.localeCompare(b.cards[0].heading));
   assert.deepEqual(rest(sections), rest(core));
 });
 
@@ -747,4 +772,38 @@ test("picture_deck reaches every picture card from the dashboard, view and secti
   // Left out, no card carries a deck key (the card's own default applies).
   for (const c of pictures(buildSections(hass))) assert.equal("deck" in c, false);
   assert.throws(() => buildSections(hass, { picture_deck: "grass" }), /picture_deck/);
+});
+
+test("the pool's lights sit under the pool pump, full width, and leave the lights section", () => {
+  const hass = fixture("full-pool");
+  assert.deepEqual(poolLights(hass), ["light.backyard_pool_light", "light.backyard_spa_light"]);
+  assert.deepEqual(poolLights(hass, { controls: "core" }), []);
+  const sections = buildSections(hass);
+  const pumps = sections.find((s) => s.cards[0].heading === DEFAULT_TITLES.pumps);
+  const lights = sections.find((s) => s.cards[0].heading === DEFAULT_TITLES.lights);
+  const ids = entitiesOf(pumps);
+  assert.equal(ids[0], "fan.backyard_filter_pump");
+  assert.deepEqual(ids.slice(2, 4), ["light.backyard_pool_light", "light.backyard_spa_light"]);
+  for (const id of ["light.backyard_pool_light", "light.backyard_spa_light"]) {
+    const c = card([pumps], id);
+    assert.deepEqual(c.grid_options, { columns: "full" }, id);
+    assert.deepEqual(featureTypes(c), [LIGHT_COLORS_FEATURE, LIGHT_SHOWS_FEATURE], id);
+    assert.equal(card([lights], id), undefined, `${id} is not in the lights section too`);
+  }
+  // The relays stay in the lights section; with core controls nothing moves.
+  assert.deepEqual(entitiesOf(lights), ["switch.backyard_deck_lights", "switch.backyard_landscape_lights"]);
+  const core = buildSections(hass, { controls: "core" });
+  assert.deepEqual(entitiesOf(core.find((s) => s.cards[0].heading === DEFAULT_TITLES.lights)), [
+    "switch.backyard_deck_lights",
+    "switch.backyard_landscape_lights",
+    "light.backyard_pool_light",
+    "light.backyard_spa_light",
+  ]);
+  // With no light bound to the picture, nothing moves either; nor on a panel
+  // without a pool pump to sit under (lighting-only keeps all its lights).
+  const noLights = structuredClone(hass);
+  for (const id of ["light.backyard_pool_light", "light.backyard_spa_light"]) delete noLights.states[id];
+  assert.deepEqual(poolLights(noLights), []);
+  assert.deepEqual(poolLights(fixture("lighting-only")), []);
+  assert.equal(entitiesOf(buildSections(fixture("lighting-only"))[0]).length, 5);
 });

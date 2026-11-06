@@ -327,6 +327,9 @@ The pump and light tiles carry Control Freak's own features, built for a pool pa
   range, 40–100 % on a typical variable-speed pump, with an Off button. The percentage is
   the speed the pump runs at, not a fraction of its range, so 40 % reads 40 on the panel
   too. The pool's own pump sits first in the section, full width, right under the picture.
+- The lights that light the picture (pool, spa, waterfall) sit under the pool pump with
+  their colour bars, and the water temperatures and flow are the next section, right of
+  the pool. `controls: core` keeps the 0.2.1 layout.
 - **Light colours** (`custom:controlfreak-light-colors`): a bar of swatches, one per
   colour the light offers (Blue, Green, Red, White, Magenta on a Pentair set); the current
   one is marked.

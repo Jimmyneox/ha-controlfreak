@@ -15,7 +15,7 @@
  *         picture_shape: kidney        # the overview's outline (default freeform)
  *         picture_style: depth         # caustic (default), blueprint, depth, neon, poster
  *         picture_deck: pavers         # the surround: concrete (default), pavers, travertine, wood, stone
- *         controls: core               # Home Assistant's own tile features instead of Control Freak's
+ *         controls: core               # Home Assistant's own tile features and the 0.2.1 layout
  *
  * Core cards are generated (heading, tile, markdown), plus the integration's
  * own picture card (custom:controlfreak-picture, served next to this file) at
@@ -45,6 +45,8 @@ export const EQUIPMENT_TYPES = [
   "controller",
   "other",
 ];
+/** The default layout: the water readings right of the pool. `controls: core` keeps the 0.2.1 order. */
+export const DEFAULT_ORDER = ["pumps", "sensors", "heating", "lights", "valves", "controller", "other"];
 
 export const DEFAULT_TITLES = {
   pumps: "Pumps",
@@ -315,10 +317,16 @@ function pumpCards(hass, items, options = {}) {
       features.push({ type: "fan-preset-modes", style: "icons" });
     }
     const group = [tile(pump.entity_id, features), ...paired.get(pump.entity_id).map((m) => tile(m.entity_id))];
-    // The pool's own pump goes first, full width: its speed sits right under the picture.
+    // The pool's own pump goes first, full width: its speed sits right under the
+    // picture, and the pool's lights (their colour bars) right under that.
     if (!core && !poolPlaced && features.length && sceneFor(shortName(hass, pump.entity_id)) === "pool") {
       group[0].grid_options = { columns: "full" };
-      cards.unshift(...group);
+      const lights = poolLights(hass, options).map((id) => {
+        const t = lightTile(hass, id, options);
+        t.grid_options = { columns: "full" };
+        return t;
+      });
+      cards.unshift(...group, ...lights);
       poolPlaced = true;
     } else {
       cards.push(...group);
@@ -328,23 +336,47 @@ function pumpCards(hass, items, options = {}) {
   return cards;
 }
 
+function lightTile(hass, entityId, options = {}) {
+  if (domainOf(entityId) !== "light" || !supports(hass, entityId, LIGHT_EFFECT)) {
+    return tile(entityId, domainOf(entityId) === "switch" ? [{ type: "toggle" }] : []);
+  }
+  if (coreControls(options)) return tile(entityId, [{ type: "light-effect" }]);
+  // The colours as a bar of swatches, the shows as a dropdown; the core
+  // dropdown only when the light's effects are not known yet.
+  const { colors, shows } = splitEffects(hass.states[entityId]?.attributes?.effect_list);
+  const features = [];
+  if (colors.length) features.push({ type: LIGHT_COLORS_FEATURE });
+  if (shows.length) features.push({ type: LIGHT_SHOWS_FEATURE });
+  return tile(entityId, features.length ? features : [{ type: "light-effect" }]);
+}
+
+/**
+ * The lights that light the picture (pool, spa, falls), in that order. With
+ * the default controls they sit under the pool's pump in the pumps section,
+ * their colour bars right under the picture, and leave the lights section.
+ */
+export function poolLights(hass, options = {}) {
+  if (coreControls(options)) return [];
+  const pumps = groupEntities(findEntities(hass, options)).pumps ?? [];
+  const { pumpFor, lightFor } = bindPictures(hass, pumps, options);
+  // Only when there is a pool pump with a speed slider for them to sit under;
+  // a lighting-only panel keeps its lights in the lights section.
+  if (!pumpFor.pool || !supports(hass, pumpFor.pool.entity_id, FAN_SET_SPEED)) return [];
+  const ids = [];
+  for (const scene of ["pool", "spa", "falls", "deck", "bub"]) {
+    const light = lightFor[scene];
+    if (light && !ids.includes(light.entity_id)) ids.push(light.entity_id);
+  }
+  return ids;
+}
+
 function lightCards(hass, items, options = {}) {
+  const moved = new Set(poolLights(hass, options));
   return items
     .map((i) => i.entry)
+    .filter((e) => !moved.has(e.entity_id))
     .sort(byName(hass))
-    .map((e) => {
-      if (domainOf(e.entity_id) !== "light" || !supports(hass, e.entity_id, LIGHT_EFFECT)) {
-        return tile(e.entity_id, domainOf(e.entity_id) === "switch" ? [{ type: "toggle" }] : []);
-      }
-      if (coreControls(options)) return tile(e.entity_id, [{ type: "light-effect" }]);
-      // The colours as a bar of swatches, the shows as a dropdown; the core
-      // dropdown only when the light's effects are not known yet.
-      const { colors, shows } = splitEffects(hass.states[e.entity_id]?.attributes?.effect_list);
-      const features = [];
-      if (colors.length) features.push({ type: LIGHT_COLORS_FEATURE });
-      if (shows.length) features.push({ type: LIGHT_SHOWS_FEATURE });
-      return tile(e.entity_id, features.length ? features : [{ type: "light-effect" }]);
-    });
+    .map((e) => lightTile(hass, e.entity_id, options));
 }
 
 function valveCards(hass, items) {
@@ -453,7 +485,7 @@ export function buildSection(hass, type, options = {}) {
 export function sectionOrder(options = {}) {
   const hide = new Set(options.hide ?? []);
   const order = [...(options.order ?? [])];
-  for (const type of EQUIPMENT_TYPES) if (!order.includes(type)) order.push(type);
+  for (const type of coreControls(options) ? EQUIPMENT_TYPES : DEFAULT_ORDER) if (!order.includes(type)) order.push(type);
   return order.filter((type, i) => !hide.has(type) && order.indexOf(type) === i && CARD_BUILDERS[type]);
 }
 
