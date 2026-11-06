@@ -12,18 +12,20 @@ import {
   DEFAULT_SHAPE,
   EFFECT_COLORS,
   PALETTE,
-  POOL_SHAPES,
   ROWS_MAX,
   ROWS_MIN,
   SCENES,
+  OVERVIEW,
   SHAPE_LABELS,
   SHAPE_NAMES,
   SHOW,
   WHITE,
   addRipple,
   advance,
+  configFromEditor,
   createSim,
   deckGeo,
+  editorData,
   editorSchema,
   effectHex,
   fallGeo,
@@ -42,6 +44,7 @@ import {
   spillingOf,
   stepLights,
 } from "../../custom_components/controlfreak/frontend/controlfreak-picture.js";
+import { SHAPES, SHAPE_DEFS } from "../../custom_components/controlfreak/frontend/controlfreak-pool-shapes.js";
 
 const PENTAIR = [
   "Blue",
@@ -144,7 +147,9 @@ test("the scene model binds pump, light and spillover by entity id", () => {
     hex: "#e04bd6",
     spilling: true,
     dark: true,
+    shape: "rectangle",
   });
+  assert.equal(modelOf(hass, { scene: "pool", shape: "kidney" }).shape, "kidney", "the pool's outline rides along");
   // Unbound: still water, no light, no spillover.
   const bare = modelOf(hass, { scene: "pool" });
   assert.deepEqual([bare.on, bare.speed, bare.lightOn, bare.spilling], [false, 0, false, false]);
@@ -279,40 +284,8 @@ test("geometry: falls and deck jets reach further with speed; ripples land only 
 /* ----- Pool shapes and sizes ---------------------------------------------- */
 
 // Walk SVG path data and collect every coordinate pair (absolute commands only,
-// which is all the shape table uses), to check the outlines stay in the unit square.
-function pathPoints(d) {
-  const nums = d.replace(/[A-Za-z]/g, " $& ").trim().split(/[\s,]+/);
-  const pts = [];
-  let cmd = null;
-  let buf = [];
-  for (const tok of nums) {
-    if (/^[A-Za-z]$/.test(tok)) {
-      cmd = tok;
-      buf = [];
-      continue;
-    }
-    buf.push(Number(tok));
-    if (cmd === "H" || cmd === "V") {
-      pts.push(cmd === "H" ? [buf[0], null] : [null, buf[0]]);
-      buf = [];
-    } else if ((cmd === "M" || cmd === "L") && buf.length === 2) {
-      pts.push(buf);
-      buf = [];
-    } else if (cmd === "Q" && buf.length === 4) {
-      pts.push(buf.slice(0, 2), buf.slice(2));
-      buf = [];
-    } else if (cmd === "C" && buf.length === 6) {
-      pts.push(buf.slice(0, 2), buf.slice(2, 4), buf.slice(4));
-      buf = [];
-    } else if (cmd === "A" && buf.length === 7) {
-      pts.push(buf.slice(5));
-      buf = [];
-    }
-  }
-  return pts;
-}
 
-test("pool shapes: the standard set, each a closed path inside the unit square", () => {
+test("pool shapes: the standard set, each a closed outline with its anchors inside the unit square", () => {
   assert.deepEqual(SHAPE_NAMES, [
     "rectangle",
     "roman",
@@ -320,62 +293,44 @@ test("pool shapes: the standard set, each a closed path inside the unit square",
     "oval",
     "round",
     "kidney",
-    "figure-8",
+    "figure8",
     "lazy-l",
     "true-l",
     "mountain-lake",
     "freeform",
-    "custom",
+    "lagoon",
   ]);
+  assert.deepEqual(SHAPE_NAMES, SHAPES, "the card re-exports the shared table");
   assert.equal(DEFAULT_SHAPE, "rectangle");
   for (const name of SHAPE_NAMES) assert.equal(typeof SHAPE_LABELS[name], "string", `${name} has a label`);
-  for (const [name, def] of Object.entries(POOL_SHAPES)) {
-    const d = def.path;
-    assert.match(d, /^M/, name);
-    assert.match(d, /Z$/, name);
-    const pts = pathPoints(d);
-    assert.ok(pts.length >= 3, `${name} has points`);
-    for (const [x, y] of pts) {
-      if (x != null) assert.ok(x >= 0 && x <= 1, `${name} x ${x}`);
-      if (y != null) assert.ok(y >= 0 && y <= 1, `${name} y ${y}`);
+  assert.deepEqual(Object.keys(SHAPE_DEFS).sort(), [...SHAPE_NAMES].sort(), "every name has a definition");
+  for (const [name, def] of Object.entries(SHAPE_DEFS)) {
+    assert.ok(def.points.length >= 4, `${name} has points`);
+    for (const [x, y] of def.points) {
+      assert.ok(x >= 0 && x <= 1, `${name} x ${x}`);
+      assert.ok(y >= 0 && y <= 1, `${name} y ${y}`);
     }
-    assert.ok(/[ACQ]/.test(d) || name === "grecian", `${name} is drawn with curves or cut corners`);
-    // Steps at the shallow end on the left, the drain at the deep end on the right.
-    for (const key of ["steps", "deep"]) {
-      assert.equal(def[key].length, 2, `${name} ${key}`);
-      for (const n of def[key]) assert.ok(n >= 0 && n <= 1, `${name} ${key} ${n}`);
+    assert.ok(def.tension >= 0 && def.tension <= 1, `${name} tension`);
+    for (const key of ["spa", "steps", "ledge"]) {
+      assert.ok(def[key].t >= 0 && def[key].t <= 1, `${name} ${key}.t`);
+      assert.ok(def[key].r > 0 && def[key].r < 1, `${name} ${key}.r`);
     }
-    assert.ok(def.steps[0] < 0.2, `${name} steps at the left wall`);
-    assert.ok(def.deep[0] > 0.8, `${name} deep end at the right`);
+    for (const key of ["falls", "deck"]) {
+      assert.ok(def[key].t0 >= 0 && def[key].t1 <= 1 && def[key].t0 < def[key].t1, `${name} ${key}`);
+    }
+    assert.equal(def.lights.length, 2, `${name} lights`);
   }
+  assert.equal(SHAPE_DEFS.round.uniform, true, "a round pool keeps 1:1");
+  assert.equal(SHAPE_DEFS.oval.uniform, undefined);
 });
 
-test("poolOutline: a named shape, the default, round keeps 1:1, custom takes a path", () => {
-  assert.deepEqual(poolOutline(), {
-    shape: "rectangle",
-    path: POOL_SHAPES.rectangle.path,
-    uniform: false,
-    steps: POOL_SHAPES.rectangle.steps,
-    deep: POOL_SHAPES.rectangle.deep,
-  });
+test("poolOutline: a named shape, the default, and a refusal for the rest", () => {
+  assert.deepEqual(poolOutline(), { shape: "rectangle" });
   assert.deepEqual(poolOutline({ scene: "pool" }), poolOutline({}));
-  assert.equal(poolOutline({ shape: "kidney" }).path, POOL_SHAPES.kidney.path);
-  assert.equal(poolOutline({ shape: "round" }).uniform, true);
-  assert.equal(poolOutline({ shape: "oval" }).uniform, false);
-  const custom = poolOutline({ shape: "custom", path: " M0 0 H1 V1 H0 Z " });
-  assert.deepEqual(custom, {
-    shape: "custom",
-    path: "M0 0 H1 V1 H0 Z",
-    uniform: false,
-    steps: [0.06, 0.5],
-    deep: [0.94, 0.5],
-  });
-  const placed = poolOutline({ shape: "custom", path: "M0 0 Z", steps: [0.5, "1.4"], deep: [-1, 0.2] });
-  assert.deepEqual([placed.steps, placed.deep], [[0.5, 1], [0, 0.2]], "custom points are clamped to the square");
-  assert.deepEqual(poolOutline({ shape: "custom", path: "M0 0 Z", steps: "left" }).steps, [0.06, 0.5]);
-  assert.throws(() => poolOutline({ shape: "custom" }), /needs "path"/);
-  assert.throws(() => poolOutline({ shape: "custom", path: "H1 V1" }), /starting with M/);
-  assert.throws(() => poolOutline({ shape: "octagon" }), /unknown shape "octagon".*rectangle.*custom/);
+  for (const shape of SHAPE_NAMES) assert.deepEqual(poolOutline({ shape }), { shape });
+  assert.throws(() => poolOutline({ shape: "custom" }), /unknown shape "custom".*rectangle.*lagoon/);
+  assert.throws(() => poolOutline({ shape: "octagon" }), /unknown shape "octagon"/);
+  assert.throws(() => poolOutline({ shape: "" }), /unknown shape ""/);
 });
 
 test("gridOptions: full width and 4 rows by default, rows clamped, resizable 2..12", () => {
@@ -411,17 +366,55 @@ test("frameStyle: grid-driven by default, else a fixed height or an aspect ratio
   assert.equal(frameStyle({ aspect_ratio: "wide" }), "");
 });
 
-test("editor schema: shape only for the pool, path only for custom, spillover only for the spa", () => {
+test("editor schema: shape for the overview and the pool, a field per part for the overview, spillover only for the spa", () => {
   const names = (cfg) => editorSchema(cfg).map((f) => f.name);
-  assert.deepEqual(names({}), ["scene", "shape", "pump", "light", "rows"]);
-  assert.deepEqual(names({ scene: "pool", shape: "custom" }), ["scene", "shape", "path", "pump", "light", "rows"]);
-  assert.deepEqual(names({ scene: "spa" }), ["scene", "pump", "light", "spillover", "rows"]);
-  assert.deepEqual(names({ scene: "falls" }), ["scene", "pump", "light", "rows"]);
+  const parts = ["pump_pool", "light_pool", "pump_spa", "light_spa", "pump_falls", "light_falls", "pump_deck", "light_deck", "pump_bub", "light_bub"];
+  assert.deepEqual(names({}), ["scene", "style", "shape", ...parts, "spillover", "rows"]);
+  assert.deepEqual(names({ scene: OVERVIEW }), names({}));
+  assert.deepEqual(names({ scene: "pool" }), ["scene", "style", "shape", "pump", "light", "rows"]);
+  assert.deepEqual(names({ scene: "spa" }), ["scene", "style", "pump", "light", "spillover", "rows"]);
+  assert.deepEqual(names({ scene: "falls" }), ["scene", "style", "pump", "light", "rows"]);
   const shape = editorSchema({}).find((f) => f.name === "shape");
   assert.deepEqual(
     shape.selector.select.options.map((o) => o.value),
     SHAPE_NAMES
   );
+  const scene = editorSchema({}).find((f) => f.name === "scene");
+  assert.deepEqual(scene.selector.select.options.map((o) => o.value), [OVERVIEW, ...SCENES]);
   const rows = editorSchema({}).find((f) => f.name === "rows");
   assert.deepEqual(rows.selector.number, { min: ROWS_MIN, max: ROWS_MAX, mode: "slider" });
+});
+
+test("card editor: flat form data round-trips through the card config", () => {
+  const defaults = { scene: OVERVIEW, style: "caustic", shape: "rectangle", rows: DEFAULT_ROWS };
+  assert.deepEqual(editorData({ type: "custom:controlfreak-picture" }), defaults);
+  // Defaults write only the scene.
+  assert.deepEqual(configFromEditor(editorData({}), { type: "custom:controlfreak-picture" }), { type: "custom:controlfreak-picture", scene: OVERVIEW });
+  // An overview's pumps and lights flatten to a field per part and back.
+  const overview = {
+    type: "custom:controlfreak-picture",
+    scene: OVERVIEW,
+    shape: "kidney",
+    pumps: { pool: "fan.p", spa: "fan.s" },
+    lights: { pool: "light.p" },
+    spillover: "sensor.m",
+    rows: 6,
+  };
+  const data = editorData(overview);
+  assert.equal(data.pump_pool, "fan.p");
+  assert.equal(data.pump_spa, "fan.s");
+  assert.equal(data.light_pool, "light.p");
+  assert.equal("pumps" in data, false);
+  assert.deepEqual(configFromEditor(data, overview), overview);
+  // Dropping the spa pump drops the spillover with it; clearing a field removes the key.
+  const noSpa = configFromEditor({ ...data, pump_spa: "" }, overview);
+  assert.deepEqual(noSpa.pumps, { pool: "fan.p" });
+  assert.equal("spillover" in noSpa, false);
+  // A single feature keeps pump/light and loses the overview's maps; the shape stays on the pool only.
+  const pool = configFromEditor({ ...defaults, scene: "pool", shape: "oval", style: "neon", pump: "fan.p", rows: 4 }, overview);
+  assert.deepEqual(pool, { type: "custom:controlfreak-picture", scene: "pool", shape: "oval", style: "neon", pump: "fan.p" });
+  const spa = configFromEditor({ ...defaults, scene: "spa", shape: "oval", spillover: "sensor.m" }, overview);
+  assert.deepEqual(spa, { type: "custom:controlfreak-picture", scene: "spa", spillover: "sensor.m" });
+  const falls = configFromEditor({ ...defaults, scene: "falls", spillover: "sensor.m" }, overview);
+  assert.equal("spillover" in falls, false, "spillover is the spa's alone");
 });

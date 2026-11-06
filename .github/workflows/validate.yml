@@ -63,8 +63,14 @@ jobs:
           python3 -m http.server 8765 --bind 127.0.0.1 &
           sleep 1
           mkdir -p render
-          for shape in full-pool lighting-only valves-skimmers empty pictures; do
+          for shape in full-pool lighting-only valves-skimmers empty pictures styles-day styles-night; do
             npx -y playwright@1.64.0 screenshot --full-page --viewport-size=1280,800 \
+              --wait-for-selector='body[data-rendered="true"]' --timeout=20000 \
+              "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"
+          done
+          # The overview contact sheets have twelve columns: give them a wider page.
+          for shape in shapes-day shapes-night; do
+            npx -y playwright@1.64.0 screenshot --full-page --viewport-size=3000,1000 \
               --wait-for-selector='body[data-rendered="true"]' --timeout=20000 \
               "http://127.0.0.1:8765/tests/frontend/harness.html?shape=$shape" "render/$shape.png"
           done

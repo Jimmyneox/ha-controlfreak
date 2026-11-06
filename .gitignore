@@ -9,3 +9,5 @@ htmlcov/
 .DS_Store
 # scratch Home Assistant configs used for local live checks
 /scratch/
+# local Playwright renders of the harness
+/render/

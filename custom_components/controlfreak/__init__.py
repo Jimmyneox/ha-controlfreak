@@ -12,7 +12,7 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN, FRONTEND_URL, PICTURE_URL
+from .const import DOMAIN, FRONTEND_URL, PICTURE_URL, SHAPES_URL, STYLES_URL
 from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
 from .mapping import PANEL_KEYS, setting_uuid_of
 
@@ -35,8 +35,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         FRONTEND_URL: frontend / "controlfreak-strategy.js",  # custom:controlfreak
         PICTURE_URL: frontend / "controlfreak-picture.js",  # custom:controlfreak-picture
     }
+    # The styles and shapes modules are imported by the picture card: served, not loaded here.
+    served = {
+        **files,
+        STYLES_URL: frontend / "controlfreak-picture-styles.js",
+        SHAPES_URL: frontend / "controlfreak-pool-shapes.js",
+    }
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(url, str(path), cache_headers=False) for url, path in files.items()]
+        [StaticPathConfig(url, str(path), cache_headers=False) for url, path in served.items()]
     )
     # The version query busts the browser cache after an upgrade.
     for url in files:

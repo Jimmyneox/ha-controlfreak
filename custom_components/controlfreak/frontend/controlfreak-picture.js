@@ -10,24 +10,40 @@
  *
  *   type: custom:controlfreak-picture
  *   scene: pool            # pool | spa | falls | deck | bub
- *   shape: kidney          # pool only: rectangle | roman | grecian | oval | round |
- *                          #   kidney | figure-8 | lazy-l | true-l | mountain-lake |
- *                          #   freeform | custom (+ path: "M…Z")
+ *   shape: kidney          # pool only: the outline (see controlfreak-pool-shapes.js)
  *   pump: fan.filter_pump  # optional: water speed = the fan's percentage
  *   light: light.pool_light  # optional: water colour = the light's effect
  *   spillover: sensor.filter_pump_current_mode  # optional (spa): "spillover"
+ *   style: caustic         # optional: caustic | blueprint | depth | neon | poster
  *   rows: 4                # optional: height in a sections view (2..12)
  *   height: 260px          # optional: fixed height outside a sections view
  *   aspect_ratio: "16:9"   # optional: height from the width instead
  *
- * In a sections view the card is also resizable in Home Assistant's layout
- * editor, and a visual editor picks the scene, shape and entities.
+ * Or the whole pool from above (see controlfreak-pool-shapes.js for the shapes):
+ *
+ *   type: custom:controlfreak-picture
+ *   scene: overview
+ *   shape: kidney          # one of the shapes in controlfreak-pool-shapes.js
+ *   pumps: { pool: fan.filter_pump, spa: fan.spa_jets, falls: fan.waterfall }
+ *   lights: { pool: light.pool_light, spa: light.spa_light }
+ *   spillover: sensor.filter_pump_current_mode
+ *   show: [steps, ledge]   # optional: parts to draw without a pump or light
+ *
+ * The styles other than caustic live in controlfreak-picture-styles.js, served
+ * beside this file and imported from here. In a sections view the card is
+ * resizable in Home Assistant's layout editor, and a visual editor picks the
+ * scene, style, shape and entities.
  *
  * No framework, no bundler, no dependencies: a plain HTMLElement and a 2D
  * canvas. Everything above the custom element (the effect table, speed to flow,
  * the water buffer, the motion gate) is pure and unit-tested with `node --test`.
  * Display only: nothing here ever writes to pool equipment.
  */
+
+import { DEFAULT_STYLE, makeStyledScene, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
+import { DEFAULT_SHAPE, layoutShape, PARTS, partsOf, SHAPE_LABELS, SHAPES } from "./controlfreak-pool-shapes.js";
+
+export { DEFAULT_SHAPE, SHAPE_LABELS, SHAPES };
 
 /* ----- Shared tables ----------------------------------------------------- */
 
@@ -53,6 +69,9 @@ export const EFFECT_COLORS = {
 export const SHOW = "show";
 export const WHITE = EFFECT_COLORS.White;
 export const SCENES = ["pool", "spa", "falls", "deck", "bub"];
+export const OVERVIEW = "overview";
+/** The parts of an overview a pump or a light can bind to. */
+export const OVERVIEW_PARTS = ["pool", "spa", "falls", "deck", "bub"];
 
 /** Water colours by time of day, overridable with --controlfreak-water-a/-b/-hi. */
 export const PALETTE = {
@@ -60,118 +79,16 @@ export const PALETTE = {
   night: { a: "#0d4a66", b: "#062a40", hi: "#9ff0ff" },
 };
 
-/**
- * Pool outlines: SVG path data in a unit square (x right, y down), the point
- * where the entry steps sit ("steps") and where the deep end is ("deep"), both
- * in the same square. The card scales them to the picture; "round" keeps a
- * 1:1 aspect. Add a shape here and it appears in the editor, the strategy
- * option and the docs table.
- */
-export const POOL_SHAPES = {
-  rectangle: {
-    path:
-      "M0.08 0.06 H0.92 Q0.96 0.06 0.96 0.10 V0.90 Q0.96 0.94 0.92 0.94 H0.08 " +
-      "Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
-    steps: [0.04, 0.5],
-    deep: [0.94, 0.5],
-  },
-  roman: {
-    path: "M0.22 0.06 H0.78 A0.18 0.44 0 0 1 0.78 0.94 H0.22 A0.18 0.44 0 0 1 0.22 0.06 Z",
-    steps: [0.05, 0.5],
-    deep: [0.93, 0.5],
-  },
-  grecian: {
-    path: "M0.14 0.06 H0.86 L0.96 0.22 V0.78 L0.86 0.94 H0.14 L0.04 0.78 V0.22 Z",
-    steps: [0.04, 0.5],
-    deep: [0.94, 0.5],
-  },
-  oval: {
-    path: "M0.5 0.06 A0.46 0.44 0 1 1 0.5 0.94 A0.46 0.44 0 1 1 0.5 0.06 Z",
-    steps: [0.05, 0.5],
-    deep: [0.93, 0.5],
-  },
-  round: {
-    path: "M0.5 0.06 A0.44 0.44 0 1 1 0.5 0.94 A0.44 0.44 0 1 1 0.5 0.06 Z",
-    steps: [0.07, 0.5],
-    deep: [0.92, 0.5],
-    uniform: true,
-  },
-  kidney: {
-    path:
-      "M0.10 0.32 C0.10 0.12 0.30 0.04 0.46 0.08 C0.56 0.11 0.60 0.30 0.72 0.24 C0.84 0.18 0.98 0.28 0.96 0.48 " +
-      "C0.94 0.70 0.82 0.92 0.62 0.95 C0.48 0.97 0.40 0.86 0.30 0.86 C0.16 0.86 0.06 0.72 0.06 0.54 " +
-      "C0.06 0.44 0.08 0.38 0.10 0.32 Z",
-    steps: [0.07, 0.54],
-    deep: [0.90, 0.46],
-  },
-  "figure-8": {
-    path:
-      "M0.27 0.10 C0.40 0.10 0.46 0.22 0.52 0.26 C0.58 0.18 0.63 0.06 0.76 0.06 C0.92 0.06 0.97 0.30 0.96 0.50 " +
-      "C0.95 0.72 0.90 0.94 0.74 0.94 C0.62 0.94 0.58 0.82 0.52 0.74 C0.46 0.78 0.41 0.90 0.27 0.90 " +
-      "C0.12 0.90 0.04 0.72 0.04 0.50 C0.04 0.28 0.12 0.10 0.27 0.10 Z",
-    steps: [0.05, 0.5],
-    deep: [0.92, 0.5],
-  },
-  "lazy-l": {
-    path:
-      "M0.08 0.06 H0.58 Q0.62 0.06 0.62 0.10 V0.30 L0.76 0.50 H0.92 Q0.96 0.50 0.96 0.54 V0.90 " +
-      "Q0.96 0.94 0.92 0.94 H0.08 Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
-    steps: [0.04, 0.30],
-    deep: [0.92, 0.74],
-  },
-  "true-l": {
-    path:
-      "M0.08 0.06 H0.56 Q0.60 0.06 0.60 0.10 V0.50 Q0.60 0.54 0.64 0.54 H0.92 Q0.96 0.54 0.96 0.58 V0.90 " +
-      "Q0.96 0.94 0.92 0.94 H0.08 Q0.04 0.94 0.04 0.90 V0.10 Q0.04 0.06 0.08 0.06 Z",
-    steps: [0.04, 0.30],
-    deep: [0.92, 0.76],
-  },
-  "mountain-lake": {
-    path:
-      "M0.14 0.16 C0.26 0.04 0.44 0.10 0.56 0.08 C0.70 0.06 0.86 0.08 0.94 0.24 C0.98 0.36 0.92 0.48 0.94 0.62 " +
-      "C0.96 0.78 0.84 0.94 0.66 0.92 C0.52 0.90 0.44 0.96 0.30 0.92 C0.14 0.88 0.04 0.76 0.06 0.58 " +
-      "C0.08 0.44 0.04 0.28 0.14 0.16 Z",
-    steps: [0.08, 0.42],
-    deep: [0.90, 0.54],
-  },
-  freeform: {
-    path:
-      "M0.14 0.30 C0.16 0.10 0.36 0.02 0.52 0.08 C0.66 0.14 0.72 0.06 0.86 0.14 C0.98 0.22 0.98 0.42 0.90 0.54 " +
-      "C0.84 0.64 0.92 0.76 0.82 0.86 C0.70 0.98 0.52 0.90 0.40 0.92 C0.26 0.94 0.10 0.90 0.06 0.74 " +
-      "C0.02 0.58 0.12 0.48 0.14 0.30 Z",
-    steps: [0.10, 0.44],
-    deep: [0.86, 0.58],
-  },
-};
-export const DEFAULT_SHAPE = "rectangle";
-export const SHAPE_NAMES = [...Object.keys(POOL_SHAPES), "custom"];
+/** The shapes a card may name (the shared table in controlfreak-pool-shapes.js). */
+export const SHAPE_NAMES = SHAPES;
 
-const unitPoint = (value, fallback) =>
-  Array.isArray(value) && value.length === 2 && value.every((n) => Number.isFinite(Number(n)))
-    ? value.map((n) => Math.min(1, Math.max(0, Number(n))))
-    : fallback;
-
-/**
- * The pool outline for a card config: a named shape, or "custom" with its own
- * `path` (and optional `steps` / `deep` points in the same 0..1 square).
- */
+/** The pool outline a card config asks for; throws on an unknown shape. */
 export function poolOutline(config = {}) {
   const shape = config.shape ?? DEFAULT_SHAPE;
-  if (shape === "custom") {
-    if (typeof config.path !== "string" || !/^\s*M/i.test(config.path)) {
-      throw new Error('controlfreak-picture: shape "custom" needs "path", SVG path data in a 0..1 square starting with M');
-    }
-    return {
-      shape,
-      path: config.path.trim(),
-      uniform: false,
-      steps: unitPoint(config.steps, [0.06, 0.5]),
-      deep: unitPoint(config.deep, [0.94, 0.5]),
-    };
+  if (!SHAPES.includes(shape)) {
+    throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPES.join(", ")}`);
   }
-  const def = POOL_SHAPES[shape];
-  if (!def) throw new Error(`controlfreak-picture: unknown shape "${shape}". Use one of: ${SHAPE_NAMES.join(", ")}`);
-  return { shape, path: def.path, uniform: def.uniform === true, steps: def.steps, deep: def.deep };
+  return { shape };
 }
 
 export const ROWS_MIN = 2;
@@ -292,8 +209,45 @@ export function isDarkMode(hass, matchMedia = globalThis.matchMedia) {
   return Boolean(matchMedia?.("(prefers-color-scheme: dark)")?.matches);
 }
 
+/**
+ * The overview's model: the filter pump and pool light drive the water (the
+ * top-level fields), every other part carries its own pump and light.
+ */
+export function overviewModelOf(hass, config) {
+  const states = hass?.states ?? {};
+  const pumps = config.pumps ?? {};
+  const lights = config.lights ?? {};
+  const parts = {};
+  for (const part of OVERVIEW_PARTS) {
+    const pump = pumps[part] ? flowOf(states[pumps[part]]) : { on: false, speed: 0 };
+    const light = lights[part] ? lightOf(states[lights[part]]) : { on: false, effect: null, hex: WHITE };
+    parts[part] = {
+      on: pump.on,
+      speed: pump.speed,
+      lightOn: light.on,
+      effect: light.effect,
+      hex: light.hex,
+      rgb: light.hex === SHOW ? null : hexToRgb(light.hex),
+    };
+  }
+  const pool = parts.pool;
+  return {
+    on: pool.on,
+    speed: pool.speed,
+    lightOn: pool.lightOn,
+    effect: pool.effect,
+    hex: pool.hex,
+    spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
+    dark: isDarkMode(hass),
+    shape: config.shape ?? DEFAULT_SHAPE,
+    parts,
+    show: partsOf(config),
+  };
+}
+
 /** Everything the renderer needs, from the hass object and the card config. */
 export function modelOf(hass, config) {
+  if (config.scene === OVERVIEW) return overviewModelOf(hass, config);
   const states = hass?.states ?? {};
   const pump = config.pump ? flowOf(states[config.pump]) : { on: false, speed: 0 };
   const light = config.light ? lightOf(states[config.light]) : { on: false, effect: null, hex: WHITE };
@@ -305,6 +259,7 @@ export function modelOf(hass, config) {
     hex: light.hex,
     spilling: config.spillover ? spillingOf(states[config.spillover]) : false,
     dark: isDarkMode(hass),
+    shape: config.shape ?? DEFAULT_SHAPE,
   };
 }
 
@@ -501,7 +456,7 @@ export function renderWater(data, BW, BH, sim, { kind, dark, colors, fx, strengt
  * One water renderer, five small scenes. `getModel()` returns the current
  * model (see modelOf); `getColors()` the water palette as rgb triples.
  */
-export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, outline = poolOutline() } = {}) {
+export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
   const ctx = cv.getContext("2d");
   const buf = document.createElement("canvas");
   const bctx = buf.getContext("2d");
@@ -617,25 +572,28 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
 
   // The pool outline in canvas pixels: the unit-square path scaled into the
   // picture inside a deck margin ("round" keeps a 1:1 aspect, centred).
-  function poolMetrics() {
-    const m = Math.max(10, Math.min(W, H) * 0.07);
-    let sx = W - 2 * m;
-    let sy = H - 2 * m;
-    let tx = m;
-    let ty = m;
-    if (outline.uniform) {
-      const side = Math.min(sx, sy);
-      tx += (sx - side) / 2;
-      ty += (sy - side) / 2;
-      sx = sy = side;
-    }
-    return { sx, sy, tx, ty };
-  }
-  function poolPath() {
-    const { sx, sy, tx, ty } = poolMetrics();
-    const path = new Path2D();
-    path.addPath(new Path2D(outline.path), new DOMMatrix([sx, 0, 0, sy, tx, ty]));
-    return path;
+  // The pool outline laid into the picture by the shared shape module, with
+  // the entry steps at the shape's steps anchor and the deep end opposite.
+  function poolLayout() {
+    const shape = getModel().shape ?? DEFAULT_SHAPE;
+    const pad = Math.max(10, Math.min(W, H) * 0.07);
+    const L = layoutShape(SHAPES.includes(shape) ? shape : DEFAULT_SHAPE, W, H, pad);
+    // Traced straight into the context (the tests run on a recording context without Path2D).
+    const path = (c) => {
+      c.beginPath();
+      L.points.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+      c.closePath();
+    };
+    const steps = L.at(L.def.steps.t);
+    const deep = L.at(L.def.steps.t + 0.5);
+    const inset = Math.min(L.box.w, L.box.h) * 0.08;
+    return {
+      path,
+      sx: steps.x,
+      sy: steps.y,
+      dx: deep.x + deep.nx * inset,
+      dy: deep.y + deep.ny * inset,
+    };
   }
 
   // The pool from above: pavers all round, the coping's shadow and lip, then
@@ -643,12 +601,7 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
   // steps at the shallow end, the main drain at the deep end, the waterline
   // tile band and the wall's shadow.
   function drawPool(dark) {
-    const path = poolPath();
-    const m = poolMetrics();
-    const sx = m.tx + outline.steps[0] * m.sx;
-    const sy = m.ty + outline.steps[1] * m.sy;
-    const dx = m.tx + outline.deep[0] * m.sx;
-    const dy = m.ty + outline.deep[1] * m.sy;
+    const { path, sx, sy, dx, dy } = poolLayout();
     const unit = Math.min(W, H);
     deck(dark, 0, 0, W, H);
     // Coping: a soft shadow on the pavers, the stone lip, a hairline at its edge.
@@ -656,19 +609,21 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
     ctx.lineJoin = "round";
     ctx.lineWidth = 22;
     ctx.strokeStyle = dark ? "rgba(0,0,0,0.35)" : "rgba(80,60,30,0.16)";
-    ctx.stroke(path);
+    path(ctx);
+    ctx.stroke();
     ctx.lineWidth = 13;
     ctx.strokeStyle = dark ? "#57524a" : "#f3eee4";
-    ctx.stroke(path);
+    path(ctx);
+    ctx.stroke();
     ctx.lineWidth = 1;
     ctx.strokeStyle = dark ? "rgba(255,255,255,0.10)" : "rgba(120,100,70,0.35)";
-    const lip = new Path2D();
-    lip.addPath(path);
-    ctx.stroke(lip);
+    path(ctx);
+    ctx.stroke();
     ctx.restore();
 
     ctx.save();
-    ctx.clip(path);
+    path(ctx);
+    ctx.clip();
     const strength = water(dark, true);
     // Depth: the shallow end is brighter and greener, the deep end darker.
     const depth = ctx.createLinearGradient(sx, sy, dx, dy);
@@ -728,18 +683,21 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
     ctx.lineJoin = "round";
     ctx.lineWidth = 14;
     ctx.strokeStyle = dark ? "rgba(10,30,60,0.75)" : "rgba(16,58,110,0.62)";
-    ctx.stroke(path);
+    path(ctx);
+    ctx.stroke();
     ctx.lineWidth = 7;
     ctx.setLineDash([5, 1.5]);
     ctx.strokeStyle = dark ? "rgba(70,130,170,0.35)" : "rgba(120,190,230,0.5)";
-    ctx.stroke(path);
+    path(ctx);
+    ctx.stroke();
     ctx.setLineDash([]);
     ctx.lineWidth = 30;
     const shade = ctx.createLinearGradient(0, 0, 0, H);
     shade.addColorStop(0, dark ? "rgba(0,0,0,0.45)" : "rgba(8,40,70,0.30)");
     shade.addColorStop(1, dark ? "rgba(0,0,0,0.2)" : "rgba(8,40,70,0.12)");
     ctx.strokeStyle = shade;
-    ctx.stroke(path);
+    path(ctx);
+    ctx.stroke();
     ctx.restore();
     return strength;
   }
@@ -1148,7 +1106,7 @@ export function makeScene(cv, kind, getModel, getColors, { rng = Math.random, ou
 
 const Base = globalThis.HTMLElement ?? class {};
 const DOCS_URL = "https://github.com/Jimmyneox/ha-controlfreak/blob/main/docs/controlfreak.md";
-const SCENE_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers" };
+const SCENE_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers", overview: "Pool overview" };
 
 const STYLE = `
   :host { display: block; height: 100%; }
@@ -1162,7 +1120,7 @@ const STYLE = `
 
 export class ControlFreakPictureCard extends Base {
   static getStubConfig() {
-    return { scene: "pool", shape: DEFAULT_SHAPE };
+    return { scene: OVERVIEW, shape: DEFAULT_SHAPE };
   }
 
   static getConfigElement() {
@@ -1182,15 +1140,38 @@ export class ControlFreakPictureCard extends Base {
   }
 
   setConfig(config) {
-    if (!config || !SCENES.includes(config.scene)) {
-      throw new Error(`controlfreak-picture: set "scene" to one of ${SCENES.join(", ")}`);
+    if (!config || (!SCENES.includes(config.scene) && config.scene !== OVERVIEW)) {
+      throw new Error(`controlfreak-picture: set "scene" to one of ${[...SCENES, OVERVIEW].join(", ")}`);
     }
     for (const key of ["pump", "light", "spillover"]) {
       if (config[key] != null && config[key] !== "" && typeof config[key] !== "string") {
         throw new Error(`controlfreak-picture: "${key}" must be an entity id`);
       }
     }
-    this._outline = poolOutline(config); // throws on an unknown shape or a bad custom path
+    poolOutline(config); // throws on an unknown shape
+    if (config.scene === OVERVIEW) {
+      if (config.shape != null && !SHAPES.includes(config.shape)) {
+        throw new Error(`controlfreak-picture: set "shape" to one of ${SHAPES.join(", ")}`);
+      }
+      for (const key of ["pumps", "lights"]) {
+        const map = config[key];
+        if (map == null) continue;
+        if (typeof map !== "object" || Array.isArray(map)) {
+          throw new Error(`controlfreak-picture: "${key}" maps parts (${OVERVIEW_PARTS.join(", ")}) to entity ids`);
+        }
+        for (const [part, id] of Object.entries(map)) {
+          if (!OVERVIEW_PARTS.includes(part) || typeof id !== "string") {
+            throw new Error(`controlfreak-picture: "${key}.${part}" must be an entity id for one of ${OVERVIEW_PARTS.join(", ")}`);
+          }
+        }
+      }
+      if (config.show != null && (!Array.isArray(config.show) || config.show.some((p) => !PARTS.includes(p)))) {
+        throw new Error(`controlfreak-picture: "show" lists parts from ${PARTS.join(", ")}`);
+      }
+    }
+    if (config.style != null && !STYLES.includes(config.style)) {
+      throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
+    }
     this._config = config;
     this._model = this._hass ? modelOf(this._hass, config) : null;
     this._rebuild();
@@ -1203,7 +1184,9 @@ export class ControlFreakPictureCard extends Base {
     const prev = this._model;
     this._model = next;
     const changed =
-      !prev || ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark"].some((k) => prev[k] !== next[k]);
+      !prev ||
+      ["on", "speed", "lightOn", "effect", "hex", "spilling", "dark", "shape"].some((k) => prev[k] !== next[k]) ||
+      (next.parts && JSON.stringify(prev.parts) !== JSON.stringify(next.parts));
     if (changed) {
       this._label();
       this._scene?.kick();
@@ -1261,9 +1244,8 @@ export class ControlFreakPictureCard extends Base {
     root.innerHTML = `<style>${STYLE}</style><ha-card style="${frameStyle(this._config)}"><canvas role="img"></canvas></ha-card>`;
     const canvas = root.querySelector("canvas");
     this._canvas = canvas;
-    this._scene = makeScene(canvas, this._config.scene, () => this._model_(), () => this._colors(), {
-      outline: this._outline,
-    });
+    const style = this._config.style ?? DEFAULT_STYLE;
+    this._scene = makeStyledScene(canvas, this._config.scene, style, () => this._model_(), () => this._colors());
     this._label();
     canvas.addEventListener("pointerdown", (e) => {
       const r = canvas.getBoundingClientRect();
@@ -1315,6 +1297,13 @@ export class ControlFreakPictureCard extends Base {
     if (!this._canvas || !this._config) return;
     const m = this._model_();
     const parts = [SCENE_LABELS[this._config.scene]];
+    if (m.parts) {
+      parts.push(`${m.shape} shape`);
+      for (const [name, p] of Object.entries(m.parts)) {
+        if (this._config.pumps?.[name]) parts.push(`${name} pump ${p.on ? `on at ${Math.round(p.speed * 100)}%` : "off"}`);
+        if (this._config.lights?.[name]) parts.push(`${name} light ${p.lightOn ? (p.effect ?? "on") : "off"}`);
+      }
+    }
     if (this._config.pump) parts.push(m.on ? `pump on at ${Math.round(m.speed * 100)}%` : "pump off");
     if (this._config.light) parts.push(m.lightOn ? `light ${m.effect ?? "on"}` : "light off");
     if (this._config.spillover && m.spilling) parts.push("spillover running");
@@ -1324,51 +1313,107 @@ export class ControlFreakPictureCard extends Base {
 
 /* ----- Visual editor: scene, shape, entities and size via ha-form ---------- */
 
-export const SHAPE_LABELS = {
-  rectangle: "Rectangle",
-  roman: "Roman (rounded ends)",
-  grecian: "Grecian (cut corners)",
-  oval: "Oval",
-  round: "Round",
-  kidney: "Kidney",
-  "figure-8": "Figure 8",
-  "lazy-l": "Lazy L",
-  "true-l": "True L",
-  "mountain-lake": "Mountain lake",
-  freeform: "Freeform",
-  custom: "Custom path",
-};
+const PART_LABELS = { pool: "Pool", spa: "Spa", falls: "Waterfall", deck: "Deck jets", bub: "Bubblers" };
 const EDITOR_LABELS = {
   scene: "Scene",
+  style: "Picture style",
   shape: "Pool shape",
-  path: "Custom outline (SVG path in a 0..1 square)",
   pump: "Pump (water speed)",
   light: "Light (water colour)",
   spillover: "Pump mode sensor (spillover into the pool)",
   rows: "Height (rows in a sections view)",
 };
+for (const part of OVERVIEW_PARTS) {
+  EDITOR_LABELS[`pump_${part}`] = `${PART_LABELS[part]} pump`;
+  EDITOR_LABELS[`light_${part}`] = `${PART_LABELS[part]} light`;
+}
 
-/** The ha-form schema for a config; shape and path appear only where they apply. */
+/** Flat form data for the editor: an overview's pumps/lights maps become pump_<part> / light_<part>. */
+export function editorData(config = {}) {
+  const data = { scene: OVERVIEW, style: DEFAULT_STYLE, shape: DEFAULT_SHAPE, rows: DEFAULT_ROWS };
+  for (const [k, v] of Object.entries(config)) if (!["pumps", "lights", "type"].includes(k)) data[k] = v;
+  for (const part of OVERVIEW_PARTS) {
+    if (config.pumps?.[part]) data[`pump_${part}`] = config.pumps[part];
+    if (config.lights?.[part]) data[`light_${part}`] = config.lights[part];
+  }
+  return data;
+}
+
+/** The card config for the editor's flat data; defaults and empty fields are left out. */
+export function configFromEditor(data = {}, config = {}) {
+  const scene = data.scene ?? OVERVIEW;
+  const out = { ...config, scene };
+  const drop = (k) => delete out[k];
+  for (const k of Object.keys(data)) {
+    if (k.startsWith("pump_") || k.startsWith("light_")) continue;
+    if (data[k] === "" || data[k] == null) drop(k);
+    else out[k] = data[k];
+  }
+  if (out.style === DEFAULT_STYLE) drop("style");
+  if (scene === OVERVIEW || scene === "pool") {
+    if (out.shape === DEFAULT_SHAPE) drop("shape");
+  } else drop("shape");
+  if (Number(out.rows) === DEFAULT_ROWS) drop("rows");
+  if (scene === OVERVIEW) {
+    drop("pump");
+    drop("light");
+    const pumps = {};
+    const lights = {};
+    for (const part of OVERVIEW_PARTS) {
+      if (data[`pump_${part}`]) pumps[part] = data[`pump_${part}`];
+      if (data[`light_${part}`]) lights[part] = data[`light_${part}`];
+    }
+    if (Object.keys(pumps).length) out.pumps = pumps;
+    else drop("pumps");
+    if (Object.keys(lights).length) out.lights = lights;
+    else drop("lights");
+    if (!pumps.spa) drop("spillover");
+  } else {
+    drop("pumps");
+    drop("lights");
+    drop("show");
+    if (scene !== "spa") drop("spillover");
+  }
+  return out;
+}
+
+/** The ha-form schema for a config; each field appears only where it applies. */
 export function editorSchema(config = {}) {
+  const scene = config.scene ?? OVERVIEW;
   const schema = [
     {
       name: "scene",
       required: true,
-      selector: { select: { mode: "dropdown", options: SCENES.map((s) => ({ value: s, label: SCENE_LABELS[s] })) } },
+      selector: {
+        select: { mode: "dropdown", options: [OVERVIEW, ...SCENES].map((s) => ({ value: s, label: SCENE_LABELS[s] })) },
+      },
+    },
+    {
+      name: "style",
+      selector: { select: { mode: "dropdown", options: STYLES.map((s) => ({ value: s, label: STYLE_LABELS[s] })) } },
     },
   ];
-  if ((config.scene ?? "pool") === "pool") {
+  if (scene === OVERVIEW || scene === "pool") {
     schema.push({
       name: "shape",
-      selector: { select: { mode: "dropdown", options: SHAPE_NAMES.map((s) => ({ value: s, label: SHAPE_LABELS[s] })) } },
+      selector: { select: { mode: "dropdown", options: SHAPES.map((s) => ({ value: s, label: SHAPE_LABELS[s] })) } },
     });
-    if (config.shape === "custom") schema.push({ name: "path", selector: { text: { multiline: true } } });
   }
-  schema.push(
-    { name: "pump", selector: { entity: { domain: "fan" } } },
-    { name: "light", selector: { entity: { domain: "light" } } }
-  );
-  if (config.scene === "spa") schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  if (scene === OVERVIEW) {
+    for (const part of OVERVIEW_PARTS) {
+      schema.push(
+        { name: `pump_${part}`, selector: { entity: { domain: "fan" } } },
+        { name: `light_${part}`, selector: { entity: { domain: "light" } } }
+      );
+    }
+    schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  } else {
+    schema.push(
+      { name: "pump", selector: { entity: { domain: "fan" } } },
+      { name: "light", selector: { entity: { domain: "light" } } }
+    );
+    if (scene === "spa") schema.push({ name: "spillover", selector: { entity: { domain: "sensor" } } });
+  }
   schema.push({ name: "rows", selector: { number: { min: ROWS_MIN, max: ROWS_MAX, mode: "slider" } } });
   return schema;
 }
@@ -1387,7 +1432,6 @@ const PICKER_STYLE = `
   button:hover { border-color: var(--secondary-text-color, #888); }
   button[aria-pressed="true"] { border-color: var(--primary-color, #03a9f4); box-shadow: 0 0 0 1px var(--primary-color, #03a9f4) inset; }
   canvas { display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 6px; }
-  .custom canvas { background: repeating-linear-gradient(45deg, #ddd 0 6px, #eee 6px 12px); }
   .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
 
@@ -1408,7 +1452,7 @@ export class ControlFreakShapePicker extends Base {
   }
 
   set value(v) {
-    this._value = SHAPE_NAMES.includes(v) ? v : DEFAULT_SHAPE;
+    this._value = SHAPES.includes(v) ? v : DEFAULT_SHAPE;
     this._highlight();
   }
 
@@ -1420,6 +1464,14 @@ export class ControlFreakShapePicker extends Base {
     }
   }
 
+  /** The picture style the tiles are drawn in (default caustic). Not `style`: that is the element's CSS. */
+  set pictureStyle(style) {
+    const next = STYLES.includes(style) ? style : DEFAULT_STYLE;
+    if (next === this._style) return;
+    this._style = next;
+    if (this._built) this._rebuildTiles();
+  }
+
   connectedCallback() {
     if (this._built) {
       this._redraw();
@@ -1429,17 +1481,16 @@ export class ControlFreakShapePicker extends Base {
     const root = this.attachShadow({ mode: "open" });
     root.innerHTML = `<style>${PICKER_STYLE}</style><div class="grid" role="radiogroup"></div>`;
     const grid = root.querySelector(".grid");
-    for (const shape of SHAPE_NAMES) {
+    for (const shape of SHAPES) {
       const b = document.createElement("button");
       b.type = "button";
       b.dataset.shape = shape;
       b.setAttribute("role", "radio");
       b.title = SHAPE_LABELS[shape];
-      if (shape === "custom") b.className = "custom";
       const cv = document.createElement("canvas");
       const label = document.createElement("span");
       label.className = "label";
-      label.textContent = SHAPE_LABELS[shape].replace(/ \(.*\)$/, "");
+      label.textContent = SHAPE_LABELS[shape];
       b.append(cv, label);
       b.addEventListener("click", () => {
         this._value = shape;
@@ -1447,16 +1498,8 @@ export class ControlFreakShapePicker extends Base {
         this.dispatchEvent(new CustomEvent("value-changed", { detail: { value: shape }, bubbles: true, composed: true }));
       });
       grid.append(b);
-      if (shape !== "custom") {
-        const outline = poolOutline({ shape });
-        const model = () => ({ ...STILL_MODEL, dark: this._dark === true });
-        const colors = () => {
-          const base = this._dark ? PALETTE.night : PALETTE.day;
-          return { a: hexToRgb(base.a), b: hexToRgb(base.b), hi: hexToRgb(base.hi) };
-        };
-        this._scenes.push(makeScene(cv, "pool", model, colors, { outline, rng: () => 0.5 }));
-      }
     }
+    this._rebuildTiles();
     this._highlight();
     if (globalThis.ResizeObserver) {
       this._ro = new ResizeObserver(() => this._redraw());
@@ -1471,6 +1514,24 @@ export class ControlFreakShapePicker extends Base {
     this._ro = null;
   }
 
+  // Each tile is a still frame of the overview in that shape: pool water,
+  // steps, deck and coping, in the picker's style.
+  _rebuildTiles() {
+    for (const scene of this._scenes) scene.stop();
+    this._scenes = [];
+    for (const b of this.shadowRoot?.querySelectorAll("button") ?? []) {
+      const shape = b.dataset.shape;
+      const cv = b.querySelector("canvas");
+      const model = () => ({ ...overviewModelOf(null, { scene: OVERVIEW, shape }), dark: this._dark === true });
+      const colors = () => {
+        const base = this._dark ? PALETTE.night : PALETTE.day;
+        return { a: hexToRgb(base.a), b: hexToRgb(base.b), hi: hexToRgb(base.hi) };
+      };
+      this._scenes.push(makeStyledScene(cv, OVERVIEW, this._style ?? DEFAULT_STYLE, model, colors, () => 0.5));
+    }
+    this._redraw();
+  }
+
   _redraw() {
     for (const scene of this._scenes) scene.resize();
   }
@@ -1482,8 +1543,6 @@ export class ControlFreakShapePicker extends Base {
     }
   }
 }
-
-const STILL_MODEL = { on: false, speed: 0, lightOn: false, effect: null, hex: WHITE, spilling: false, dark: false };
 
 export class ControlFreakPictureEditor extends Base {
   setConfig(config) {
@@ -1501,16 +1560,8 @@ export class ControlFreakPictureEditor extends Base {
     this._render();
   }
 
-  _apply(value) {
-    for (const key of Object.keys(value)) if (value[key] === "" || value[key] == null) delete value[key];
-    if (value.scene !== "pool") {
-      delete value.shape;
-      delete value.path;
-    }
-    if (value.shape !== "custom") delete value.path;
-    if (value.scene !== "spa") delete value.spillover;
-    this._config = { ...this._config, ...value };
-    for (const key of ["shape", "path", "spillover"]) if (!(key in value)) delete this._config[key];
+  _apply(data) {
+    this._config = configFromEditor(data, this._config);
     this._render();
     this.dispatchEvent(new CustomEvent("config-changed", { detail: { config: this._config }, bubbles: true, composed: true }));
   }
@@ -1532,13 +1583,15 @@ export class ControlFreakPictureEditor extends Base {
       });
       this.append(this._picker, this._form);
     }
-    const pool = (this._config.scene ?? "pool") === "pool";
-    this._picker.hidden = !pool;
+    const scene = this._config.scene ?? OVERVIEW;
+    const shaped = scene === OVERVIEW || scene === "pool";
+    this._picker.hidden = !shaped;
     this._picker.hass = this._hass;
+    this._picker.pictureStyle = this._config.style ?? DEFAULT_STYLE;
     this._picker.value = this._config.shape ?? DEFAULT_SHAPE;
     this._form.hass = this._hass;
     this._form.schema = editorSchema(this._config);
-    this._form.data = { scene: "pool", shape: DEFAULT_SHAPE, rows: DEFAULT_ROWS, ...this._config };
+    this._form.data = editorData(this._config);
   }
 }
 
@@ -1557,7 +1610,8 @@ if (globalThis.customElements) {
     globalThis.customCards.push({
       type: "controlfreak-picture",
       name: "Control Freak picture",
-      description: "An animated pool, spa, waterfall, deck jet or bubbler picture driven by a pump and a light.",
+      description:
+        "An animated pool, spa, waterfall, deck jet or bubbler picture driven by a pump and a light, in one of five styles.",
       preview: true,
       documentationURL: DOCS_URL,
     });
@@ -1567,4 +1621,14 @@ if (globalThis.customElements) {
 // What the strategy's settings editor needs from this module. The strategy is
 // its own module (loaded with its own cache-buster), so it reads this at run
 // time instead of importing the file.
-globalThis.controlfreakPicture = { SHAPE_NAMES, SHAPE_LABELS, DEFAULT_SHAPE, ROWS_MIN, ROWS_MAX, DEFAULT_ROWS };
+globalThis.controlfreakPicture = {
+  SHAPE_NAMES: SHAPES,
+  SHAPE_LABELS,
+  DEFAULT_SHAPE,
+  STYLES,
+  STYLE_LABELS,
+  DEFAULT_STYLE,
+  ROWS_MIN,
+  ROWS_MAX,
+  DEFAULT_ROWS,
+};
