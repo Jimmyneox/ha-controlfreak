@@ -41,6 +41,9 @@
 - **Resizable pictures.** In a sections view each picture can be dragged taller or shorter
   (2 to 12 rows) in the layout editor; `picture_rows: 6` on the strategy sets the starting
   height of every picture, and a hand-placed card takes `rows`, `height` or `aspect_ratio`.
+- The four dashboard modules are served with `Cache-Control: no-cache`, so a browser
+  revalidates the styles and shapes modules (imported by relative path, without the version
+  query) instead of keeping a copy from before an upgrade.
 - The effect-to-colour table lives once in `mapping.py` (`EFFECT_COLORS`; `DEFAULT_EFFECTS`
   derives from it) and is mirrored in the card; a test keeps the two identical.
 - Tests: `node --test` for the card's pure helpers and the strategy's picture placement,

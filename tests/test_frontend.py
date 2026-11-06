@@ -109,6 +109,27 @@ async def test_pool_shapes_are_served(
         assert f'"{shape}",' in body
 
 
+async def test_modules_are_revalidated_on_every_load(
+    hass_client: ClientSessionGenerator, setup_integration: FakeMqtt
+) -> None:
+    """The styles and shapes imports carry no version query, so nothing may be cached blindly.
+
+    Every module answers with `Cache-Control: no-cache` and a validator, so the
+    browser asks again after an upgrade (and gets a 304 while nothing changed).
+    Anything else under /controlfreak/ is a 404, not a directory listing.
+    """
+    client = await hass_client()
+    for url in (FRONTEND_URL, PICTURE_URL, STYLES_URL, SHAPES_URL):
+        resp = await client.get(url)
+        assert resp.status == 200, url
+        assert resp.headers["Cache-Control"] == "no-cache", url
+        assert "Last-Modified" in resp.headers or "ETag" in resp.headers, url
+    resp = await client.get(PICTURE_URL.rsplit("/", 1)[0] + "/manifest.json")
+    assert resp.status == 404
+    resp = await client.get(PICTURE_URL.rsplit("/", 1)[0] + "/..%2Fmanifest.json")
+    assert resp.status in (400, 404)
+
+
 def js_effect_colors() -> dict[str, str]:
     """The EFFECT_COLORS table as written in controlfreak-picture.js, in order."""
     js = PICTURE.read_text()

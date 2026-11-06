@@ -25,21 +25,30 @@
  * own pump and light (see `overview` below).
  */
 
-import {
-  addRipple,
-  advance,
-  bubGeo,
-  createSim,
-  deckGeo,
-  fallGeo,
-  fixtures,
-  landings,
-  makeScene,
-  renderWater,
-  spaGeo,
-  stepLights,
-} from "./controlfreak-picture.js";
 import { layoutShape, partsOf } from "./controlfreak-pool-shapes.js";
+
+// The scene geometry, simulation and water buffer live in controlfreak-picture.js,
+// which imports this module and hands them over with `setCore` as it loads. The
+// styles never import the picture module back: Home Assistant loads the card as
+// `controlfreak-picture.js?v=<version>`, and a relative import from here would
+// evaluate a second, unversioned copy of it before this module exists.
+let addRipple;
+let advance;
+let bubGeo;
+let createSim;
+let deckGeo;
+let fallGeo;
+let fixtures;
+let landings;
+let makeScene;
+let renderWater;
+let spaGeo;
+let stepLights;
+
+/** Called once by controlfreak-picture.js with the helpers the painters draw with. */
+export function setCore(core) {
+  ({ addRipple, advance, bubGeo, createSim, deckGeo, fallGeo, fixtures, landings, makeScene, renderWater, spaGeo, stepLights } = core);
+}
 
 export const STYLES = ["caustic", "blueprint", "depth", "neon", "poster"];
 export const DEFAULT_STYLE = "caustic";
@@ -2056,6 +2065,7 @@ export function makeStyledScene(cv, kind, style = DEFAULT_STYLE, getModel, getCo
   if (!STYLES.includes(style)) {
     throw new Error(`controlfreak-picture: set "style" to one of ${STYLES.join(", ")}`);
   }
+  if (!makeScene) throw new Error("controlfreak-picture: the styles module is loaded through controlfreak-picture.js");
   if (style === "caustic" && kind !== "overview") return makeScene(cv, kind, getModel, getColors, rng);
   return makeEngine(cv, kind, PAINTERS[style], getModel, getColors, rng);
 }

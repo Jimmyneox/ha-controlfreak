@@ -40,7 +40,7 @@
  * Display only: nothing here ever writes to pool equipment.
  */
 
-import { DEFAULT_STYLE, makeStyledScene, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
+import { DEFAULT_STYLE, makeStyledScene, setCore, STYLE_LABELS, STYLES } from "./controlfreak-picture-styles.js";
 import { DEFAULT_SHAPE, layoutShape, PARTS, partsOf, SHAPE_LABELS, SHAPES } from "./controlfreak-pool-shapes.js";
 
 export { DEFAULT_SHAPE, SHAPE_LABELS, SHAPES };
@@ -1101,6 +1101,9 @@ export function makeScene(cv, kind, getModel, getColors, rng = Math.random) {
   }
   return { resize, start, stop, kick, splash, draw, get running() { return running; }, get frames() { return frames; } };
 }
+
+// The styles module draws with these; it cannot import them (see setCore there).
+setCore({ addRipple, advance, bubGeo, createSim, deckGeo, fallGeo, fixtures, landings, makeScene, renderWater, spaGeo, stepLights });
 
 /* ----- The custom element (browser only) --------------------------------- */
 

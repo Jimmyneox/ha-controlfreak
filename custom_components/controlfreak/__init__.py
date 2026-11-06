@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from aiohttp import web
 from homeassistant.components.frontend import add_extra_js_url
-from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http import HomeAssistantView
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv, entity_registry as er
@@ -41,13 +42,37 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         STYLES_URL: frontend / "controlfreak-picture-styles.js",
         SHAPES_URL: frontend / "controlfreak-pool-shapes.js",
     }
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(url, str(path), cache_headers=False) for url, path in served.items()]
-    )
+    by_name = {url.rsplit("/", 1)[1]: path for url, path in served.items()}
+    hass.http.register_view(ControlFreakModuleView(by_name))
     # The version query busts the browser cache after an upgrade.
     for url in files:
         add_extra_js_url(hass, f"{url}?v={integration.version}")
     return True
+
+
+class ControlFreakModuleView(HomeAssistantView):
+    """Serve the dashboard modules so the browser revalidates them on every load.
+
+    The picture card imports the styles and shapes modules by relative path, so
+    those requests carry no version query. `Cache-Control: no-cache` makes the
+    browser ask the server (ETag / Last-Modified, a 304 when unchanged) instead
+    of reusing a copy from before an upgrade, which would break the card.
+    """
+
+    url = "/controlfreak/{name}"
+    name = "controlfreak:module"
+    requires_auth = False
+
+    def __init__(self, files: dict[str, Path]) -> None:
+        """Remember which file each module name maps to."""
+        self._files = files
+
+    async def get(self, request: web.Request, name: str) -> web.StreamResponse:
+        """Return the module, or 404 for a name that is not one of ours."""
+        path = self._files.get(name)
+        if path is None:
+            raise web.HTTPNotFound
+        return web.FileResponse(path, headers={"Cache-Control": "no-cache"})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ControlFreakConfigEntry) -> bool:
