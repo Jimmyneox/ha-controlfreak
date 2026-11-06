@@ -147,6 +147,7 @@ test("the scene model binds pump, light and spillover by entity id", () => {
     hex: "#e04bd6",
     spilling: true,
     dark: true,
+    deck: "concrete",
     shape: "rectangle",
   });
   assert.equal(modelOf(hass, { scene: "pool", shape: "kidney" }).shape, "kidney", "the pool's outline rides along");
@@ -369,11 +370,16 @@ test("frameStyle: grid-driven by default, else a fixed height or an aspect ratio
 test("editor schema: shape for the overview and the pool, a field per part for the overview, spillover only for the spa", () => {
   const names = (cfg) => editorSchema(cfg).map((f) => f.name);
   const parts = ["pump_pool", "light_pool", "pump_spa", "light_spa", "pump_falls", "light_falls", "pump_deck", "light_deck", "pump_bub", "light_bub"];
-  assert.deepEqual(names({}), ["scene", "style", "shape", ...parts, "spillover", "rows"]);
+  assert.deepEqual(names({}), ["scene", "style", "shape", "deck", ...parts, "spillover", "rows"]);
   assert.deepEqual(names({ scene: OVERVIEW }), names({}));
-  assert.deepEqual(names({ scene: "pool" }), ["scene", "style", "shape", "pump", "light", "rows"]);
-  assert.deepEqual(names({ scene: "spa" }), ["scene", "style", "pump", "light", "spillover", "rows"]);
-  assert.deepEqual(names({ scene: "falls" }), ["scene", "style", "pump", "light", "rows"]);
+  assert.deepEqual(names({ scene: "pool" }), ["scene", "style", "shape", "deck", "pump", "light", "rows"]);
+  assert.deepEqual(names({ scene: "spa" }), ["scene", "style", "deck", "pump", "light", "spillover", "rows"]);
+  assert.deepEqual(names({ scene: "falls" }), ["scene", "style", "deck", "pump", "light", "rows"]);
+  const deck = editorSchema({}).find((f) => f.name === "deck");
+  assert.deepEqual(
+    deck.selector.select.options.map((o) => o.value),
+    ["concrete", "pavers", "travertine", "wood", "stone"]
+  );
   const shape = editorSchema({}).find((f) => f.name === "shape");
   assert.deepEqual(
     shape.selector.select.options.map((o) => o.value),
@@ -386,8 +392,11 @@ test("editor schema: shape for the overview and the pool, a field per part for t
 });
 
 test("card editor: flat form data round-trips through the card config", () => {
-  const defaults = { scene: OVERVIEW, style: "caustic", shape: "rectangle", rows: DEFAULT_ROWS };
+  const defaults = { scene: OVERVIEW, style: "caustic", shape: "rectangle", deck: "concrete", rows: DEFAULT_ROWS };
   assert.deepEqual(editorData({ type: "custom:controlfreak-picture" }), defaults);
+  // The default deck is not written; another finish is, for every scene.
+  assert.equal("deck" in configFromEditor({ ...editorData({}), deck: "concrete" }, {}), false);
+  assert.equal(configFromEditor({ ...editorData({}), scene: "spa", deck: "wood" }, {}).deck, "wood");
   // Defaults write only the scene.
   assert.deepEqual(configFromEditor(editorData({}), { type: "custom:controlfreak-picture" }), { type: "custom:controlfreak-picture", scene: OVERVIEW });
   // An overview's pumps and lights flatten to a field per part and back.

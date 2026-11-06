@@ -11,8 +11,10 @@ from custom_components.controlfreak.mapping import (
     DEFAULT_EFFECTS,
     PANEL_KEYS,
     build_specs,
+    light_icon,
     parse_settings,
     percentage_to_speed,
+    pump_icon,
     relay_is_on,
     relay_role,
     setting_uuid_of,
@@ -133,15 +135,18 @@ def test_unknown_type_and_missing_topic_skipped(device_settings: list[dict[str, 
     assert set(parse_settings([odd, no_topic])) == set()
 
 
-def test_pump_percentage_maps_through_min_40() -> None:
-    assert percentage_to_speed(1, 40, 100) == 40
+def test_pump_percentage_is_the_pumps_own_speed() -> None:
+    """HA's percentage reads the pump's speed: a 40 to 100 pump reads 40 at its floor, not 1."""
+    assert percentage_to_speed(40, 40, 100) == 40
     assert percentage_to_speed(100, 40, 100) == 100
-    assert percentage_to_speed(50, 40, 100) == 70
-    assert speed_to_percentage(40, 40, 100) == 1
+    assert percentage_to_speed(70, 40, 100) == 70
+    assert percentage_to_speed(1, 40, 100) == 40, "below the floor is the floor"
+    assert percentage_to_speed(150, 40, 100) == 100
+    assert speed_to_percentage(40, 40, 100) == 40
     assert speed_to_percentage(100, 40, 100) == 100
+    assert speed_to_percentage(70, 40, 100) == 70
     assert speed_to_percentage(0, 40, 100) == 0
-    # A green that cannot fail is not evidence: a naive 1:1 mapping would give 1.
-    assert percentage_to_speed(1, 40, 100) != 1
+    assert speed_to_percentage(25, 40, 100) == 40, "a reading under the floor shows the floor"
 
 
 def test_relay_state_shapes() -> None:
@@ -176,3 +181,19 @@ def test_relay_role_comes_from_connection_type_not_port(
             {"name": connection, "connection_type_properties": []} if connection else None
         )
         assert relay_role(parse_settings([relay])["r"]) == role
+
+
+def test_icons_follow_the_panel_names() -> None:
+    """Pumps and lights get an icon for what they are, from the name typed in the panel."""
+    assert pump_icon("Filter Pump") == "cf:pump"
+    assert pump_icon("Spa Jets") == "cf:spa-jets"
+    assert pump_icon("Waterfall") == "cf:waterfall"
+    assert pump_icon("Deck Jets") == "cf:deck-jets"
+    assert pump_icon("Bubbler") == "cf:bubbler"
+    assert pump_icon("Cleaner Booster") == "cf:cleaner", "the cleaner wins over the booster"
+    assert pump_icon("Solar Pump") == "cf:solar"
+    assert pump_icon(None) == "cf:pump"
+    assert light_icon("Pool Light") == "cf:pool-light"
+    assert light_icon("Spa Light") == "cf:spa-light"
+    assert light_icon("Landscape Lights") == "cf:outdoor-lamp"
+    assert light_icon("Deck Lights") == "cf:outdoor-lamp"

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
+import re
 
 from aiohttp import web
 from homeassistant.components.frontend import add_extra_js_url
@@ -13,7 +15,15 @@ from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN, FRONTEND_URL, PICTURE_URL, SHAPES_URL, STYLES_URL
+from .const import (
+    DOMAIN,
+    FEATURES_URL,
+    FRONTEND_URL,
+    ICONS_URL,
+    PICTURE_URL,
+    SHAPES_URL,
+    STYLES_URL,
+)
 from .coordinator import ControlFreakConfigEntry, ControlFreakCoordinator
 from .mapping import PANEL_KEYS, setting_uuid_of
 
@@ -28,6 +38,47 @@ PLATFORMS: list[Platform] = [
 ]
 
 
+STAMPED_BASE = "/controlfreak/v"
+
+
+def stamped_url(stamp: str, filename: str) -> str:
+    """The URL a frontend module is loaded from: /controlfreak/v/<stamp>/<file>."""
+    return f"{STAMPED_BASE}/{stamp}/{filename}"
+
+
+class ControlFreakFrontendView(HomeAssistantView):
+    """Serves the frontend modules under any stamp: the stamp only keys the cache.
+
+    A stale app shell (Home Assistant's service worker keeps the index for a
+    while) still points at the previous stamp; it gets the current files.
+    """
+
+    url = STAMPED_BASE + "/{stamp}/{filename}"
+    name = "controlfreak:frontend"
+    requires_auth = False
+
+    def __init__(self, directory: Path, names: set[str]) -> None:
+        self._dir = directory
+        self._names = names
+
+    async def get(self, request: web.Request, stamp: str, filename: str) -> web.StreamResponse:
+        if filename not in self._names or not re.fullmatch(r"[0-9A-Za-z._-]{1,64}", stamp):
+            raise web.HTTPNotFound
+        return web.FileResponse(
+            self._dir / filename,
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
+        )
+
+
+def frontend_stamp(version: str, paths: list[Path]) -> str:
+    """`<version>.<8 hex>`: the hash of every served frontend module."""
+    digest = hashlib.sha256()
+    for path in sorted(paths):
+        digest.update(path.name.encode())
+        digest.update(path.read_bytes())
+    return f"{version}.{digest.hexdigest()[:8]}"
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Serve the dashboard strategy and the picture card to every frontend page."""
     integration = await async_get_integration(hass, DOMAIN)
@@ -35,6 +86,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     files = {
         FRONTEND_URL: frontend / "controlfreak-strategy.js",  # custom:controlfreak
         PICTURE_URL: frontend / "controlfreak-picture.js",  # custom:controlfreak-picture
+        FEATURES_URL: frontend / "controlfreak-features.js",  # custom:controlfreak-* tile features
+        ICONS_URL: frontend / "controlfreak-icons.js",  # the cf: icon set the entities use
     }
     # The styles and shapes modules are imported by the picture card: served, not loaded here.
     served = {
@@ -42,11 +95,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         STYLES_URL: frontend / "controlfreak-picture-styles.js",
         SHAPES_URL: frontend / "controlfreak-pool-shapes.js",
     }
+    # Bare /controlfreak/<file> paths revalidate on every load (no-cache), for
+    # dashboards that list the modules as resources by hand.
     by_name = {url.rsplit("/", 1)[1]: path for url, path in served.items()}
     hass.http.register_view(ControlFreakModuleView(by_name))
-    # The version query busts the browser cache after an upgrade.
+    # The modules are loaded from a content-stamped path, /controlfreak/v/<stamp>/,
+    # so a reinstall of the same version is picked up, the relative imports between
+    # the modules resolve inside the same stamp (one instance of each module), and
+    # the stamped files can be cached immutably. The bare /controlfreak/ paths above
+    # stay for dashboards that list the modules as resources by hand.
+    stamp = await hass.async_add_executor_job(
+        frontend_stamp, integration.version, list(served.values())
+    )
+    hass.http.register_view(ControlFreakFrontendView(frontend, set(by_name)))
     for url in files:
-        add_extra_js_url(hass, f"{url}?v={integration.version}")
+        add_extra_js_url(hass, stamped_url(stamp, Path(url).name))
     return True
 
 

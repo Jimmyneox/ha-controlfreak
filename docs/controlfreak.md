@@ -236,7 +236,8 @@ pause while they are off screen or the tab is hidden.
 
 The pool is drawn in the outline of your pool. To pick the one that matches, open the
 dashboard, choose the pencil (**Edit dashboard**), and the strategy's settings dialog shows
-every shape as a small picture: tap one, pick a style and the picture height, and **Save**.
+every shape as a small picture: tap one, pick a style, a deck finish and the picture height,
+and **Save**.
 The same dialog switches the pictures off or to one per feature, and sets the dashboard
 title. In YAML the choice is `picture_shape`, with the pictures' height in `picture_rows`:
 
@@ -351,25 +352,57 @@ style: neon
 
 Leaving the option out keeps the default style. An unknown style is reported as a card error.
 
+### Icons
+
+Every entity carries one of Control Freak's own icons (`cf:pump`, `cf:spa-jets`,
+`cf:waterfall`, `cf:deck-jets`, `cf:bubbler`, `cf:cleaner`, `cf:solar`, `cf:pool-light`,
+`cf:spa-light`, `cf:outdoor-lamp`, `cf:heater`, `cf:heat-pump`, `cf:chiller`, `cf:valve`,
+`cf:thermometer-water`, `cf:thermometer-air`, `cf:flow`, `cf:controller`, `cf:freeze`,
+`cf:firmware`, `cf:cpu`, `cf:mode`, `cf:speed`, `cf:switch`), chosen from the device's name
+in the panel. The set is served and registered by the integration, so the names work on any
+card (`icon: cf:waterfall`) and in the entity settings dialog.
+
+![The Control Freak icon set](images/icons.png)
+
+### Deck finishes
+
+The deck around the water is concrete by default, a light grey, since that is what most
+pools sit in. `picture_deck` on the strategy (or `deck` on a picture card) picks another
+finish: `pavers` (running bond), `travertine` (large square tiles), `wood` (boards) or
+`stone` (flagstone). Every style draws the finish its own way; by night it is the same
+colour, only a little darker.
+
+![The five deck finishes in every style](images/dashboard-decks.png)
+
+### Pool controls
+
+The pump and light tiles carry Control Freak's own features, built for a pool panel:
+
+- **Pump speed** (`custom:controlfreak-pump-speed`): a slider over the pump's real speed
+  range, 40–100 % on a typical variable-speed pump, with an Off button. The percentage is
+  the speed the pump runs at, not a fraction of its range, so 40 % reads 40 on the panel
+  too. The pool's own pump sits first in the section, full width, right under the picture.
+  A variable-speed pump started from off primes at full speed first, so the slider
+  reports 100 % for the first minutes and then settles at the speed you asked for;
+  a speed change while it runs is reported within a few seconds.
+- The lights that light the picture (pool, spa, waterfall) sit under the pool pump with
+  their colour bars, and the water temperatures and flow are the next section, right of
+  the pool. `controls: core` keeps the 0.2.1 layout.
+- **Light colours** (`custom:controlfreak-light-colors`): a bar of swatches, one per
+  colour the light offers (Blue, Green, Red, White, Magenta on a Pentair set); the current
+  one is marked.
+- **Light shows** (`custom:controlfreak-light-shows`): a menu of the shows (SAM, Party,
+  Romance, Caribbean, American, California Sunset, Royal), each with a chip of the colours
+  it performs, from Pentair's IntelliBrite manual: SAm white, magenta, blue, green; American
+  red, white, blue; California Sunset orange, red, magenta; Caribbean blues and greens;
+  Romance soft pinks and violets; Royal the deeper tones; Party the whole set. The button
+  shows the running show with its chip cycling. Arrow keys move, Enter picks, Escape
+  closes, and a tap outside dismisses. Shows with names the table does not know
+  get a neutral chip. Replaces the core `light-effect` dropdown.
+
+The settings dialog (**Edit dashboard**) offers the same choice as **Tile controls**.
+
 ### Create the dashboard
-
-1. Go to **Settings** > **Dashboards**.
-2. Select **Add dashboard**, then **Control Freak pool**.
-
-   If the option isn't listed, select **New dashboard from scratch**, open it, select the
-   three dots menu, then **Edit dashboard** > **Raw configuration editor**, and replace the
-   content with:
-
-   ```yaml
-   strategy:
-     type: custom:controlfreak
-   ```
-
-The dashboard is regenerated when equipment is added to or removed from the controller.
-
-### Dashboard options
-
-Add options under `strategy`:
 
 ```yaml
 strategy:
@@ -378,7 +411,9 @@ strategy:
   pictures: false
   picture_shape: rectangle
   picture_style: caustic
+  picture_deck: concrete
   picture_rows: 4
+  controls: controlfreak
   hide:
     - controller
   order:
@@ -394,7 +429,9 @@ strategy:
 | `pictures` | `false` leaves out the animated picture above the pumps; `features` shows one picture per water feature instead of the overview. The default is `true`. |
 | `picture_shape` | The pool's outline, one of the twelve in *Pool shape*. The default is `rectangle`. |
 | `picture_style` | The look of the pictures: `caustic`, `blueprint`, `depth`, `neon` or `poster`. The default is `caustic`. |
+| `picture_deck` | The surround, one of the finishes in *Deck finishes*: `concrete` (default), `pavers`, `travertine`, `wood` or `stone`. |
 | `picture_rows` | The pictures' starting height in grid rows, 2 to 12. The default is 4. |
+| `controls` | `controlfreak` (default) puts Control Freak's own features on the tiles (see *Pool controls*); `core` keeps Home Assistant's `fan-speed` and `light-effect` and the 0.2.1 layout. |
 | `hide` | A list of equipment types to leave out. |
 | `order` | A list of equipment types to show first, in this order. Types you don't list follow in the default order. |
 | `titles` | A heading per equipment type, for example `pumps: Circulation`. |
@@ -431,12 +468,13 @@ views:
 
 `equipment` is required and takes one of the equipment types above. `title`, `pictures`
 and `device_id` are optional. The section's edit dialog offers the same settings (equipment,
-pictures, pool shape, picture height) as the dashboard's.
+pictures, style, pool shape, deck finish, picture height, tile controls) as the dashboard's.
 
 ## Data updates
 
 The integration works locally and doesn't use the cloud.
 
+  ![The light show menu with a colour chip per show](images/light-shows.png)
 - **Live values** are pushed by the controller over MQTT on WebSockets. The
   integration subscribes to `controller/#` and updates entities as messages arrive.
   Thermistors publish about every two seconds and the controller status about every

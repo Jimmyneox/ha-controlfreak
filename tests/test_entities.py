@@ -267,6 +267,11 @@ async def test_fan_commands(
 ) -> None:
     fan = eid(hass, config_entry, "fan", PUMP)
     pub = setup_integration.async_publish
+    await _call(hass, "fan", "set_percentage", {"entity_id": fan, "percentage": 70})
+    pub.assert_awaited_with(
+        "controller/pump1/state", {"pump_speed": "70", "mode": "pool", "sender": "user"}
+    )
+    # Below the pump's floor is the floor: the percentage is the pump's own speed.
     await _call(hass, "fan", "set_percentage", {"entity_id": fan, "percentage": 1})
     pub.assert_awaited_with(
         "controller/pump1/state", {"pump_speed": "40", "mode": "pool", "sender": "user"}
@@ -283,7 +288,7 @@ async def test_fan_commands(
     assert pub.await_args.args[1]["pump_speed"] == "inactive"
 
 
-async def test_fan_state_maps_min_speed_to_one_percent(
+async def test_fan_state_reads_the_pumps_own_speed(
     hass: HomeAssistant, setup_integration: FakeMqtt, config_entry: MockConfigEntry
 ) -> None:
     setup_integration.inject(
@@ -291,7 +296,11 @@ async def test_fan_state_maps_min_speed_to_one_percent(
         {"status": "active", "meta": {"pump_speed": "40", "mode": "pool"}},
     )
     await hass.async_block_till_done()
-    assert hass.states.get(eid(hass, config_entry, "fan", PUMP)).attributes["percentage"] == 1
+    state = hass.states.get(eid(hass, config_entry, "fan", PUMP))
+    assert state.attributes["icon"] == "cf:pump", "a pump looks like a pump, not a fan"
+    assert state.attributes["percentage"] == 40, "the floor reads as the floor, not as 1 %"
+    assert state.attributes["percentage_step"] == 1
+    assert (state.attributes["speed_min"], state.attributes["speed_max"]) == (40, 100)
     setup_integration.inject(
         "controller/pump1/status", {"status": "active", "meta": {"pump_speed": 0, "mode": "pool"}}
     )
@@ -408,7 +417,7 @@ async def test_relay_switch_lv_string_state(
     sw = eid(hass, config_entry, "switch", "heater")
     state = hass.states.get(sw)
     assert state.state == STATE_OFF
-    assert state.attributes["icon"] == "mdi:fire"
+    assert state.attributes["icon"] == "cf:heater"
     await _call(hass, "switch", "turn_on", {"entity_id": sw})
     setup_integration.async_publish.assert_awaited_with(
         "controller/lv_relay1/state", {"state": "active", "mode": "not-syncing", "sender": "user"}
