@@ -78,7 +78,7 @@ class ControlFreakEntity(CoordinatorEntity[ControlFreakCoordinator]):
     def available(self) -> bool:
         if self.spec.setting_uuid is not None and self.setting is None:
             return False
-        return self.coordinator.mqtt_connected and self.status is not None and not self._expired
+        return self.coordinator.link_up and self.status is not None and not self._expired
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

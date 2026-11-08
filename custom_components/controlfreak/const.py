@@ -34,3 +34,7 @@ SHAPES_URL: Final = "/controlfreak/controlfreak-pool-shapes.js"
 # Thermistors publish every ~2 s; controller/status every ~60 s and has no LWT.
 THERMISTOR_EXPIRE: Final = 180
 CONTROLLER_EXPIRE: Final = 300
+
+# Seconds a dropped broker connection gets to come back before entities go
+# unavailable. On outdoor Wi-Fi the panel drops it for ~3 s many times a day.
+MQTT_GRACE: Final = 60

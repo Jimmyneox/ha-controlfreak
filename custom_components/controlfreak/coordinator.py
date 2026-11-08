@@ -14,6 +14,7 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -28,6 +29,7 @@ from .const import (
     DOMAIN,
     LOGGER,
     MANUFACTURER,
+    MQTT_GRACE,
 )
 from .mapping import DeviceSetting, EntitySpec, build_specs, parse_settings
 from .mqtt import ControlFreakMqtt
@@ -79,6 +81,8 @@ class ControlFreakCoordinator(DataUpdateCoordinator[ControlFreakData]):
         self._status_listeners: dict[str, list[Callable[[], None]]] = {}
         self._pump_models: dict[str, str] = {}
         self.specs: list[EntitySpec] = []
+        self._link_up = False
+        self._unsub_link_lost: CALLBACK_TYPE | None = None
 
     # REST --------------------------------------------------------------
 
@@ -121,14 +125,39 @@ class ControlFreakCoordinator(DataUpdateCoordinator[ControlFreakData]):
 
     async def async_stop_mqtt(self) -> None:
         await self.mqtt.async_stop()
+        self._cancel_link_lost()
+        self._link_up = False
 
     @property
     def mqtt_connected(self) -> bool:
         return self.mqtt.connected
 
+    @property
+    def link_up(self) -> bool:
+        """The broker link as entities see it: a drop counts after MQTT_GRACE seconds."""
+        return self._link_up
+
     @callback
     def _handle_connection_change(self, connected: bool) -> None:
+        if connected:
+            self._cancel_link_lost()
+            if not self._link_up:
+                self._link_up = True
+                self.async_update_listeners()
+        elif self._link_up and self._unsub_link_lost is None:
+            self._unsub_link_lost = async_call_later(self.hass, MQTT_GRACE, self._link_lost)
+
+    @callback
+    def _link_lost(self, _now: Any) -> None:
+        self._unsub_link_lost = None
+        self._link_up = False
         self.async_update_listeners()
+
+    @callback
+    def _cancel_link_lost(self) -> None:
+        if self._unsub_link_lost is not None:
+            self._unsub_link_lost()
+            self._unsub_link_lost = None
 
     @callback
     def _handle_message(self, topic: str, payload: bytes) -> None:

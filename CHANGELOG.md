@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.1 — 2026-11-08
+
+### Fixed
+- **Short connection drops no longer blank every entity.** A controller on outdoor Wi-Fi
+  drops the MQTT connection for about three seconds, many times a day. Each drop used to
+  turn all of the integration's entities unavailable and the **Controller** entity off. The
+  entities now keep their values for 60 seconds while the integration reconnects, so only
+  a real outage shows.
+- **A lost REST request is tried once more** after two seconds before the poll fails, so a
+  single lost packet no longer writes "Error fetching controlfreak data" to the log. An
+  HTTP error or a bad response is not retried.
+- **Valves show open and closed.** The controller reports a valve with `open_state` and
+  `close_state`, which the valve switch didn't read, so it was always unknown. It's now on
+  when the valve is open, off when it is closed, and unknown while it moves.
+
+### Added
+- Diagnostics include `link_up`, the connection state the entities follow, beside
+  `mqtt_connected`.
+
 ## 0.3.0 — 2026-11-06
 
 ### Added
