@@ -37,6 +37,13 @@ def auto_enable_custom_integrations(enable_custom_integrations: None) -> None:
 
 
 @pytest.fixture(autouse=True)
+def no_retry_wait() -> Generator[None]:
+    """The REST retry waits 2 s on a real panel; tests don't."""
+    with patch("custom_components.controlfreak.api.RETRY_DELAY", 0):
+        yield
+
+
+@pytest.fixture(autouse=True)
 def stub_frontend(hass: HomeAssistant) -> Generator[MagicMock]:
     """The real frontend needs the hass_frontend wheel; stand in for it.
 

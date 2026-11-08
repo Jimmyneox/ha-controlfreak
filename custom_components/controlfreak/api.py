@@ -11,6 +11,10 @@ from typing import Any
 
 import aiohttp
 
+# A request that never reached the panel is tried once more after this many
+# seconds: on outdoor Wi-Fi a single lost packet is common.
+RETRY_DELAY = 2.0
+
 
 class ControlFreakError(Exception):
     """Base error."""
@@ -31,14 +35,20 @@ class ControlFreakApi:
         self._session = session
         self._base = f"http://{host}:{port}"
 
-    async def _get(self, path: str) -> Any:
+    async def _get(self, path: str, *, retry: bool = True) -> Any:
         try:
             async with asyncio.timeout(10):
                 resp = await self._session.get(f"{self._base}{path}")
                 resp.raise_for_status()
                 return await resp.json(content_type=None)
-        except (TimeoutError, aiohttp.ClientError, ValueError) as err:
+        except (TimeoutError, aiohttp.ClientConnectionError) as err:
+            if retry:
+                await asyncio.sleep(RETRY_DELAY)
+                return await self._get(path, retry=False)
             # Never include the URL: it carries the LAN address.
+            raise CannotConnect(f"GET {path} failed: {type(err).__name__}") from None
+        except (aiohttp.ClientError, ValueError) as err:
+            # An HTTP error or a bad body is an answer: retrying won't change it.
             raise CannotConnect(f"GET {path} failed: {type(err).__name__}") from None
 
     async def async_get_health(self) -> dict[str, Any]:

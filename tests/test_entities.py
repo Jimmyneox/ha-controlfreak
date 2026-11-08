@@ -22,7 +22,7 @@ from pytest_homeassistant_custom_component.common import (
 )
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.controlfreak.const import DOMAIN
+from custom_components.controlfreak.const import DOMAIN, MQTT_GRACE
 
 from .conftest import CONTROLLER_UUID, FakeMqtt, load_fixture, mock_rest
 
@@ -172,18 +172,50 @@ async def test_stale_values(
     assert hass.states.get(air).state == "70.0"
 
 
-async def test_mqtt_loss_marks_unavailable(
-    hass: HomeAssistant, setup_integration: FakeMqtt, config_entry: MockConfigEntry
+async def _tick(hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: float) -> None:
+    freezer.tick(timedelta(seconds=seconds))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
+async def test_short_mqtt_drop_is_ridden_out(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    setup_integration: FakeMqtt,
+    config_entry: MockConfigEntry,
+) -> None:
+    """A drop that reconnects inside MQTT_GRACE changes nothing."""
+    fan = eid(hass, config_entry, "fan", PUMP)
+    online = eid(hass, config_entry, "binary_sensor", "controller_connectivity")
+    setup_integration.set_connected(False)
+    await _tick(hass, freezer, MQTT_GRACE - 1)
+    # A REST poll during the drop rewrites every state; they must still hold.
+    config_entry.runtime_data.async_update_listeners()
+    await hass.async_block_till_done()
+    assert hass.states.get(fan).state == STATE_ON
+    assert hass.states.get(online).state == STATE_ON
+    setup_integration.set_connected(True)
+    await _tick(hass, freezer, MQTT_GRACE)  # the cancelled timer must not fire later
+    assert hass.states.get(fan).state == STATE_ON
+    assert hass.states.get(online).state == STATE_ON
+
+
+async def test_long_mqtt_loss_marks_unavailable(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    setup_integration: FakeMqtt,
+    config_entry: MockConfigEntry,
 ) -> None:
     fan = eid(hass, config_entry, "fan", PUMP)
     online = eid(hass, config_entry, "binary_sensor", "controller_connectivity")
     setup_integration.set_connected(False)
-    await hass.async_block_till_done()
+    await _tick(hass, freezer, MQTT_GRACE + 1)
     assert hass.states.get(fan).state == STATE_UNAVAILABLE
     assert hass.states.get(online).state == STATE_OFF
     setup_integration.set_connected(True)
     await hass.async_block_till_done()
     assert hass.states.get(fan).state == STATE_ON
+    assert hass.states.get(online).state == STATE_ON
 
 
 async def _refresh(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -238,6 +270,46 @@ async def test_valve_is_read_only(
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call("switch", "turn_on", {"entity_id": valve_id}, blocking=True)
     setup_integration.async_publish.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("meta", "expected"),
+    [
+        # The shape a live panel publishes (valve8, firmware 1.0.13).
+        ({"open_state": 0, "close_state": 1, "opening_state": 0, "closing_state": 1}, STATE_OFF),
+        ({"open_state": 1, "close_state": 0, "opening_state": 1, "closing_state": 0}, STATE_ON),
+        ({"open_state": 0, "close_state": 0, "opening_state": 1, "closing_state": 0}, "unknown"),
+        ({"valve_state": "active"}, STATE_ON),
+    ],
+)
+async def test_valve_state(
+    hass: HomeAssistant,
+    setup_integration: FakeMqtt,
+    spa_valve: str,
+    meta: dict[str, Any],
+    expected: str,
+) -> None:
+    setup_integration.inject("controller/valve1/status", {"status": "active", "meta": meta})
+    await hass.async_block_till_done()
+    assert hass.states.get(spa_valve).state == expected
+
+
+@pytest.fixture
+async def spa_valve(
+    hass: HomeAssistant,
+    setup_integration: FakeMqtt,
+    config_entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    device_settings: list[dict[str, Any]],
+) -> str:
+    """A valve on controller/valve1/ added by discovery; returns its entity id."""
+    valve = copy.deepcopy(device_settings[1])
+    valve.update(uuid="valve-uuid", name="Spa Valve")
+    valve["device_type"]["name"] = "Valve"
+    valve["topic"]["mqtt_topic"] = "controller/valve1/"
+    mock_rest(aioclient_mock, [*device_settings, valve])
+    await _refresh(hass, config_entry)
+    return eid(hass, config_entry, "switch", "valve-uuid")
 
 
 async def test_rest_failure_keeps_entities(
@@ -430,3 +502,15 @@ async def test_unload(
     assert await hass.config_entries.async_unload(config_entry.entry_id)
     await hass.async_block_till_done()
     assert setup_integration.connected is False
+
+
+async def test_unload_during_a_drop_leaves_no_timer(
+    hass: HomeAssistant, setup_integration: FakeMqtt, config_entry: MockConfigEntry
+) -> None:
+    """The grace timer is cancelled on unload; the test harness fails on a lingering one."""
+    coordinator = config_entry.runtime_data
+    setup_integration.set_connected(False)
+    assert coordinator._unsub_link_lost is not None
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert coordinator._unsub_link_lost is None

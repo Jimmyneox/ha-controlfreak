@@ -33,6 +33,7 @@ async def async_get_config_entry_diagnostics(
         {
             "entry": {"data": dict(entry.data), "options": dict(entry.options)},
             "mqtt_connected": coordinator.mqtt_connected,
+            "link_up": coordinator.link_up,
             "version": data.version if data else None,
             "device_settings": data.raw_settings if data else None,
             "entities": [

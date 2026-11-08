@@ -153,8 +153,9 @@ the controller adds the entities below.
 ### Valves
 
 - **Valve** (switch)
-  - **Description**: Shows whether the valve is active.
-  - **Remarks**: Read-only. Turning it on or off raises an error.
+  - **Description**: On when the valve is open, off when it is closed.
+  - **Remarks**: Read-only. Turning it on or off raises an error. Unknown while the valve is
+    moving.
 
 ### Temperature and flow
 
@@ -481,10 +482,12 @@ The integration works locally and doesn't use the cloud.
   minute.
 - **The equipment list** is read from the REST API every 60 seconds by default (see
   [Configuration options](#configuration-options)). New equipment adds entities, and
-  removed equipment removes them, without a restart.
+  removed equipment removes them, without a restart. A request that doesn't reach the
+  controller is tried once more after two seconds.
 
-If the MQTT connection drops, the entities become unavailable and the integration reconnects
-with a backoff of up to 60 seconds.
+If the MQTT connection drops, the integration reconnects with a backoff of up to 60 seconds.
+The entities keep their values for the first 60 seconds of a drop, because a controller on
+Wi-Fi often loses the connection for a few seconds. After that they become unavailable.
 
 ## Known limitations
 
@@ -530,8 +533,14 @@ app fully and reopen it, or reload the page in a browser. If that isn't enough, 
 
 ### Entities are unavailable
 
-The integration lost its MQTT connection, or a sensor stopped publishing. Check the
-**Controller** entity first: if it is off, the controller isn't publishing.
+The integration lost its MQTT connection for more than 60 seconds, or a sensor stopped
+publishing. Check the **Controller** entity first: if it is off, the controller isn't
+publishing.
+
+If the **Controller** entity turns off and on many times a day, the controller's network
+connection is weak. Pool equipment usually sits outdoors, far from the router. From a
+computer on the same network, run `ping CONTROLLER_HOST` for a minute: any lost replies
+point to Wi-Fi. A closer access point, or a wired connection, fixes it.
 
 ### Downloading diagnostics
 

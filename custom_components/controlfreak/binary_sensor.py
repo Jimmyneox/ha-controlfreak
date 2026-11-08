@@ -44,7 +44,7 @@ class ControlFreakConnectivity(ControlFreakEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         return (
-            self.coordinator.mqtt_connected
+            self.coordinator.link_up
             and not self._expired
             and (self.status or {}).get("status") == "active"
         )

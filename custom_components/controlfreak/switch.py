@@ -90,7 +90,12 @@ class ControlFreakValve(ControlFreakEntity, SwitchEntity):
 
     @property
     def is_on(self) -> bool | None:
+        """On = open. The panel reports open_state/close_state; unknown while it moves."""
         meta = self.meta
+        if relay_is_on(meta.get("open_state")):
+            return True
+        if relay_is_on(meta.get("close_state")):
+            return False
         return relay_is_on(meta.get("valve_state", meta.get("relay_state")))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
